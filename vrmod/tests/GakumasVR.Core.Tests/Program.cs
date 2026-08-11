@@ -18,6 +18,7 @@ var tests = new (string Name, Action Run)[]
     ("Analog click latches before the press threshold", AnalogClickLatchesBeforePress),
     ("Analog click cancels shallow presses", AnalogClickCancelsShallowPress),
     ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
+    ("VR settings allow 2x eye render scale", VrSettingsAllowTwoTimesEyeRenderScale),
     ("VR settings preserve manual VFX controls", VrSettingsPreserveManualVfxControls),
     ("VR settings load legacy JSON without manual VFX", VrSettingsLoadLegacyJsonWithoutManualVfx),
     ("VR settings repair invalid roles and ranges", VrSettingsRepairInvalidValues),
@@ -158,6 +159,17 @@ static void VrSettingsPreserveManualVfxControls()
     Equal(false, result.Settings.Render.ManualVisualEffects.VlFlareEnabled);
 }
 
+static void VrSettingsAllowTwoTimesEyeRenderScale()
+{
+    VrSettings settings = VrSettings.CreateApprovedDefaults();
+    settings.Render.EyeRenderScale = 2.00f;
+
+    VrSettingsValidationResult result = VrSettingsValidator.Validate(settings);
+
+    Equal(false, result.UsedFallback);
+    Equal(2.00f, result.Settings.Render.EyeRenderScale);
+}
+
 static void VrSettingsLoadLegacyJsonWithoutManualVfx()
 {
     const string json = """
@@ -186,7 +198,7 @@ static void VrSettingsRepairInvalidValues()
     VrSettings settings = VrSettings.CreateApprovedDefaults();
     settings.Panel.PointerHand = VrHand.Left;
     settings.Panel.MaximumWidth = 4f;
-    settings.Render.EyeRenderScale = 2f;
+    settings.Render.EyeRenderScale = 2.01f;
     settings.Render.ManualVisualEffects.VlBloomIntensityScale = 4f;
     settings.Render.ManualVisualEffects.VlBloomDiffusion = 0;
     settings.Input.BackButton = FaceButtonBinding.Primary;

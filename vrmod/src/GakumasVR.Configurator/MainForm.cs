@@ -6,7 +6,13 @@ internal sealed class MainForm : Form
 {
     private readonly TextBox _gameRoot = new() { Dock = DockStyle.Fill };
     private readonly CheckBox _runtimeEnabled = TaggedCheckBox("RuntimeEnabled");
-    private readonly NumericUpDown _eyeScale = Number(0.50m, 1.00m, 0.01m, 3);
+    private readonly NumericUpDown _eyeScale = Number(0.50m, 2.00m, 0.01m, 3);
+    private readonly Label _eyeScaleWarning = new()
+    {
+        AutoSize = true,
+        MaximumSize = new Size(560, 0),
+        Margin = new Padding(3, 2, 3, 6)
+    };
     private readonly NumericUpDown _worldEyeScale = Number(0m, 0.50m, 0.005m, 3);
     private readonly ComboBox _vfx = ChoiceCombo();
     private readonly CheckBox _manualPostProcessing = TaggedCheckBox("EffectEnabled");
@@ -126,6 +132,7 @@ internal sealed class MainForm : Form
 
         _gameRoot.Text = SettingsStore.FindInitialGameRoot();
         _vfx.SelectedIndexChanged += (_, _) => UpdateManualVfxControls();
+        _eyeScale.ValueChanged += (_, _) => UpdateEyeScaleWarning();
         _manualPostProcessing.CheckedChanged += (_, _) => UpdateManualVfxControls();
         _manualVlBloom.CheckedChanged += (_, _) => UpdateManualVfxControls();
         ApplyLanguage(languageChanged: false);
@@ -136,7 +143,16 @@ internal sealed class MainForm : Form
     {
         TableLayoutPanel grid = Grid();
         AddRow(grid, "RuntimeStatus", _runtimeEnabled);
-        AddRow(grid, "EyeScale", _eyeScale);
+        FlowLayoutPanel eyeScalePanel = new()
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false
+        };
+        eyeScalePanel.Controls.Add(_eyeScale);
+        eyeScalePanel.Controls.Add(_eyeScaleWarning);
+        AddRow(grid, "EyeScale", eyeScalePanel);
         AddRow(grid, "WorldEyeScale", _worldEyeScale);
         AddRow(grid, "VfxMode", _vfx);
         AddRow(grid, "VfxPostProcessing", _manualPostProcessing);
@@ -216,6 +232,7 @@ internal sealed class MainForm : Form
             UiText.VisualEffect,
             vfx);
         UpdateManualVfxControls();
+        UpdateEyeScaleWarning();
         _status.Text = UiText.Get(languageChanged ? "StatusLanguageChanged" : "StatusReady");
     }
 
@@ -344,6 +361,7 @@ internal sealed class MainForm : Form
         _scroll.Checked = settings.Input.ThumbstickScrollEnabled;
         Set(_scrollSensitivity, settings.Input.ScrollSensitivity);
         _requireFocus.Checked = settings.Input.RequireGameFocus;
+        UpdateEyeScaleWarning();
     }
 
     private void Run(string successKey, Action action)
@@ -393,6 +411,38 @@ internal sealed class MainForm : Form
         bool bloom = postProcessing && _manualVlBloom.Checked;
         _manualVlBloomIntensity.Enabled = bloom;
         _manualVlBloomDiffusion.Enabled = bloom;
+    }
+
+    private void UpdateEyeScaleWarning()
+    {
+        decimal scale = _eyeScale.Value;
+        if (scale <= 1.00m)
+        {
+            _eyeScaleWarning.Text = string.Empty;
+            _eyeScaleWarning.Visible = false;
+            return;
+        }
+
+        int pixelLoadPercent = decimal.ToInt32(decimal.Round(scale * scale * 100m));
+        string key;
+        if (scale <= 1.25m)
+        {
+            key = "EyeScaleWarningElevated";
+            _eyeScaleWarning.ForeColor = Color.DarkGoldenrod;
+        }
+        else if (scale <= 1.50m)
+        {
+            key = "EyeScaleWarningHigh";
+            _eyeScaleWarning.ForeColor = Color.DarkOrange;
+        }
+        else
+        {
+            key = "EyeScaleWarningExtreme";
+            _eyeScaleWarning.ForeColor = Color.Firebrick;
+        }
+
+        _eyeScaleWarning.Text = UiText.Format(key, pixelLoadPercent);
+        _eyeScaleWarning.Visible = true;
     }
 
     private static TableLayoutPanel Grid()

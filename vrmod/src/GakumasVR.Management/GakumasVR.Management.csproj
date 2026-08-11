@@ -5,6 +5,6 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NuGetAudit>false</NuGetAudit>
-    <Version>0.161.0</Version>
+    <Version>0.162.0</Version>
   </PropertyGroup>
 </Project>

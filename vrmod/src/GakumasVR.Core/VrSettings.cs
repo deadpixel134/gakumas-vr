@@ -170,7 +170,7 @@ public static class VrSettingsValidator
                 EyeRenderScale = ValidateRange(
                     render.EyeRenderScale,
                     0.50f,
-                    1.00f,
+                    2.00f,
                     SafeEyeRenderScale,
                     "render.eyeRenderScale",
                     issues),
