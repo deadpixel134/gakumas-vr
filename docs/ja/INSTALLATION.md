@@ -9,9 +9,9 @@
 - Windows 11 x64
 - 正常にインストールされた学園アイドルマスターDMM版
 - OpenXRランタイムを利用できるPC VR環境
-- v0.162.0では、互換性のある`BepInEx/core/dobby.dll`を含む既存のLocalify／BepInEx環境
+- v0.163.0配布ZIPに含まれるDobbyランタイム依存ファイル
 
-> 現在の配布ZIPにはDobbyが含まれていません。LocalifyやBepInExが一切ない完全なクリーンインストールは、まだ対応・実機確認されていません。インストーラーは既存のLocalifyを保持し、存在しない場合はLocalifyファイルを作成しません。
+> Localifyがある場合、インストーラーは翻訳・フォント・テクスチャ・設定と既存の`BepInEx/core/dobby.dll`を保持します。Localifyがない場合は必要なDobbyだけをインストールし、Localifyファイルは作成しません。このクリーンインストール経路は自動インストール／削除検証を通過していますが、VR実機確認はまだです。
 
 ## インストール手順
 

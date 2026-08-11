@@ -4,7 +4,7 @@
 
 Gakumas VR is an unofficial Meta Quest/OpenXR VR mod for the DMM version of Gakuen Idolmaster. Supported 3D scenes are presented in stereo VR, while other content appears on aspect-correct flat panels that can be controlled with VR controllers.
 
-The current public build is the **v0.162.0 prerelease**. Development and hardware validation use Meta Quest 2 with the Virtual Desktop OpenXR runtime. SteamVR OpenXR and Meta Quest Link are preliminary targets and have not yet been hardware-tested by this project.
+The current public build is the **v0.163.0 prerelease**. Development and hardware validation use Meta Quest 2 with the Virtual Desktop OpenXR runtime. SteamVR OpenXR and Meta Quest Link are preliminary targets and have not yet been hardware-tested by this project.
 
 ## Documentation
 
@@ -26,7 +26,7 @@ The current public build is the **v0.162.0 prerelease**. Development and hardwar
 ## Important limitations
 
 - This is a prerelease targeting Windows 11 x64, the DMM edition, and Unity 6000.0.77f1.
-- The v0.162.0 runtime depends on `BepInEx/core/dobby.dll`, but the current release ZIP does not distribute that file. A completely clean installation without a compatible existing Localify/BepInEx environment is not yet supported or validated.
+- Starting with v0.163.0, the release ZIP includes the required Dobby binary. If an existing Localify/BepInEx installation already provides that path, the installer preserves it instead of overwriting it.
 - If something fails, close the game and use the installer to uninstall or roll back. Before attaching logs to an issue, check them for account identifiers or authentication data.
 
 This repository does not contain game files, Localify assets, user settings, logs, rollback data, or build outputs. Project source is released under the [MIT License](LICENSE); third-party components retain their own licenses. See [Credits and third-party licenses](CREDITS.md).

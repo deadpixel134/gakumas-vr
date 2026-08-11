@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.162.0',
+    [string]$Version = '0.163.0',
     [string]$OutputRoot
 )
 
@@ -41,6 +41,7 @@ function Copy-PayloadFile {
 
 $vendorRoot = Join-Path $vrmodRoot 'vendor\staging\bepinex-6.0.0-be.785'
 Copy-PayloadFile (Join-Path $vendorRoot 'winhttp.dll') 'winhttp.dll'
+Copy-PayloadFile (Join-Path $vendorRoot 'BepInEx\core\dobby.dll') 'BepInEx\core\dobby.dll'
 Copy-PayloadFile (Join-Path $repositoryRoot 'doorstop_config.ini') 'doorstop_config.ini'
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $vendorRoot 'dotnet') -File) {
     Copy-PayloadFile $file.FullName (Join-Path 'dotnet' $file.Name)
@@ -50,8 +51,10 @@ Copy-PayloadFile (Join-Path $runtimeOutput 'GakumasVR.RuntimeBootstrap.dll') 'vr
 Copy-PayloadFile (Join-Path $runtimeOutput 'GakumasVR.RuntimeBootstrap.deps.json') 'vrmod\runtime\GakumasVR.RuntimeBootstrap.deps.json'
 Copy-PayloadFile (Join-Path $runtimeOutput 'GakumasVR.Core.dll') 'vrmod\runtime\GakumasVR.Core.dll'
 Copy-PayloadFile (Join-Path $vrmodRoot 'vendor\openxr-loader-1.1.59\openxr_loader.dll') 'vrmod\runtime\openxr_loader.dll'
-Copy-PayloadFile (Join-Path $vrmodRoot 'config\settings.json') 'vrmod\config\settings.json'
+Copy-PayloadFile (Join-Path $vrmodRoot 'config\settings.default.json') 'vrmod\config\settings.json'
 Copy-PayloadFile (Join-Path $vrmodRoot 'THIRD_PARTY_NOTICES.txt') 'vrmod\THIRD_PARTY_NOTICES.txt'
+Copy-PayloadFile (Join-Path $repositoryRoot 'LICENSE') 'vrmod\LICENSE.txt'
+Copy-PayloadFile (Join-Path $vrmodRoot 'licenses\Dobby-Apache-2.0.txt') 'vrmod\licenses\Dobby-Apache-2.0.txt'
 Copy-PayloadFile (Join-Path $publish 'GakumasVR.Configurator.exe') 'vrmod\tools\GakumasVR.Configurator.exe'
 
 foreach ($name in @('Install-GakumasVR.ps1', 'Uninstall-GakumasVR.ps1', 'GakumasVR.Installation.psm1')) {
@@ -70,7 +73,7 @@ foreach ($file in Get-ChildItem -LiteralPath $payload -File -Recurse | Sort-Obje
     $files.Add([ordered]@{
         path = $relative
         sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToUpperInvariant()
-        preserveExisting = ($relative -eq 'vrmod/config/settings.json')
+        preserveExisting = ($relative -eq 'vrmod/config/settings.json' -or $relative -eq 'BepInEx/core/dobby.dll')
         preserveOnUninstall = ($relative -eq 'vrmod/config/settings.json')
     })
 }

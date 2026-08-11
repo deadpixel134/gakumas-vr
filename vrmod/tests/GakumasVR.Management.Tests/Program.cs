@@ -110,7 +110,7 @@ static void ActualDistributionPackage(string package)
     fixture.WriteGameFile("gakumas-local/config.json", "{}");
     InstallationEngine engine = new();
     InstallationResult installed = engine.Install(fixture.GameRoot, package);
-    Equal("0.158.0", installed.Version);
+    Equal("0.163.0", installed.Version);
     Equal(LocalifyStatus.Installed, installed.Localify);
     Equal(localifyProxy, File.ReadAllText(Path.Combine(fixture.GameRoot, "version.dll")));
     True(File.Exists(Path.Combine(
@@ -119,11 +119,29 @@ static void ActualDistributionPackage(string package)
     True(File.Exists(Path.Combine(
         fixture.GameRoot,
         "vrmod/runtime/openxr_loader.dll")));
+    True(File.Exists(Path.Combine(
+        fixture.GameRoot,
+        "BepInEx/core/dobby.dll")));
     InstallationResult removed = engine.Uninstall(fixture.GameRoot);
     False(removed.RestoredPreviousVersion);
     Equal(0, removed.Warnings.Count);
     Equal(localifyProxy, File.ReadAllText(Path.Combine(fixture.GameRoot, "version.dll")));
     True(File.Exists(Path.Combine(fixture.GameRoot, "vrmod/config/settings.json")));
+    False(File.Exists(Path.Combine(fixture.GameRoot, "BepInEx/core/dobby.dll")));
+
+    using Fixture existingDobbyFixture = new();
+    string existingDobby = existingDobbyFixture.WriteGameFile(
+        "BepInEx/core/dobby.dll",
+        "existing-localify-dobby");
+    engine.Install(existingDobbyFixture.GameRoot, package);
+    Equal(
+        existingDobby,
+        File.ReadAllText(Path.Combine(existingDobbyFixture.GameRoot, "BepInEx/core/dobby.dll")));
+    InstallationResult existingDobbyRemoved = engine.Uninstall(existingDobbyFixture.GameRoot);
+    Equal(0, existingDobbyRemoved.Warnings.Count);
+    Equal(
+        existingDobby,
+        File.ReadAllText(Path.Combine(existingDobbyFixture.GameRoot, "BepInEx/core/dobby.dll")));
 }
 
 static void Equal<T>(T expected, T actual) where T : notnull

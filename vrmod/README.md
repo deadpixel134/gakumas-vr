@@ -4,7 +4,7 @@
 
 학원 아이돌마스터 DMM판을 위한 독립 Doorstop + IL2CPP + OpenXR VR 런타임입니다. 사용자 문서는 [설치](../docs/ko/INSTALLATION.md), [사용 방법](../docs/ko/USAGE.md), [프로그램 구조](../docs/ko/ARCHITECTURE.md)에서 확인할 수 있습니다.
 
-현재 런타임 버전은 **v0.162.0**, 진행 단계는 **M7 제품화**입니다. M2~M6의 완료 근거와 미검증 항목은 [마일스톤](../docs/VR_MILESTONES.md)과 [현재 상태](../docs/GAKUMAS_VR_STATUS.md)를 기준으로 판정합니다. 빌드·설치 성공과 PC·VR 실기 성공은 서로 다른 상태입니다.
+현재 런타임 버전은 **v0.163.0**, 진행 단계는 **M7 제품화**입니다. M2~M6의 완료 근거와 미검증 항목은 [마일스톤](../docs/VR_MILESTONES.md)과 [현재 상태](../docs/GAKUMAS_VR_STATUS.md)를 기준으로 판정합니다. 빌드·설치 성공과 PC·VR 실기 성공은 서로 다른 상태입니다.
 
 ## 저장소 구조
 
@@ -46,12 +46,12 @@ dotnet run --project .\vrmod\tests\GakumasVR.Core.Tests\GakumasVR.Core.Tests.csp
 dotnet run --project .\vrmod\tests\GakumasVR.Management.Tests\GakumasVR.Management.Tests.csproj -c Release
 ```
 
-현재 회귀 기준은 Core 20/20, Management 4/4, 패키지 검사 196/196입니다. 숫자는 소스 변경에 따라 늘어날 수 있으며 실제 결과가 문서보다 우선합니다.
+v0.163.0 검증 결과는 Core 20/20, 기본 Management 4/4, 실제 배포 패키지를 포함한 Management 5/5, manifest 파일 해시 199/199입니다. 숫자는 소스 변경에 따라 늘어날 수 있으며 실제 결과가 문서보다 우선합니다.
 
 배포 패키지는 다음과 같이 만듭니다.
 
 ```powershell
-.\vrmod\installer\Build-Package.ps1 -Version 0.162.0
+.\vrmod\installer\Build-Package.ps1 -Version 0.163.0
 ```
 
 출력은 `vrmod/dist/` 아래로 제한됩니다. 스크립트는 런타임을 빌드하고 설정기·설치기를 self-contained 단일 EXE로 publish한 뒤 payload SHA-256 manifest와 ZIP을 만듭니다.

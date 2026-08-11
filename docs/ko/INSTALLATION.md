@@ -9,9 +9,9 @@
 - Windows 11 x64
 - DMM판 학원 아이돌마스터의 정상 설치본
 - OpenXR를 사용할 수 있는 PC VR 환경
-- 현재 v0.162.0에서는 호환되는 `BepInEx/core/dobby.dll`이 있는 기존 Localify/BepInEx 환경
+- v0.163.0 배포 ZIP에 포함된 Dobby 런타임 의존성
 
-> 현재 배포 ZIP은 Dobby를 직접 포함하지 않습니다. 한글 패치와 BepInEx가 전혀 없는 완전한 클린 설치는 아직 지원·실기 검증되지 않았습니다. 설치기는 Localify가 있으면 보존하고, 없으면 Localify 파일을 새로 만들지 않습니다.
+> 설치기는 Localify가 있으면 번역·폰트·텍스처·설정과 기존 `BepInEx/core/dobby.dll`을 보존합니다. Localify가 없으면 필요한 Dobby만 설치하고 Localify 파일은 새로 만들지 않습니다. 이 무한글패치 클린 설치 경로는 패키지 설치·제거 자동 검증을 통과했으며 VR 실기 검증은 아직 남아 있습니다.
 
 ## 설치
 
@@ -58,7 +58,7 @@ Quest Link 또는 Air Link로 PC에 연결하고 Meta Quest Link 앱에서 Meta 
 
 ## 문제 해결
 
-- VR가 시작되지 않으면 활성 OpenXR 런타임과 `BepInEx/core/dobby.dll` 존재 여부를 먼저 확인하십시오.
+- VR가 시작되지 않으면 활성 OpenXR 런타임과 설치된 `BepInEx/core/dobby.dll` 존재 여부를 먼저 확인하십시오.
 - 설정이 적용되지 않으면 게임을 종료한 상태에서 저장했는지 확인하십시오.
 - 화면은 나오지만 조작되지 않으면 게임 창을 포그라운드로 두십시오.
 - 실패 시 게임 창은 계속 동작하고 VR는 평면 패널로 폴백하는 것이 기본 정책입니다.
