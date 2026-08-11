@@ -1,7 +1,13 @@
 Gakumas VR third-party notices
 ================================
 
-Khronos OpenXR Loader 1.1.59
+This file identifies third-party software used by Gakumas VR v0.162.0.
+"Bundled" means that the component is distributed in the release payload.
+The Gakumas VR project license does not replace any license listed here.
+
+
+1. Khronos OpenXR Loader 1.1.59 (bundled)
+------------------------------------------------
 Source: https://github.com/KhronosGroup/OpenXR-SDK-Source/releases/tag/release-1.1.59
 Package: OpenXR.Loader.1.1.59.nupkg
 Package license expression: Apache-2.0 OR MIT
@@ -27,3 +33,68 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+2. .NET Runtime 6.0.7 (bundled)
+------------------------------------
+Source: https://github.com/dotnet/runtime/tree/v6.0.7
+License: MIT
+License text: https://github.com/dotnet/runtime/blob/v6.0.7/LICENSE.TXT
+Third-party notices: https://github.com/dotnet/runtime/blob/v6.0.7/THIRD-PARTY-NOTICES.TXT
+
+Copyright (c) .NET Foundation and Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+The .NET distribution contains additional third-party components. The complete
+notice file at the URL above is incorporated by reference and should be
+consulted for their individual copyright and license terms.
+
+
+3. Unity Doorstop 4.5.0 (winhttp.dll bundled)
+--------------------------------------------------
+Source: https://github.com/NeighTools/UnityDoorstop/tree/v4.5.0
+License: GNU Lesser General Public License v2.1 (LGPL-2.1)
+License text: https://github.com/NeighTools/UnityDoorstop/blob/v4.5.0/LICENSE
+
+Unity Doorstop is distributed under LGPL-2.1. The source and complete license
+text are available at the URLs above. Gakumas VR uses an unmodified Doorstop
+binary to start the packaged .NET runtime.
+
+
+4. BepInEx 6 build be.785 (distribution source; framework not bundled)
+-----------------------------------------------------------------------
+Source: https://github.com/BepInEx/BepInEx
+License: GNU Lesser General Public License v2.1 or later
+License text: https://github.com/BepInEx/BepInEx/blob/master/LICENSE
+
+The release staging source for Unity Doorstop and the .NET runtime is a
+BepInEx 6 be.785 distribution. BepInEx managed framework assemblies are not
+included in the Gakumas VR v0.162.0 release payload.
+
+
+5. Dobby (runtime dependency; not bundled)
+------------------------------------------------
+Source: https://github.com/jmpews/Dobby
+License: Apache License 2.0
+License text: https://github.com/jmpews/Dobby/blob/master/LICENSE
+
+Gakumas VR v0.162.0 loads BepInEx/core/dobby.dll at runtime for Unity and
+D3D11 hooks. The current release payload does not distribute Dobby. Any copy
+provided by another installation remains subject to its Apache-2.0 license.

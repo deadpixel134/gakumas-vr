@@ -1,98 +1,65 @@
-# Gakumas VR
+[한국어](../README.md) | [English](../README.en.md) | [日本語](../README.ja.md)
 
-학원 아이돌마스터 DMM판용 Meta Quest/OpenXR VR 모드 개발 작업공간이다.
+# Gakumas VR 개발자 안내
 
-현재 단계는 원본 설치본과 Localify를 보존하는 독립 IL2CPP/OpenXR 런타임에서 라이브 연속 스테레오를 검증하고 2D UI 분리를 개발하는 단계다. BepInEx interop 없이 Doorstop + 공개 IL2CPP API로 동작한다.
+학원 아이돌마스터 DMM판을 위한 독립 Doorstop + IL2CPP + OpenXR VR 런타임입니다. 사용자 문서는 [설치](../docs/ko/INSTALLATION.md), [사용 방법](../docs/ko/USAGE.md), [프로그램 구조](../docs/ko/ARCHITECTURE.md)에서 확인할 수 있습니다.
 
-현재 기준 문서는 [`../docs/GAKUMAS_VR_STATUS.md`](../docs/GAKUMAS_VR_STATUS.md), 단계별 완료 조건은 [`../docs/VR_MILESTONES.md`](../docs/VR_MILESTONES.md)다. v0.100.0의 다중 live 재진입·30초 이상 지속과 v0.101.0의 자동 portrait 1픽셀 nudge/원복 사용자 실기를 근거로 M2를 달성했다. 현재는 M3 장시간 안정성·자원 수명·시각 차이 검증 단계다.
+현재 런타임 버전은 **v0.162.0**, 진행 단계는 **M7 제품화**입니다. M2~M6의 완료 근거와 미검증 항목은 [마일스톤](../docs/VR_MILESTONES.md)과 [현재 상태](../docs/GAKUMAS_VR_STATUS.md)를 기준으로 판정합니다. 빌드·설치 성공과 PC·VR 실기 성공은 서로 다른 상태입니다.
 
-2026-08-09 재검사에서는 게임 핵심 파일 3개의 기준선 불일치가 발견됐다. 사용자가 현재 설치본에서 임시 호환성 테스트를 명시적으로 승인했으므로 테스트는 계속하지만, 승인된 제품 기준선 검증과 구분한다. 상세 해시와 인수인계 순서는 [`../docs/VR_HANDOFF.md`](../docs/VR_HANDOFF.md)를 따른다.
+## 저장소 구조
 
-## 현재 체크포인트
+- `src/GakumasVR.RuntimeBootstrap/`: IL2CPP 공개 API, Unity main-thread/D3D11 hook, OpenXR 렌더·입력
+- `src/GakumasVR.Core/`: Unity와 분리된 설정 schema, 검증, 입력·표시 상태 로직
+- `src/GakumasVR.Configurator/`: 한국어·영어·일본어 데스크톱 설정 GUI
+- `src/GakumasVR.Installer/`: 단일 EXE 설치 GUI
+- `src/GakumasVR.Management/`: manifest 기반 설치·제거·롤백 엔진
+- `installer/`: 배포 패키지 작성과 PowerShell 설치 인터페이스
+- `tests/`: Core·Management 회귀 테스트
+- `config/`: 런타임 설정
+- `baseline/`: 지원 게임·Localify 기준선
+- `scripts/`: 빌드, 설치, 기준선과 런타임 진단
+- `vendor/`: 로컬 외부 바이너리 staging; Git에는 바이너리를 커밋하지 않음
+- `CHANGELOG.md`: 버전별 변경과 실기 결과
 
-- [ ] 현재 게임 업데이트 기준선 재승인 — UnityPlayer/Localify는 일치하나 exe/GameAssembly/metadata 불일치
-- [x] BepInEx/Cpp2IL 경로 실기 판정: registration 탐색 실패로 사용 중단
-- [x] 런타임 IL2CPP API + Dobby 프레임 훅 기반 진단 부트스트랩
-- [x] 실기 장면·화면 크기·방향·카메라 진단 로그 수집
-- [x] 실제 종횡비 기반 세로→가로→세로 전환 상태 머신 실기 검증
-- [x] Virtual Desktop OpenXR + 실제 게임 백버퍼 기반 Quest 헤드 고정 패널 출력
-- [x] 라이브 월드 RT 직접 출력, 상하 반전 및 색공간 보정
-- [x] 반복 URP UI 렌더 요청이 PC 플리커링 원인임을 실기 격리하고 해당 경로 비활성화
-- [x] OpenXR eye pose/IPD/비대칭 FOV 실측과 정적 Projection Layer
-- [x] Unity 정상 렌더 루프 + Present 동기화 + 이중 버퍼 기반 연속 스테레오(v0.82 실기)
-- [x] 원본 UICamera 정상 렌더 one-shot 실기(v0.84): UI 미표시, 빈 RT 판정 후 레이어 미제출
-- [x] v0.85에서 스테레오 갱신 목표를 15fps(67ms)에서 30fps(33ms)로 상향하고 설치
-- [x] v0.85 30fps 실기: 약 2fps로 실패, sampler/publish 병목 확인
-- [x] v0.86 경량 매 프레임 stereo pump 분리, 실제 publish fps 계측과 반복 snapshot 억제
-- [x] v0.86 VR 실기: 약 20 pair/s, 사용자 체감 프레임 정상
-- [x] v0.87 불투명 UI 배경 제외 및 UI ON/OFF layer 수명 연동 구현/설치
-- [x] v0.87 실기: Graphic 배열 한도 초과로 UI 캡처 전 실패
-- [x] v0.88 Image 한정 탐색·2초 재시도 구현/설치
-- [x] v0.88 실기: 캡처 성공, 검은 배경과 UI OFF 뒤 잔류 지속
-- [x] v0.89 UI black-key 투명화·자식 CanvasRenderer 표시 감지·제출 결과 BMP 구현/설치
-- [x] v0.89 실기: UI 투명 배경·OFF 제거·ON 재캡처 성공, 터치 이펙트 잔상 확인
-- [x] v0.90 UI 표시 후 500ms 안정화 지연 구현/설치
-- [x] v0.90 실기: 터치 잔상 제거 및 UI 표시·OFF·재표시 정상
-- [x] v0.91 clone 후처리 활성화와 원본 그림자/후처리 상태 계측 구현/설치
-- [x] v0.91 실기: PC와 거의 유사, 일부/전체 흐림과 빛 번짐 확인
-- [x] v0.92 후처리 유지 + clone AA None 구현/설치
-- [x] v0.92 실기: 흐림/빛 번짐 지속, AA 가설 기각
-- [x] v0.93 v0.91 영상 설정 복구·30초 제한 제거·OpenXR view 자동 재시도 구현/설치
-- [x] v0.93 실기: 30초 이후 양안 생산 지속, 상위 OpenXR 90초 제한으로 VR 종료
-- [x] v0.94 OpenXR 90초/120초/12,000프레임 상한 제거·세션 이벤트 종료 구현/설치
-- [x] v0.94 실기: 첫 라이브 2분 이상 지속, 다른 라이브 재진입 시 VR 꺼짐
-- [x] v0.95 live source camera gating·이전 eye texture clear·자동 재개 구현/설치
-- [x] v0.96 월드 eye offset scale 27.5% 변경/설치
-- [x] v0.96 첫 live 1,668 pair까지 정상; 이탈 뒤 stale clone 포인터로 두 번째 live 진입 시 coreclr access violation 재현
-- [x] v0.97 source 상실 시 camera/UI generation 폐기, eye RT/request/query 재사용, 다음 live clone/URP 재생성 구현·설치
-- [x] v0.97 실기: 크래시는 해결, 두 번째 임시 Live에서 생성된 clone이 실제 env 전환 때 제거되어 첫 pair 뒤 평면 폴백
-- [x] v0.98 concrete env 3D live gating + 재사용 eye RT 사전 clear 구현·설치
-- [x] v0.98 실기: 첫 live 621 pair, 두 번째 env에서 무효 eye RT clear NRE로 평면 유지
-- [x] v0.99 live generation 전체 재생성 구현·설치
-- [x] v0.99 세 live 재진입 성공; 이탈 뒤 PC portrait 레이아웃 파손 발견
-- [x] v0.100 portrait Canvas refresh + UI capture generation 재생성 구현·설치
-- [x] v0.100 재진입·UI 기능 실기 성공; 첫 실기 이탈은 정상, 장시간 2차 실기에서 portrait 파손 재발
-- [x] v0.100 두 live 이상 30초 지속 성공; portrait 파손 재발/수동 resize 복구
-- [x] v0.101 portrait 자동 1px resize nudge/원복 구현·설치
-- [x] M2/v0.101: 두 번째 이후 이탈에서 수동 개입 없는 정상 portrait 복귀
-- [ ] M3: 서로 다른 3개 live/총 30분, UI 회귀, generation별 자원 수명 계측, 그림자·블룸·blur 허용 기준
-- [ ] 그림자와 블룸 일부 누락 진단 — 현재 clone 카메라는 post-processing을 켜며, 잔여 차이는 clone 전용으로 분리 진단 필요
-- [ ] 장시간 패널 세션의 세로/가로 스왑체인 재생성과 컨트롤러 입력
-- [ ] 보류 이슈: 플레이 중 스킬 사용 시 최상위 2D 스킬 이미지/애니메이션의 VR 출력 누락 점검
-- [ ] 제한 없는 연속 스테레오의 여러 라이브 재진입·장시간 자원 수명 검증
-- [ ] 세로/가로 전환 및 런타임별 회귀 테스트
-- [ ] 설치/제거 패키지
-- [ ] 핵심 기능 완료 후 별도 GUI 설정 도구와 검증된 설정 파일 스키마
+상세 렌더·입력 설계는 [설계 문서](../docs/GAKUMAS_VR_DESIGN.md), 다음 세션 인수인계는 [VR_HANDOFF](../docs/VR_HANDOFF.md)를 따릅니다.
 
-2026-08-02 게임 업데이트로 엔진이 Unity 2022.3.57f1에서 6000.0.77f1로 변경되고 IL2CPP metadata가 v31.1로 바뀌었다. 구형 BepInEx pre.2는 metadata 29까지만 지원했다. be.785와 독립 Cpp2IL pre.21 + StrippedCodeRegSupport 조합은 metadata 파싱에는 성공했지만 code/metadata registration 탐색에 실패했다. 따라서 이 게임에서는 BepInEx interop 경로를 사용하지 않는다. 구형 로더는 `vrmod/rollback/bepinex-6.0.0-pre.2-metadata31-failure`에 보존했다.
+## 전제 조건
 
-현재 구현은 GameAssembly의 공개 IL2CPP 런타임 export로 타입을 탐색하고 `il2cpp_runtime_invoke`로 필요한 Unity API를 호출한다. Unity `Time.get_frameCount` icall을 Dobby로 후킹해 실제 Unity 메인 스레드에서 안전하게 진단한다. 이 방식은 Cpp2IL registration 복원과 생성된 interop DLL에 의존하지 않는다.
+- Windows 11 x64
+- .NET 6 SDK
+- PowerShell 7 권장
+- Unity 6000.0.77f1 IL2CPP/D3D11 기반 대상 설치본
+- 외부 staging 파일:
+  - `vendor/staging/bepinex-6.0.0-be.785/`의 Unity Doorstop `winhttp.dll`과 .NET 6 runtime
+  - `vendor/openxr-loader-1.1.59/openxr_loader.dll`
+  - 실행 대상의 `BepInEx/core/dobby.dll`
 
-2026-08-02 v0.6 실기 로그에서 `Splash`, `Title`, `OutGame`, `Produce`, `Live` 및 다수의 `env_3d_*` 장면을 검출했다. 라이브 진입 시 실제 렌더 크기는 `1080x1920`에서 `1920x1080`으로 바뀌었지만 `Screen.orientation`은 계속 `1`을 반환했다. 따라서 방향 상태는 실제 렌더 크기의 종횡비를 주 신호로 판정하고 `Screen.orientation`은 참고값으로만 사용한다.
+외부 파일의 출처와 라이선스는 [vendor 안내](vendor/README.md)와 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.txt)를 확인하십시오.
 
-## 디렉터리
+## 빌드와 테스트
 
-- `baseline/`: 지원 대상으로 고정한 게임 및 Localify 파일 해시
-- `scripts/`: 기준선 검증과 설치 상태 진단 스크립트
-- `src/`: 독립 Doorstop 런타임, 코어 상태 머신 및 보존된 초기 BepInEx 진단 소스
-- `tests/`: Unity 런타임과 분리 가능한 상태 머신 테스트
-- `logs/`: JSONL 런타임 로그와 eye/UI/Present 진단 BMP
-- `rollback/`: 설치 전 런타임과 실패한 로더 경로 백업
-- `CHANGELOG.md`: 버전별 코드 변경과 실기 결과
-
-현재 상태는 [`../docs/GAKUMAS_VR_STATUS.md`](../docs/GAKUMAS_VR_STATUS.md), 상세 설계는 [`../docs/GAKUMAS_VR_DESIGN.md`](../docs/GAKUMAS_VR_DESIGN.md), 변경 이력은 [`CHANGELOG.md`](CHANGELOG.md)를 참고한다.
-
-## 안전 원칙
-
-- `version.dll`, `GameAssembly.dll`, `UnityPlayer.dll`을 덮어쓰지 않는다.
-- 게임 업데이트나 Localify 변경이 감지되면 몰입형 VR을 기본 비활성화한다.
-- OpenXR 또는 플러그인 초기화 실패가 게임 실행 실패로 이어지지 않게 한다.
-- 로그에 실행 인자, viewer ID, token을 기록하지 않는다.
-
-## 개발 명령
+저장소 루트에서 실행합니다.
 
 ```powershell
 .\vrmod\scripts\Build-VRMod.ps1
+dotnet run --project .\vrmod\tests\GakumasVR.Core.Tests\GakumasVR.Core.Tests.csproj -c Release
+dotnet run --project .\vrmod\tests\GakumasVR.Management.Tests\GakumasVR.Management.Tests.csproj -c Release
+```
+
+현재 회귀 기준은 Core 20/20, Management 4/4, 패키지 검사 196/196입니다. 숫자는 소스 변경에 따라 늘어날 수 있으며 실제 결과가 문서보다 우선합니다.
+
+배포 패키지는 다음과 같이 만듭니다.
+
+```powershell
+.\vrmod\installer\Build-Package.ps1 -Version 0.162.0
+```
+
+출력은 `vrmod/dist/` 아래로 제한됩니다. 스크립트는 런타임을 빌드하고 설정기·설치기를 self-contained 단일 EXE로 publish한 뒤 payload SHA-256 manifest와 ZIP을 만듭니다.
+
+## 로컬 설치와 진단
+
+```powershell
+.\vrmod\scripts\Verify-Baseline.ps1
 .\vrmod\scripts\Install-Bootstrap.ps1
 .\vrmod\scripts\Test-Coexistence.ps1
 .\vrmod\scripts\Test-RuntimeBootstrap.ps1
@@ -101,4 +68,24 @@
 .\vrmod\scripts\Test-OpenXrRuntime.ps1
 ```
 
-`Build-VRMod.ps1`은 코어 테스트와 부트스트랩을 항상 빌드한다. `BepInEx/interop`이 아직 없으면 진단 플러그인은 의도적으로 보류한다.
+게임 실행 중 런타임 DLL을 교체하지 마십시오. 기준선 불일치, `.git` 부재, 빌드 성공만으로 clean 또는 실기 검증 완료를 선언하지 않습니다.
+
+## 버전과 문서 규칙
+
+- 런타임 동작을 바꾸면 `Entrypoint.cs`와 관련 프로젝트 버전을 함께 올립니다.
+- 진행 중 마일스톤의 중간 코드 변경마다 상태 문서를 갱신하지 않습니다.
+- 모든 완료 조건이 사용자 VR 실기와 필요한 로그로 확인된 시점에 마일스톤 달성을 선언하고 상태·설계·변경 기록·마일스톤·인수인계를 일괄 동기화합니다.
+- 문서 전용 감사에서는 런타임을 바꾸지 않고 관측된 제한을 기록할 수 있으나 미검증 항목을 해결 처리하지 않습니다.
+
+## 안전 원칙
+
+- `GameAssembly.dll`, `UnityPlayer.dll`, 원본 `version.dll`, 게임 에셋을 수정하지 않습니다.
+- Localify 번역·폰트·텍스처·설정을 보존합니다.
+- 설치 전 기존 런타임 파일을 `vrmod/rollback/`에 백업합니다.
+- OpenXR 실패가 게임 실행 실패로 번지지 않게 하며 VR만 평면 패널로 폴백합니다.
+- 로그에 계정 식별자, viewer ID, token 또는 실행 인증 정보를 기록하지 않습니다.
+- 사용자 소유의 설정, 로그, 롤백, 게임 파일과 vendor binary를 커밋하지 않습니다.
+
+## 라이선스
+
+프로젝트 소스는 저장소 루트의 [MIT License](../LICENSE)를 따릅니다. OpenXR Loader, .NET Runtime, Unity Doorstop, BepInEx와 Dobby는 각자의 라이선스를 따르며 [크레딧](../CREDITS.md)과 배포 고지에 기록합니다. 게임 및 Localify 파일은 이 프로젝트의 라이선스 범위에 포함되지 않습니다.

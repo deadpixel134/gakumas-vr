@@ -3,6 +3,10 @@
 /*
 !/.gitignore
 !/README.md
+!/README.en.md
+!/README.ja.md
+!/LICENSE
+!/CREDITS.md
 !/AGENTS.md
 !/doorstop_config.ini
 !/docs/
