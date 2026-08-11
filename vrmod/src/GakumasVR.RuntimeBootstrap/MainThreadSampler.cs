@@ -23,6 +23,7 @@ internal sealed class MainThreadSampler
     private readonly IntPtr _domain;
     private readonly string _logPath;
     private readonly string _stereoVisualEffectMode;
+    private readonly VrManualVisualEffectSettings _manualVisualEffects;
     private readonly float _stereoRenderResolutionScale;
     private readonly float _stereoWorldEyeOffsetScale;
     private readonly FrameCountDelegate _replacement;
@@ -260,6 +261,7 @@ internal sealed class MainThreadSampler
         _logPath = logPath;
         VrSettings settings = VrSettingsRuntime.Current;
         _stereoVisualEffectMode = settings.Render.VisualEffectMode;
+        _manualVisualEffects = settings.Render.ManualVisualEffects;
         _stereoRenderResolutionScale = settings.Render.EyeRenderScale;
         _stereoWorldEyeOffsetScale = settings.Render.WorldEyeOffsetScale;
         _replacement = OnFrameCount;
@@ -3397,9 +3399,12 @@ internal sealed class MainThreadSampler
                 "UniversalAdditionalCameraData.set_renderPostProcessing was not available.");
         }
 
-        bool enablePostProcessing = !_stereoVisualEffectMode.Equals(
-            "all-off",
-            StringComparison.Ordinal);
+        bool enablePostProcessing =
+            !_stereoVisualEffectMode.Equals("all-off", StringComparison.Ordinal) &&
+            !(_stereoVisualEffectMode.Equals(
+                    VrVisualEffectModes.Manual,
+                    StringComparison.Ordinal) &&
+                !_manualVisualEffects.PostProcessingEnabled);
         _ = InvokeWithObjectArgument(
             renderPostProcessingSetter,
             destinationAdditionalData,
@@ -3450,17 +3455,19 @@ internal sealed class MainThreadSampler
             return;
         }
 
-        if (_stereoVisualEffectMode is
-            "vlflare-off" or
-            "vl-custom-pass-off" or
-            "vl-setup-bloom-off" or
-            "vl-star-streak-method-off" or
-            "vl-bloom-half" or
-            "vl-bloom-half-vldof-off" or
-            "vl-bloom-half-vldof-textureblur-off" or
-            "vl-bloom-threshold-vldof-textureblur-off" or
-            "vl-bloom-diffusion-half-vldof-textureblur-off" or
-            "vl-bloom-140-diffusion-min-vldof-textureblur-off")
+        if (_stereoVisualEffectMode.Equals(
+                VrVisualEffectModes.Manual,
+                StringComparison.Ordinal) &&
+            !_manualVisualEffects.PostProcessingEnabled)
+        {
+            SetStereoPostProcessing(_stereoLeftAdditionalCameraData, false);
+            SetStereoPostProcessing(_stereoRightAdditionalCameraData, false);
+            _stereoClonePostProcessing = false;
+            _stereoVisualEffectOverrideConfigured = true;
+            return;
+        }
+
+        if (UsesVlPostProcessHooks(_stereoVisualEffectMode))
         {
             try
             {
@@ -3500,6 +3507,14 @@ internal sealed class MainThreadSampler
                             "VLBloom intensity and threshold remain at source values while diffusion is scaled to 50 percent; VL depth of field and texture blur are bypassed only for identified stereo clones.",
                         "vl-bloom-140-diffusion-min-vldof-textureblur-off" =>
                             "VLBloom intensity is scaled to 140 percent and integer diffusion is clamped to its minimum enabled step; threshold remains at the source value, and VL depth of field and texture blur are bypassed only for identified stereo clones.",
+                        VrVisualEffectModes.Manual =>
+                            $"Manual clone VFX: bloom={_manualVisualEffects.VlBloomEnabled};" +
+                            $"bloomIntensity={_manualVisualEffects.VlBloomIntensityScale:R};" +
+                            $"bloomDiffusion={_manualVisualEffects.VlBloomDiffusion};" +
+                            $"dof={_manualVisualEffects.VlDepthOfFieldEnabled};" +
+                            $"textureBlur={_manualVisualEffects.VlTextureBlurEnabled};" +
+                            $"starStreak={_manualVisualEffects.VlStarStreakEnabled};" +
+                            $"flare={_manualVisualEffects.VlFlareEnabled}.",
                         _ =>
                             "VLPostProcessPass.DrawFlare is bypassed only while RenderingData identifies a left or right stereo clone."
                     }
@@ -3865,19 +3880,8 @@ internal sealed class MainThreadSampler
     {
         if (!_stereoVisualEffectOverrideConfigured ||
             _stereoVisualEffectOverrideFailed ||
-            _stereoVisualEffectMode is
-                "all-off" or
-                "all-on" or
-                "vlflare-off" or
-                "vl-custom-pass-off" or
-                "vl-setup-bloom-off" or
-                "vl-star-streak-method-off" or
-                "vl-bloom-half" or
-                "vl-bloom-half-vldof-off" or
-                "vl-bloom-half-vldof-textureblur-off" or
-                "vl-bloom-threshold-vldof-textureblur-off" or
-                "vl-bloom-diffusion-half-vldof-textureblur-off" or
-                "vl-bloom-140-diffusion-min-vldof-textureblur-off")
+            _stereoVisualEffectMode is "all-off" or "all-on" ||
+            UsesVlPostProcessHooks(_stereoVisualEffectMode))
         {
             return;
         }
@@ -4160,6 +4164,19 @@ internal sealed class MainThreadSampler
         _drawFlareHookInstalled = true;
     }
 
+    private static bool UsesVlPostProcessHooks(string mode) => mode is
+        "vlflare-off" or
+        "vl-custom-pass-off" or
+        "vl-setup-bloom-off" or
+        "vl-star-streak-method-off" or
+        "vl-bloom-half" or
+        "vl-bloom-half-vldof-off" or
+        "vl-bloom-half-vldof-textureblur-off" or
+        "vl-bloom-threshold-vldof-textureblur-off" or
+        "vl-bloom-diffusion-half-vldof-textureblur-off" or
+        "vl-bloom-140-diffusion-min-vldof-textureblur-off" or
+        VrVisualEffectModes.Manual;
+
     private byte OnDrawFlare(
         IntPtr instance,
         IntPtr commandBuffer,
@@ -4171,7 +4188,11 @@ internal sealed class MainThreadSampler
     {
         Interlocked.Increment(ref _drawFlareCallCount);
         if (Volatile.Read(ref _insideCloneVlPostProcess) != 0 &&
-            _stereoVisualEffectMode.Equals("vlflare-off", StringComparison.Ordinal))
+            (_stereoVisualEffectMode.Equals("vlflare-off", StringComparison.Ordinal) ||
+             (_stereoVisualEffectMode.Equals(
+                  VrVisualEffectModes.Manual,
+                  StringComparison.Ordinal) &&
+              !_manualVisualEffects.VlFlareEnabled)))
         {
             Interlocked.Increment(ref _drawFlareCloneSkipCount);
             return 0;
@@ -4199,6 +4220,30 @@ internal sealed class MainThreadSampler
         IntPtr methodInfo)
     {
         Interlocked.Increment(ref _setupVlBloomCallCount);
+        if (Volatile.Read(ref _insideCloneVlPostProcess) != 0 &&
+            _stereoVisualEffectMode.Equals(
+                VrVisualEffectModes.Manual,
+                StringComparison.Ordinal))
+        {
+            if (!_manualVisualEffects.VlBloomEnabled)
+            {
+                Interlocked.Increment(ref _setupVlBloomCloneSkipCount);
+                return;
+            }
+
+            InvokeSetupVlBloomWithScaledIntensityAndDiffusion(
+                instance,
+                commandBuffer,
+                source,
+                bloom,
+                starStreak,
+                methodInfo,
+                _manualVisualEffects.VlBloomIntensityScale,
+                1f,
+                _manualVisualEffects.VlBloomDiffusion);
+            return;
+        }
+
         if (Volatile.Read(ref _insideCloneVlPostProcess) != 0 &&
             _stereoVisualEffectMode.Equals(
                 "vl-setup-bloom-off",
@@ -4493,7 +4538,8 @@ internal sealed class MainThreadSampler
         IntPtr starStreak,
         IntPtr methodInfo,
         float intensityScale,
-        float diffusionScale)
+        float diffusionScale,
+        int? diffusionOverride = null)
     {
         IntPtr parameterStorage = Marshal.AllocHGlobal(IntPtr.Size);
         IntPtr valueStorage = Marshal.AllocHGlobal(sizeof(float));
@@ -4526,7 +4572,7 @@ internal sealed class MainThreadSampler
             }
             _api.FieldGetValue(diffusionParameter, _volumeIntValueField, valueStorage);
             originalDiffusion = Marshal.ReadInt32(valueStorage);
-            int adjustedDiffusion = Math.Max(
+            int adjustedDiffusion = diffusionOverride ?? Math.Max(
                 1,
                 (int)MathF.Round(originalDiffusion * diffusionScale));
             Marshal.StructureToPtr(adjustedDiffusion, valueStorage, false);
@@ -4593,9 +4639,13 @@ internal sealed class MainThreadSampler
     {
         Interlocked.Increment(ref _drawStarStreakCallCount);
         if (Volatile.Read(ref _insideCloneVlPostProcess) != 0 &&
-            _stereoVisualEffectMode.Equals(
-                "vl-star-streak-method-off",
-                StringComparison.Ordinal))
+            (_stereoVisualEffectMode.Equals(
+                 "vl-star-streak-method-off",
+                 StringComparison.Ordinal) ||
+             (_stereoVisualEffectMode.Equals(
+                  VrVisualEffectModes.Manual,
+                  StringComparison.Ordinal) &&
+              !_manualVisualEffects.VlStarStreakEnabled)))
         {
             Interlocked.Increment(ref _drawStarStreakCloneSkipCount);
             return;
@@ -4634,7 +4684,11 @@ internal sealed class MainThreadSampler
                  StringComparison.Ordinal) ||
              _stereoVisualEffectMode.Equals(
                  "vl-bloom-140-diffusion-min-vldof-textureblur-off",
-                 StringComparison.Ordinal)))
+                 StringComparison.Ordinal) ||
+             (_stereoVisualEffectMode.Equals(
+                  VrVisualEffectModes.Manual,
+                  StringComparison.Ordinal) &&
+              !_manualVisualEffects.VlDepthOfFieldEnabled)))
         {
             Interlocked.Increment(ref _doVlDofCloneSkipCount);
             return 0;
@@ -4672,7 +4726,11 @@ internal sealed class MainThreadSampler
                  StringComparison.Ordinal) ||
              _stereoVisualEffectMode.Equals(
                  "vl-bloom-140-diffusion-min-vldof-textureblur-off",
-                 StringComparison.Ordinal)))
+                 StringComparison.Ordinal) ||
+             (_stereoVisualEffectMode.Equals(
+                  VrVisualEffectModes.Manual,
+                  StringComparison.Ordinal) &&
+              !_manualVisualEffects.VlTextureBlurEnabled)))
         {
             Interlocked.Increment(ref _doVlTextureBlurCloneSkipCount);
             return 0;

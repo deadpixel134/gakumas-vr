@@ -84,6 +84,7 @@ internal static class UiText
         VrVisualEffectModes.Approved => "ChoiceVfxApproved",
         VrVisualEffectModes.AllOn => "ChoiceVfxAllOn",
         VrVisualEffectModes.AllOff => "ChoiceVfxAllOff",
+        VrVisualEffectModes.Manual => "ChoiceVfxManual",
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     });
 
@@ -161,6 +162,15 @@ internal static class UiText
         ["EyeScale"] = "눈별 렌더 배율",
         ["WorldEyeScale"] = "월드 눈 간격 배율",
         ["VfxMode"] = "VFX 모드",
+        ["VfxPostProcessing"] = "후처리",
+        ["VfxVlBloom"] = "VL Bloom",
+        ["VfxVlBloomIntensity"] = "VL Bloom 강도 (%)",
+        ["VfxVlBloomDiffusion"] = "VL Bloom 확산 단계",
+        ["VfxVlDof"] = "VL 심도 효과",
+        ["VfxVlTextureBlur"] = "VL 텍스처 블러",
+        ["VfxVlStarStreak"] = "VL 스타 스트릭",
+        ["VfxVlFlare"] = "VL 플레어",
+        ["EffectEnabled"] = "사용",
         ["TabPanel"] = "손 패널",
         ["PanelHand"] = "패널 손",
         ["PointerHand"] = "포인터 손",
@@ -217,7 +227,8 @@ internal static class UiText
         ["ChoiceSecondaryFace"] = "보조 표면 버튼 (B/Y)",
         ["ChoiceVfxApproved"] = "권장 VFX",
         ["ChoiceVfxAllOn"] = "모든 VFX 켜기",
-        ["ChoiceVfxAllOff"] = "모든 VFX 끄기"
+        ["ChoiceVfxAllOff"] = "모든 VFX 끄기",
+        ["ChoiceVfxManual"] = "수동 설정"
     };
 
     private static Dictionary<string, string> English() => new()
@@ -231,6 +242,15 @@ internal static class UiText
         ["EyeScale"] = "Per-eye render scale",
         ["WorldEyeScale"] = "World eye-offset scale",
         ["VfxMode"] = "VFX mode",
+        ["VfxPostProcessing"] = "Post-processing",
+        ["VfxVlBloom"] = "VL Bloom",
+        ["VfxVlBloomIntensity"] = "VL Bloom intensity (%)",
+        ["VfxVlBloomDiffusion"] = "VL Bloom diffusion step",
+        ["VfxVlDof"] = "VL depth of field",
+        ["VfxVlTextureBlur"] = "VL texture blur",
+        ["VfxVlStarStreak"] = "VL star streak",
+        ["VfxVlFlare"] = "VL flare",
+        ["EffectEnabled"] = "Enabled",
         ["TabPanel"] = "Hand panel",
         ["PanelHand"] = "Panel hand",
         ["PointerHand"] = "Pointer hand",
@@ -287,7 +307,8 @@ internal static class UiText
         ["ChoiceSecondaryFace"] = "Secondary face button (B/Y)",
         ["ChoiceVfxApproved"] = "Recommended VFX",
         ["ChoiceVfxAllOn"] = "All VFX on",
-        ["ChoiceVfxAllOff"] = "All VFX off"
+        ["ChoiceVfxAllOff"] = "All VFX off",
+        ["ChoiceVfxManual"] = "Manual settings"
     };
 
     private static Dictionary<string, string> Japanese() => new()
@@ -301,6 +322,15 @@ internal static class UiText
         ["EyeScale"] = "片目レンダー倍率",
         ["WorldEyeScale"] = "ワールド眼間オフセット倍率",
         ["VfxMode"] = "VFXモード",
+        ["VfxPostProcessing"] = "ポストプロセス",
+        ["VfxVlBloom"] = "VL Bloom",
+        ["VfxVlBloomIntensity"] = "VL Bloom 強度 (%)",
+        ["VfxVlBloomDiffusion"] = "VL Bloom 拡散ステップ",
+        ["VfxVlDof"] = "VL 被写界深度",
+        ["VfxVlTextureBlur"] = "VL テクスチャブラー",
+        ["VfxVlStarStreak"] = "VL スターストリーク",
+        ["VfxVlFlare"] = "VL フレア",
+        ["EffectEnabled"] = "使用",
         ["TabPanel"] = "ハンドパネル",
         ["PanelHand"] = "パネルを持つ手",
         ["PointerHand"] = "ポインターを操作する手",
@@ -357,6 +387,7 @@ internal static class UiText
         ["ChoiceSecondaryFace"] = "サブフェイスボタン (B/Y)",
         ["ChoiceVfxApproved"] = "推奨VFX",
         ["ChoiceVfxAllOn"] = "すべてのVFXをオン",
-        ["ChoiceVfxAllOff"] = "すべてのVFXをオフ"
+        ["ChoiceVfxAllOff"] = "すべてのVFXをオフ",
+        ["ChoiceVfxManual"] = "手動設定"
     };
 }

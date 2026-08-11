@@ -9,6 +9,14 @@ internal sealed class MainForm : Form
     private readonly NumericUpDown _eyeScale = Number(0.50m, 1.00m, 0.01m, 3);
     private readonly NumericUpDown _worldEyeScale = Number(0m, 0.50m, 0.005m, 3);
     private readonly ComboBox _vfx = ChoiceCombo();
+    private readonly CheckBox _manualPostProcessing = TaggedCheckBox("EffectEnabled");
+    private readonly CheckBox _manualVlBloom = TaggedCheckBox("EffectEnabled");
+    private readonly NumericUpDown _manualVlBloomIntensity = Number(0m, 300m, 5m, 0);
+    private readonly NumericUpDown _manualVlBloomDiffusion = Number(1m, 10m, 1m, 0);
+    private readonly CheckBox _manualVlDof = TaggedCheckBox("EffectEnabled");
+    private readonly CheckBox _manualVlTextureBlur = TaggedCheckBox("EffectEnabled");
+    private readonly CheckBox _manualVlStarStreak = TaggedCheckBox("EffectEnabled");
+    private readonly CheckBox _manualVlFlare = TaggedCheckBox("EffectEnabled");
     private readonly ComboBox _panelHand = ChoiceCombo();
     private readonly ComboBox _pointerHand = ChoiceCombo();
     private readonly CheckBox _startEnabled = TaggedCheckBox("StartEnabled");
@@ -117,6 +125,9 @@ internal sealed class MainForm : Form
         root.Controls.Add(statusStrip, 0, 3);
 
         _gameRoot.Text = SettingsStore.FindInitialGameRoot();
+        _vfx.SelectedIndexChanged += (_, _) => UpdateManualVfxControls();
+        _manualPostProcessing.CheckedChanged += (_, _) => UpdateManualVfxControls();
+        _manualVlBloom.CheckedChanged += (_, _) => UpdateManualVfxControls();
         ApplyLanguage(languageChanged: false);
         Load += (_, _) => Run("StatusLoaded", LoadSettings);
     }
@@ -128,6 +139,14 @@ internal sealed class MainForm : Form
         AddRow(grid, "EyeScale", _eyeScale);
         AddRow(grid, "WorldEyeScale", _worldEyeScale);
         AddRow(grid, "VfxMode", _vfx);
+        AddRow(grid, "VfxPostProcessing", _manualPostProcessing);
+        AddRow(grid, "VfxVlBloom", _manualVlBloom);
+        AddRow(grid, "VfxVlBloomIntensity", _manualVlBloomIntensity);
+        AddRow(grid, "VfxVlBloomDiffusion", _manualVlBloomDiffusion);
+        AddRow(grid, "VfxVlDof", _manualVlDof);
+        AddRow(grid, "VfxVlTextureBlur", _manualVlTextureBlur);
+        AddRow(grid, "VfxVlStarStreak", _manualVlStarStreak);
+        AddRow(grid, "VfxVlFlare", _manualVlFlare);
         _renderTab.Controls.Add(grid);
     }
 
@@ -187,9 +206,16 @@ internal sealed class MainForm : Form
         Populate(_back, Enum.GetValues<FaceButtonBinding>(), UiText.Choice, back);
         Populate(
             _vfx,
-            new[] { VrVisualEffectModes.Approved, VrVisualEffectModes.AllOn, VrVisualEffectModes.AllOff },
+            new[]
+            {
+                VrVisualEffectModes.Approved,
+                VrVisualEffectModes.AllOn,
+                VrVisualEffectModes.AllOff,
+                VrVisualEffectModes.Manual
+            },
             UiText.VisualEffect,
             vfx);
+        UpdateManualVfxControls();
         _status.Text = UiText.Get(languageChanged ? "StatusLanguageChanged" : "StatusReady");
     }
 
@@ -241,7 +267,18 @@ internal sealed class MainForm : Form
         {
             EyeRenderScale = (float)_eyeScale.Value,
             WorldEyeOffsetScale = (float)_worldEyeScale.Value,
-            VisualEffectMode = Selected(_vfx, VrVisualEffectModes.Approved)
+            VisualEffectMode = Selected(_vfx, VrVisualEffectModes.Approved),
+            ManualVisualEffects = new VrManualVisualEffectSettings
+            {
+                PostProcessingEnabled = _manualPostProcessing.Checked,
+                VlBloomEnabled = _manualVlBloom.Checked,
+                VlBloomIntensityScale = (float)_manualVlBloomIntensity.Value / 100f,
+                VlBloomDiffusion = (int)_manualVlBloomDiffusion.Value,
+                VlDepthOfFieldEnabled = _manualVlDof.Checked,
+                VlTextureBlurEnabled = _manualVlTextureBlur.Checked,
+                VlStarStreakEnabled = _manualVlStarStreak.Checked,
+                VlFlareEnabled = _manualVlFlare.Checked
+            }
         },
         Panel = new VrPanelSettings
         {
@@ -277,6 +314,16 @@ internal sealed class MainForm : Form
         Set(_eyeScale, settings.Render.EyeRenderScale);
         Set(_worldEyeScale, settings.Render.WorldEyeOffsetScale);
         Select(_vfx, settings.Render.VisualEffectMode);
+        VrManualVisualEffectSettings manual = settings.Render.ManualVisualEffects;
+        _manualPostProcessing.Checked = manual.PostProcessingEnabled;
+        _manualVlBloom.Checked = manual.VlBloomEnabled;
+        Set(_manualVlBloomIntensity, manual.VlBloomIntensityScale * 100f);
+        Set(_manualVlBloomDiffusion, manual.VlBloomDiffusion);
+        _manualVlDof.Checked = manual.VlDepthOfFieldEnabled;
+        _manualVlTextureBlur.Checked = manual.VlTextureBlurEnabled;
+        _manualVlStarStreak.Checked = manual.VlStarStreakEnabled;
+        _manualVlFlare.Checked = manual.VlFlareEnabled;
+        UpdateManualVfxControls();
         Select(_panelHand, settings.Panel.PanelHand);
         Select(_pointerHand, settings.Panel.PointerHand);
         _startEnabled.Checked = settings.Panel.StartEnabled;
@@ -328,6 +375,24 @@ internal sealed class MainForm : Form
         {
             UpdateTaggedText(child);
         }
+    }
+
+    private void UpdateManualVfxControls()
+    {
+        bool manual = Selected(_vfx, VrVisualEffectModes.Approved) ==
+            VrVisualEffectModes.Manual;
+        _manualPostProcessing.Enabled = manual;
+
+        bool postProcessing = manual && _manualPostProcessing.Checked;
+        _manualVlBloom.Enabled = postProcessing;
+        _manualVlDof.Enabled = postProcessing;
+        _manualVlTextureBlur.Enabled = postProcessing;
+        _manualVlStarStreak.Enabled = postProcessing;
+        _manualVlFlare.Enabled = postProcessing;
+
+        bool bloom = postProcessing && _manualVlBloom.Checked;
+        _manualVlBloomIntensity.Enabled = bloom;
+        _manualVlBloomDiffusion.Enabled = bloom;
     }
 
     private static TableLayoutPanel Grid()

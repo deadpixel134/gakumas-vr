@@ -6,7 +6,17 @@
   "render": {
     "eyeRenderScale": 0.65,
     "worldEyeOffsetScale": 0.275,
-    "visualEffectMode": "vl-bloom-140-diffusion-min-vldof-textureblur-off"
+    "visualEffectMode": "vl-bloom-140-diffusion-min-vldof-textureblur-off",
+    "manualVisualEffects": {
+      "postProcessingEnabled": true,
+      "vlBloomEnabled": true,
+      "vlBloomIntensityScale": 1.4,
+      "vlBloomDiffusion": 1,
+      "vlDepthOfFieldEnabled": false,
+      "vlTextureBlurEnabled": false,
+      "vlStarStreakEnabled": true,
+      "vlFlareEnabled": true
+    }
   },
   "panel": {
     "panelHand": "left",

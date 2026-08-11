@@ -1,4 +1,5 @@
 using GakumasVR.Core;
+using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
@@ -17,6 +18,8 @@ var tests = new (string Name, Action Run)[]
     ("Analog click latches before the press threshold", AnalogClickLatchesBeforePress),
     ("Analog click cancels shallow presses", AnalogClickCancelsShallowPress),
     ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
+    ("VR settings preserve manual VFX controls", VrSettingsPreserveManualVfxControls),
+    ("VR settings load legacy JSON without manual VFX", VrSettingsLoadLegacyJsonWithoutManualVfx),
     ("VR settings repair invalid roles and ranges", VrSettingsRepairInvalidValues),
     ("VR settings reject unsupported schema", VrSettingsRejectUnsupportedSchema)
 };
@@ -121,6 +124,61 @@ static void VrSettingsPreserveApprovedDefaults()
     Equal(0.10f, result.Settings.Panel.OffsetY);
     Equal(0.65f, result.Settings.Render.EyeRenderScale);
     Equal(VrVisualEffectModes.Approved, result.Settings.Render.VisualEffectMode);
+    Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
+    Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
+    Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
+    Equal(false, result.Settings.Render.ManualVisualEffects.VlDepthOfFieldEnabled);
+    Equal(false, result.Settings.Render.ManualVisualEffects.VlTextureBlurEnabled);
+}
+
+static void VrSettingsPreserveManualVfxControls()
+{
+    VrSettings settings = VrSettings.CreateApprovedDefaults();
+    settings.Render.VisualEffectMode = VrVisualEffectModes.Manual;
+    settings.Render.ManualVisualEffects.PostProcessingEnabled = true;
+    settings.Render.ManualVisualEffects.VlBloomEnabled = false;
+    settings.Render.ManualVisualEffects.VlBloomIntensityScale = 0.85f;
+    settings.Render.ManualVisualEffects.VlBloomDiffusion = 4;
+    settings.Render.ManualVisualEffects.VlDepthOfFieldEnabled = true;
+    settings.Render.ManualVisualEffects.VlTextureBlurEnabled = true;
+    settings.Render.ManualVisualEffects.VlStarStreakEnabled = false;
+    settings.Render.ManualVisualEffects.VlFlareEnabled = false;
+
+    VrSettingsValidationResult result = VrSettingsValidator.Validate(settings);
+
+    Equal(false, result.UsedFallback);
+    Equal(VrVisualEffectModes.Manual, result.Settings.Render.VisualEffectMode);
+    Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
+    Equal(false, result.Settings.Render.ManualVisualEffects.VlBloomEnabled);
+    Equal(0.85f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
+    Equal(4, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
+    Equal(true, result.Settings.Render.ManualVisualEffects.VlDepthOfFieldEnabled);
+    Equal(true, result.Settings.Render.ManualVisualEffects.VlTextureBlurEnabled);
+    Equal(false, result.Settings.Render.ManualVisualEffects.VlStarStreakEnabled);
+    Equal(false, result.Settings.Render.ManualVisualEffects.VlFlareEnabled);
+}
+
+static void VrSettingsLoadLegacyJsonWithoutManualVfx()
+{
+    const string json = """
+        {
+          "schemaVersion": 1,
+          "render": {
+            "visualEffectMode": "manual"
+          }
+        }
+        """;
+    VrSettings? parsed = JsonSerializer.Deserialize<VrSettings>(
+        json,
+        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+    VrSettingsValidationResult result = VrSettingsValidator.Validate(parsed);
+
+    Equal(false, result.UsedFallback);
+    Equal(VrVisualEffectModes.Manual, result.Settings.Render.VisualEffectMode);
+    Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
+    Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
+    Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
 }
 
 static void VrSettingsRepairInvalidValues()
@@ -129,6 +187,8 @@ static void VrSettingsRepairInvalidValues()
     settings.Panel.PointerHand = VrHand.Left;
     settings.Panel.MaximumWidth = 4f;
     settings.Render.EyeRenderScale = 2f;
+    settings.Render.ManualVisualEffects.VlBloomIntensityScale = 4f;
+    settings.Render.ManualVisualEffects.VlBloomDiffusion = 0;
     settings.Input.BackButton = FaceButtonBinding.Primary;
     VrSettingsValidationResult result = VrSettingsValidator.Validate(settings);
     Equal(true, result.UsedFallback);
@@ -136,6 +196,8 @@ static void VrSettingsRepairInvalidValues()
     Equal(VrHand.Right, result.Settings.Panel.PointerHand);
     Equal(0.42f, result.Settings.Panel.MaximumWidth);
     Equal(0.75f, result.Settings.Render.EyeRenderScale);
+    Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
+    Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
     Equal(FaceButtonBinding.Primary, result.Settings.Input.PrimaryClickButton);
     Equal(FaceButtonBinding.Secondary, result.Settings.Input.BackButton);
 }

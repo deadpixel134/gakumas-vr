@@ -24,6 +24,7 @@ public static class VrVisualEffectModes
     public const string Approved = "vl-bloom-140-diffusion-min-vldof-textureblur-off";
     public const string AllOn = "all-on";
     public const string AllOff = "all-off";
+    public const string Manual = "manual";
 }
 
 public sealed class VrSettings
@@ -55,6 +56,27 @@ public sealed class VrRenderSettings
     public float WorldEyeOffsetScale { get; set; } = 0.275f;
 
     public string VisualEffectMode { get; set; } = VrVisualEffectModes.Approved;
+
+    public VrManualVisualEffectSettings ManualVisualEffects { get; set; } = new();
+}
+
+public sealed class VrManualVisualEffectSettings
+{
+    public bool PostProcessingEnabled { get; set; } = true;
+
+    public bool VlBloomEnabled { get; set; } = true;
+
+    public float VlBloomIntensityScale { get; set; } = 1.40f;
+
+    public int VlBloomDiffusion { get; set; } = 1;
+
+    public bool VlDepthOfFieldEnabled { get; set; }
+
+    public bool VlTextureBlurEnabled { get; set; }
+
+    public bool VlStarStreakEnabled { get; set; } = true;
+
+    public bool VlFlareEnabled { get; set; } = true;
 }
 
 public sealed class VrPanelSettings
@@ -134,6 +156,8 @@ public static class VrSettingsValidator
         VrSettings defaults = VrSettings.CreateApprovedDefaults();
         VrRuntimeSettings runtime = source.Runtime ?? defaults.Runtime;
         VrRenderSettings render = source.Render ?? defaults.Render;
+        VrManualVisualEffectSettings manualVisualEffects =
+            render.ManualVisualEffects ?? defaults.Render.ManualVisualEffects;
         VrPanelSettings panel = source.Panel ?? defaults.Panel;
         VrInputSettings input = source.Input ?? defaults.Input;
 
@@ -160,7 +184,30 @@ public static class VrSettingsValidator
                 VisualEffectMode = ValidateVisualEffectMode(
                     render.VisualEffectMode,
                     defaults.Render.VisualEffectMode,
-                    issues)
+                    issues),
+                ManualVisualEffects = new VrManualVisualEffectSettings
+                {
+                    PostProcessingEnabled = manualVisualEffects.PostProcessingEnabled,
+                    VlBloomEnabled = manualVisualEffects.VlBloomEnabled,
+                    VlBloomIntensityScale = ValidateRange(
+                        manualVisualEffects.VlBloomIntensityScale,
+                        0f,
+                        3f,
+                        defaults.Render.ManualVisualEffects.VlBloomIntensityScale,
+                        "render.manualVisualEffects.vlBloomIntensityScale",
+                        issues),
+                    VlBloomDiffusion = ValidateRange(
+                        manualVisualEffects.VlBloomDiffusion,
+                        1,
+                        10,
+                        defaults.Render.ManualVisualEffects.VlBloomDiffusion,
+                        "render.manualVisualEffects.vlBloomDiffusion",
+                        issues),
+                    VlDepthOfFieldEnabled = manualVisualEffects.VlDepthOfFieldEnabled,
+                    VlTextureBlurEnabled = manualVisualEffects.VlTextureBlurEnabled,
+                    VlStarStreakEnabled = manualVisualEffects.VlStarStreakEnabled,
+                    VlFlareEnabled = manualVisualEffects.VlFlareEnabled
+                }
             },
             Panel = new VrPanelSettings
             {
@@ -271,7 +318,8 @@ public static class VrSettingsValidator
         string normalized = value?.Trim().ToLowerInvariant() ?? string.Empty;
         if (normalized is VrVisualEffectModes.Approved or
             VrVisualEffectModes.AllOn or
-            VrVisualEffectModes.AllOff)
+            VrVisualEffectModes.AllOff or
+            VrVisualEffectModes.Manual)
         {
             return normalized;
         }
