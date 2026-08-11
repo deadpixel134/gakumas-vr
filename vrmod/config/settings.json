@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "enabled": true
+  },
+  "render": {
+    "eyeRenderScale": 0.65,
+    "worldEyeOffsetScale": 0.275,
+    "visualEffectMode": "vl-bloom-140-diffusion-min-vldof-textureblur-off"
+  },
+  "panel": {
+    "panelHand": "left",
+    "pointerHand": "right",
+    "startEnabled": false,
+    "viewerFacing": true,
+    "offsetX": 0.0,
+    "offsetY": 0.1,
+    "offsetZ": 0.0,
+    "maximumWidth": 0.42,
+    "maximumHeight": 0.42,
+    "rotationPitch": 0.0,
+    "rotationYaw": 0.0,
+    "rotationRoll": 0.0,
+    "visibilityHysteresisMilliseconds": 100,
+    "toggleBinding": "grip"
+  },
+  "input": {
+    "primaryClickButton": "primary",
+    "backButton": "secondary",
+    "triggerClickEnabled": true,
+    "thumbstickScrollEnabled": true,
+    "scrollSensitivity": 1.0,
+    "requireGameFocus": true
+  }
+}

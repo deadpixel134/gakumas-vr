@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "bepInExRelease": "6.0.0-pre.2",
+  "distribution": "BepInEx-Unity.IL2CPP-win-x64-6.0.0-pre.2.zip",
+  "distributionSha256": "616EC7EB06CF11B2A0000E8FCEF04D1B12BB58E84A2E0BDAC9523234FC193CEB",
+  "installedFiles": {
+    "winhttp.dll": "D3B62F4C9C3E2196EF82603C52D6B98C043A0D6C125C081FD33D7CA3798B41B8",
+    "doorstop_config.ini": "996BDA4A6E4A105B2CD48A6E756BAFB32178546394AFD7B47AB5E199120C4052"
+  },
+  "localifyProxy": "version.dll",
+  "notes": [
+    "The winhttp.dll proxy is used by BepInEx; Localify keeps ownership of version.dll.",
+    "Do not mark coexistence verified until bootstrap-health.json and BepInEx/interop exist after a DMM launch."
+  ]
+}
+

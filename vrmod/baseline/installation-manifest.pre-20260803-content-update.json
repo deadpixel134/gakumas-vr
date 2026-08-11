@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-02T22:02:35+09:00",
+  "launchVerified": true,
+  "engine": {
+    "unityVersion": "6000.0.77f1",
+    "runtime": "IL2CPP",
+    "architecture": "x64",
+    "graphicsApi": "Direct3D11",
+    "renderPipeline": "URP"
+  },
+  "files": [
+    {
+      "path": "gakumas.exe",
+      "length": 641160,
+      "sha256": "F35B472E696644A56FA3AB6A85EA0F04C8A6989A7DB1C23F3BF363A2658F5580"
+    },
+    {
+      "path": "GameAssembly.dll",
+      "length": 155680768,
+      "sha256": "6270BD53FF9E0843B4CFF8565DC326A3760BE8DFD1EB43FE02F62A39DDB5CEB4"
+    },
+    {
+      "path": "UnityPlayer.dll",
+      "length": 34340272,
+      "sha256": "C19CB7B11C5BBC4DF399ACDD71EC0D92999140220684CE9BF1DFAFF17C4DB8E5"
+    },
+    {
+      "path": "version.dll",
+      "length": 5920256,
+      "sha256": "594F9EB933071BB8BCD66D28ED56D30205515983054C2AC93F68E144F8979098"
+    },
+    {
+      "path": "gakumas_Data/ScriptingAssemblies.json",
+      "length": 8018,
+      "sha256": "94C768BB56469D2785900CCAEF6814E77CDC4FFA3CBD507D40F271D0CE05458F"
+    },
+    {
+      "path": "gakumas_Data/il2cpp_data/Metadata/global-metadata.dat",
+      "length": 44472824,
+      "sha256": "9CEBEF3C257EDB2CF8703CEB95F0CF86FB5007E1F35A1BDDA54A3EA7BE7146F7"
+    },
+    {
+      "path": "gakumas-local/config.json",
+      "length": 224,
+      "sha256": "E8F0A18D42F2B8E8BC5F7292D961B84ECF4263D0B75B5A8262F63B69D69AEAC4"
+    },
+    {
+      "path": "gakumas-local/localizationConfig.json",
+      "length": 1321,
+      "sha256": "29CF43A3D642415CB794D60D6A358C189C87FA0C70228F99539EB31C663536ED"
+    },
+    {
+      "path": "gakumas-local/version.txt",
+      "length": 15,
+      "sha256": "6205CA0E09408484906DD0B5271D4E7760A22B1E3FFD27FA35E53BE5936E0D89"
+    }
+  ],
+  "notes": [
+    "gakumas-local/version.txt is the translation data version, not a verified plugin binary version.",
+    "The user confirmed a normal DMM launch with BepInEx winhttp.dll disabled; Player.log confirmed Unity 6000.0.77f1 and Direct3D 11.",
+    "Localify version.dll is unsigned and must not be replaced by the VR mod.",
+    "Localify configuration files may change legitimately; a mismatch is a compatibility warning rather than proof of corruption."
+  ]
+}

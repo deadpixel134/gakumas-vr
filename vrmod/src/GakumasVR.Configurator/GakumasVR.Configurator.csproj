@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NuGetAudit>false</NuGetAudit>
+    <AssemblyName>GakumasVR.Configurator</AssemblyName>
+    <Version>0.159.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GakumasVR.Core\GakumasVR.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-02T21:00:00+09:00",
+  "engine": {
+    "unityVersion": "2022.3.57f1",
+    "runtime": "IL2CPP",
+    "architecture": "x64",
+    "graphicsApi": "Direct3D11",
+    "renderPipeline": "URP"
+  },
+  "files": [
+    {
+      "path": "gakumas.exe",
+      "length": 645256,
+      "sha256": "78C163D9DCB727727B6135D6EE79097FCA9940DBDA9D086102AFF86B612BE537"
+    },
+    {
+      "path": "GameAssembly.dll",
+      "length": 145289216,
+      "sha256": "BE8FEA5B5D04C7AE2C1EE41813A0F7F29011359461030E61EE26870700A1001C"
+    },
+    {
+      "path": "UnityPlayer.dll",
+      "length": 30966968,
+      "sha256": "D99B81B06CDF1363E203D6439C7A2DED2AC405052E05FECF36851F22C345358A"
+    },
+    {
+      "path": "version.dll",
+      "length": 5850624,
+      "sha256": "4C04548F468602FE1F27DD3EBB1735391104BDD35BAC01681E3AD54F0B807066"
+    },
+    {
+      "path": "gakumas_Data/ScriptingAssemblies.json",
+      "length": 7661,
+      "sha256": "94C77152A269A664886977400CF5012A127B04E750B01A3C90E55280D19595FF"
+    },
+    {
+      "path": "gakumas_Data/il2cpp_data/Metadata/global-metadata.dat",
+      "length": 42749888,
+      "sha256": "34D6AC1BAB81FE69A05800EB9C15008DC96C43015F4A3AA78580E0C543ACD215"
+    },
+    {
+      "path": "gakumas-local/config.json",
+      "length": 224,
+      "sha256": "E8F0A18D42F2B8E8BC5F7292D961B84ECF4263D0B75B5A8262F63B69D69AEAC4"
+    },
+    {
+      "path": "gakumas-local/localizationConfig.json",
+      "length": 1307,
+      "sha256": "4197418E205A7464CEFF87D8F60C2ABD75B5C0AC397679B619D6429AC2296972"
+    },
+    {
+      "path": "gakumas-local/version.txt",
+      "length": 15,
+      "sha256": "CE1418776D7A88C1E996C7E5D7F83F43CD26D2884F25F0EB4E28DA951495056C"
+    }
+  ],
+  "notes": [
+    "gakumas-local/version.txt is the translation data version, not a verified plugin binary version.",
+    "Localify version.dll is unsigned and must not be replaced by the VR mod.",
+    "Localify configuration files may change legitimately; a mismatch is a compatibility warning rather than proof of corruption."
+  ]
+}
+

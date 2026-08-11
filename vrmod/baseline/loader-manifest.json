@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "status": "rejected-registration-discovery-failure",
+  "bepInExRelease": "6.0.0-be.785+6abdba4",
+  "distribution": "BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.785+6abdba4.zip",
+  "distributionSha256": "2A7CBF74D26ABE4765C3E662DB1721B923BAC39849EBFEF2CA5DC7DE7E2D9B7F",
+  "targetUnityVersion": "6000.0.77f1",
+  "targetMetadataVersion": 31,
+  "cpp2IlProductVersion": "2022.1.0-development.1452+558ddd9",
+  "installedFiles": {
+    "winhttp.dll": "8C6CDBC38836DEE87E3368F5DE1994D7C0CCEBF29E4CE7ABA3C0981F9375412C",
+    "doorstop_config.ini": "7DAEBB02054747FAEE66C875A778E0E8D54DAD24DD460E1FB69AA31378D9EA8F",
+    "BepInEx/core/Cpp2IL.Core.dll": "A7AE866298472BFA5176C1B5B71ADFA9FE6E2F1DEEF7B8D50F063C0E2C0BA258",
+    "BepInEx/core/LibCpp2IL.dll": "DD3BD5417CAC3FD203B906A90DBAE6719136E61F43C2B4EED55F56242BB10A14"
+  },
+  "localifyProxy": "version.dll",
+  "notes": [
+    "The winhttp.dll proxy is used by BepInEx; Localify keeps ownership of version.dll.",
+    "The previous 6.0.0-pre.2 loader failed because its LibCpp2IL supported metadata 23-29 while the updated game uses metadata 31.",
+    "Runtime verification parsed metadata 31.1 but failed to locate code and metadata registration; BepInEx/interop remained empty and no plugins could load.",
+    "Standalone Cpp2IL pre-release.21 with the official StrippedCodeRegSupport plugin reproduced the same registration discovery failure.",
+    "The game itself remains playable, but this loader candidate must not be used for the VR implementation."
+  ]
+}

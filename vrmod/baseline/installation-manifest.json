@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-03T22:04:00+09:00",
+  "launchVerified": true,
+  "engine": {
+    "unityVersion": "6000.0.77f1",
+    "runtime": "IL2CPP",
+    "architecture": "x64",
+    "graphicsApi": "Direct3D11",
+    "renderPipeline": "URP"
+  },
+  "files": [
+    {
+      "path": "gakumas.exe",
+      "length": 641160,
+      "sha256": "6E3579F08AE771D6D18537E191A90A3A73EF6C6D06A3D3BD9E1248CCF59F1C72"
+    },
+    {
+      "path": "GameAssembly.dll",
+      "length": 155680768,
+      "sha256": "3642CAACB5CB07844199A40DA54A9E2F9A951F9C71AB8B9EE15CBA88FAF193D9"
+    },
+    {
+      "path": "UnityPlayer.dll",
+      "length": 34340272,
+      "sha256": "C19CB7B11C5BBC4DF399ACDD71EC0D92999140220684CE9BF1DFAFF17C4DB8E5"
+    },
+    {
+      "path": "version.dll",
+      "length": 5920256,
+      "sha256": "594F9EB933071BB8BCD66D28ED56D30205515983054C2AC93F68E144F8979098"
+    },
+    {
+      "path": "gakumas_Data/ScriptingAssemblies.json",
+      "length": 8018,
+      "sha256": "94C768BB56469D2785900CCAEF6814E77CDC4FFA3CBD507D40F271D0CE05458F"
+    },
+    {
+      "path": "gakumas_Data/il2cpp_data/Metadata/global-metadata.dat",
+      "length": 44472824,
+      "sha256": "911F412E68D4DCECC85EEAEAF70332B3B46438B9FBBCD79A476F18C9431CE0CE"
+    },
+    {
+      "path": "gakumas-local/config.json",
+      "length": 224,
+      "sha256": "E8F0A18D42F2B8E8BC5F7292D961B84ECF4263D0B75B5A8262F63B69D69AEAC4"
+    },
+    {
+      "path": "gakumas-local/localizationConfig.json",
+      "length": 1321,
+      "sha256": "29CF43A3D642415CB794D60D6A358C189C87FA0C70228F99539EB31C663536ED"
+    },
+    {
+      "path": "gakumas-local/version.txt",
+      "length": 15,
+      "sha256": "6205CA0E09408484906DD0B5271D4E7760A22B1E3FFD27FA35E53BE5936E0D89"
+    }
+  ],
+  "notes": [
+    "gakumas-local/version.txt is the translation data version, not a verified plugin binary version.",
+    "The user confirmed a normal DMM launch with BepInEx winhttp.dll disabled; Player.log confirmed Unity 6000.0.77f1 and Direct3D 11.",
+    "A 2026-08-03 DMM update changed gakumas.exe, GameAssembly.dll, and global-metadata.dat without changing their lengths or UnityPlayer.dll; runtime bootstrap v0.7 passed portrait-landscape-portrait diagnostics on the updated files.",
+    "Localify version.dll is unsigned and must not be replaced by the VR mod.",
+    "Localify configuration files may change legitimately; a mismatch is a compatibility warning rather than proof of corruption."
+  ]
+}
