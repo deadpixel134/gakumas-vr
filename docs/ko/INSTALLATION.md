@@ -9,9 +9,9 @@
 - Windows 11 x64
 - DMM판 학원 아이돌마스터의 정상 설치본
 - OpenXR를 사용할 수 있는 PC VR 환경
-- v0.163.0 배포 ZIP에 포함된 Dobby 런타임 의존성
+- v0.164.0 배포 ZIP에 포함된 Dobby 런타임 의존성
 
-> 설치기는 Localify가 있으면 번역·폰트·텍스처·설정과 기존 `BepInEx/core/dobby.dll`을 보존합니다. Localify가 없으면 필요한 Dobby만 설치하고 Localify 파일은 새로 만들지 않습니다. 이 무한글패치 클린 설치 경로는 패키지 설치·제거 자동 검증을 통과했으며 VR 실기 검증은 아직 남아 있습니다.
+> 설치기는 Localify가 있으면 번역·폰트·텍스처·설정과 기존 `BepInEx/core/dobby.dll`을 보존합니다. Localify가 없으면 필요한 Dobby만 설치하고 Localify 파일은 새로 만들지 않습니다. 게임 폴더를 변경하기 전에 전체 패키지 해시와 필수 의존성을 검사합니다. 이 무한글패치 클린 설치 경로는 PowerShell·GUI 관리 엔진의 설치·제거 자동 검증을 통과했으며 VR 실기 검증은 아직 남아 있습니다.
 
 ## 설치
 

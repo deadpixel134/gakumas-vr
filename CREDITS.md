@@ -4,7 +4,7 @@
 
 Gakumas VR 자체 소스의 저작권은 기여자에게 있으며 [MIT License](LICENSE)로 배포됩니다. 아래 구성 요소에는 각 프로젝트의 라이선스가 별도로 적용됩니다.
 
-| 구성 요소 | 용도 | v0.163.0 배포 포함 | 라이선스·출처 |
+| 구성 요소 | 용도 | v0.164.0 배포 포함 | 라이선스·출처 |
 |---|---|---:|---|
 | Khronos OpenXR Loader 1.1.59 | OpenXR 런타임 로딩 | 예 | Apache-2.0 OR MIT 중 MIT 선택 · [공식 소스](https://github.com/KhronosGroup/OpenXR-SDK-Source/releases/tag/release-1.1.59) |
 | .NET Runtime 6.0.7 | Doorstop 런타임 | 예 | MIT · [.NET 6.0.7 라이선스](https://github.com/dotnet/runtime/blob/v6.0.7/LICENSE.TXT) · [외부 고지](https://github.com/dotnet/runtime/blob/v6.0.7/THIRD-PARTY-NOTICES.TXT) |

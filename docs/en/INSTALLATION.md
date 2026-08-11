@@ -9,9 +9,9 @@
 - Windows 11 x64
 - A working installation of the DMM edition of Gakuen Idolmaster
 - A PC VR setup with an OpenXR runtime
-- The Dobby runtime dependency included in the v0.163.0 release ZIP
+- The Dobby runtime dependency included in the v0.164.0 release ZIP
 
-> When Localify is present, the installer preserves its translations, fonts, textures, settings, and any existing `BepInEx/core/dobby.dll`. Without Localify, it installs only the required Dobby dependency and does not create Localify files. This clean installation path passes automated install/uninstall validation but has not yet been VR hardware-tested.
+> When Localify is present, the installer preserves its translations, fonts, textures, settings, and any existing `BepInEx/core/dobby.dll`. Without Localify, it installs only the required Dobby dependency and does not create Localify files. All package hashes and required dependencies are checked before the game directory is changed. This path passes automated PowerShell and GUI management-engine install/uninstall validation but has not yet been VR hardware-tested.
 
 ## Install
 

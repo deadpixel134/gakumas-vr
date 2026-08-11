@@ -1,7 +1,7 @@
 Gakumas VR third-party notices
 ================================
 
-This file identifies third-party software used by Gakumas VR v0.163.0.
+This file identifies third-party software used by Gakumas VR v0.164.0.
 "Bundled" means that the component is distributed in the release payload.
 The Gakumas VR project license does not replace any license listed here.
 
@@ -86,7 +86,7 @@ License text: https://github.com/BepInEx/BepInEx/blob/master/LICENSE
 
 The release staging source for Unity Doorstop and the .NET runtime is a
 BepInEx 6 be.785 distribution. BepInEx managed framework assemblies are not
-included in the Gakumas VR v0.163.0 release payload.
+included in the Gakumas VR v0.164.0 release payload.
 
 
 5. Dobby (runtime dependency; bundled)
@@ -95,7 +95,7 @@ Source: https://github.com/jmpews/Dobby
 License: Apache License 2.0
 License text: https://github.com/jmpews/Dobby/blob/master/LICENSE
 
-Gakumas VR v0.163.0 distributes BepInEx/core/dobby.dll for Unity and D3D11
+Gakumas VR v0.164.0 distributes BepInEx/core/dobby.dll for Unity and D3D11
 hooks. The binary is sourced without modification from the BepInEx 6 be.785
 distribution. The complete Apache-2.0 text is included at
 vrmod/licenses/Dobby-Apache-2.0.txt. If another installation already provides

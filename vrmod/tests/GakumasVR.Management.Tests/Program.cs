@@ -7,7 +7,9 @@ List<(string Name, Action Test)> tests = new()
     ("Install and uninstall preserve settings and prior collisions", InstallAndUninstall),
     ("Upgrade rollback restores the previous managed version", UpgradeRollback),
     ("Localify paths are rejected and existing files survive", LocalifyProtection),
-    ("Modified installed files are preserved with state", ModifiedFileProtection)
+    ("Modified installed files are preserved with state", ModifiedFileProtection),
+    ("Payload preflight rejects corruption before writing", PayloadPreflightProtection),
+    ("Product preflight requires clean-install dependencies", ProductDependencyProtection)
 };
 if (args.Length == 1)
 {
@@ -103,6 +105,44 @@ static void ModifiedFileProtection()
     True(File.Exists(Path.Combine(fixture.GameRoot, "vrmod/install-state.json")));
 }
 
+static void PayloadPreflightProtection()
+{
+    using Fixture fixture = new();
+    string package = fixture.CreatePackage("1.0.0", "runtime-one");
+    File.WriteAllText(Path.Combine(package, "payload/vrmod/runtime/mod.dll"), "corrupted-after-manifest");
+    InstallationEngine engine = new();
+    try
+    {
+        engine.Install(fixture.GameRoot, package);
+        throw new InvalidOperationException("Corrupted package was accepted.");
+    }
+    catch (InstallationException exception) when (exception.Code == "PackageHashMismatch")
+    {
+    }
+    False(File.Exists(Path.Combine(fixture.GameRoot, "winhttp.dll")));
+    False(File.Exists(Path.Combine(fixture.GameRoot, "vrmod/install-state.json")));
+}
+
+static void ProductDependencyProtection()
+{
+    using Fixture fixture = new();
+    string package = fixture.CreatePackage(
+        "1.0.0",
+        "runtime-one",
+        loader: "winhttp-doorstop");
+    InstallationEngine engine = new();
+    try
+    {
+        engine.Install(fixture.GameRoot, package);
+        throw new InvalidOperationException("Incomplete product package was accepted.");
+    }
+    catch (InstallationException exception) when (exception.Code == "PackageRequiredFileMissing")
+    {
+    }
+    False(File.Exists(Path.Combine(fixture.GameRoot, "winhttp.dll")));
+    False(File.Exists(Path.Combine(fixture.GameRoot, "vrmod/install-state.json")));
+}
+
 static void ActualDistributionPackage(string package)
 {
     using Fixture fixture = new();
@@ -110,7 +150,7 @@ static void ActualDistributionPackage(string package)
     fixture.WriteGameFile("gakumas-local/config.json", "{}");
     InstallationEngine engine = new();
     InstallationResult installed = engine.Install(fixture.GameRoot, package);
-    Equal("0.163.0", installed.Version);
+    Equal("0.164.0", installed.Version);
     Equal(LocalifyStatus.Installed, installed.Localify);
     Equal(localifyProxy, File.ReadAllText(Path.Combine(fixture.GameRoot, "version.dll")));
     True(File.Exists(Path.Combine(
@@ -194,7 +234,11 @@ internal sealed class Fixture : IDisposable
         return content;
     }
 
-    public string CreatePackage(string version, string runtime, bool includeProtectedPath = false)
+    public string CreatePackage(
+        string version,
+        string runtime,
+        bool includeProtectedPath = false,
+        string loader = "test")
     {
         string package = Path.Combine(_root, "packages", version + Guid.NewGuid().ToString("N"));
         string payload = Path.Combine(package, "payload");
@@ -217,7 +261,7 @@ internal sealed class Fixture : IDisposable
         {
             SchemaVersion = 1,
             Version = version,
-            Loader = "test",
+            Loader = loader,
             LocalifyPolicy = "preserve",
             Files = files
         };

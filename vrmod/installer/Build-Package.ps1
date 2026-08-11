@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.163.0',
+    [string]$Version = '0.164.0',
     [string]$OutputRoot
 )
 
@@ -39,9 +39,25 @@ function Copy-PayloadFile {
     [System.IO.File]::Copy($Source, $target, $true)
 }
 
+function Assert-FileHash {
+    param([string]$Path, [string]$Expected, [string]$Name)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "$Name 파일이 없습니다: $Path"
+    }
+    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
+    if ($actual -ne $Expected.ToUpperInvariant()) {
+        throw "$Name SHA-256 불일치: expected=$Expected actual=$actual"
+    }
+}
+
 $vendorRoot = Join-Path $vrmodRoot 'vendor\staging\bepinex-6.0.0-be.785'
+$dobbySource = Join-Path $vendorRoot 'BepInEx\core\dobby.dll'
+Assert-FileHash `
+    $dobbySource `
+    '8015DE7D867245A1095D13947A63763878E4CF5FD3D3089B63CC39200B055DED' `
+    'Dobby'
 Copy-PayloadFile (Join-Path $vendorRoot 'winhttp.dll') 'winhttp.dll'
-Copy-PayloadFile (Join-Path $vendorRoot 'BepInEx\core\dobby.dll') 'BepInEx\core\dobby.dll'
+Copy-PayloadFile $dobbySource 'BepInEx\core\dobby.dll'
 Copy-PayloadFile (Join-Path $repositoryRoot 'doorstop_config.ini') 'doorstop_config.ini'
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $vendorRoot 'dotnet') -File) {
     Copy-PayloadFile $file.FullName (Join-Path 'dotnet' $file.Name)
@@ -90,6 +106,7 @@ $manifest = [ordered]@{
     files = $files
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $packageRoot 'package-manifest.json') -Encoding utf8
+& (Join-Path $vrmodRoot 'tests\Test-DistributionPackage.ps1') -PackageRoot $packageRoot
 $archivePath = "$packageRoot.zip"
 if (Test-Path -LiteralPath $archivePath) {
     Remove-Item -LiteralPath $archivePath -Force

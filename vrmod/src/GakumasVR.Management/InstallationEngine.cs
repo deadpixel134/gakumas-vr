@@ -8,6 +8,30 @@ public sealed class InstallationEngine
 {
     private const int SupportedSchemaVersion = 1;
     private const string StateRelativePath = "vrmod/install-state.json";
+    private const string ProductLoader = "winhttp-doorstop";
+    private static readonly string[] RequiredProductFiles =
+    {
+        "winhttp.dll",
+        "doorstop_config.ini",
+        "dotnet/.version",
+        "dotnet/coreclr.dll",
+        "dotnet/hostpolicy.dll",
+        "dotnet/Microsoft.NETCore.App.deps.json",
+        "dotnet/Microsoft.NETCore.App.runtimeconfig.json",
+        "dotnet/System.Private.CoreLib.dll",
+        "dotnet/System.Runtime.dll",
+        "dotnet/mscorlib.dll",
+        "BepInEx/core/dobby.dll",
+        "vrmod/runtime/GakumasVR.RuntimeBootstrap.dll",
+        "vrmod/runtime/GakumasVR.RuntimeBootstrap.deps.json",
+        "vrmod/runtime/GakumasVR.Core.dll",
+        "vrmod/runtime/openxr_loader.dll",
+        "vrmod/config/settings.json",
+        "vrmod/tools/GakumasVR.Configurator.exe",
+        "vrmod/LICENSE.txt",
+        "vrmod/THIRD_PARTY_NOTICES.txt",
+        "vrmod/licenses/Dobby-Apache-2.0.txt"
+    };
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -98,6 +122,7 @@ public sealed class InstallationEngine
         {
             throw new InstallationException("PackagePayloadMissing", payload);
         }
+        ValidatePackagePayload(manifest, payload);
 
         LocalifyStatus localify = DetectLocalify(game);
         string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
@@ -345,6 +370,51 @@ public sealed class InstallationEngine
             throw new InstallationException("PackageManifestInvalid");
         }
         return manifest;
+    }
+
+    private static void ValidatePackagePayload(PackageManifest manifest, string payload)
+    {
+        Dictionary<string, PackageFile> files = new(StringComparer.OrdinalIgnoreCase);
+        foreach (PackageFile file in manifest.Files)
+        {
+            string normalized = file.Path.Replace('\\', '/');
+            if (string.IsNullOrWhiteSpace(normalized) || !files.TryAdd(normalized, file))
+            {
+                throw new InstallationException("PackageDuplicatePath", file.Path);
+            }
+
+            string source = ResolveContainedPath(payload, normalized);
+            if (!File.Exists(source))
+            {
+                throw new InstallationException("PackageFileMissing", normalized);
+            }
+            if (string.IsNullOrWhiteSpace(file.Sha256) ||
+                !string.Equals(FileSha256(source), file.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InstallationException("PackageHashMismatch", normalized);
+            }
+        }
+
+        if (!string.Equals(manifest.Loader, ProductLoader, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        foreach (string required in RequiredProductFiles)
+        {
+            if (!files.ContainsKey(required))
+            {
+                throw new InstallationException("PackageRequiredFileMissing", required);
+            }
+        }
+
+        PackageFile settings = files["vrmod/config/settings.json"];
+        PackageFile dobby = files["BepInEx/core/dobby.dll"];
+        if (!settings.PreserveExisting || !settings.PreserveOnUninstall ||
+            !dobby.PreserveExisting || dobby.PreserveOnUninstall)
+        {
+            throw new InstallationException("PackagePolicyInvalid");
+        }
     }
 
     private static InstallState ReadState(string path)

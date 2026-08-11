@@ -22,6 +22,65 @@ if ([int]$manifest.schemaVersion -ne 1) {
     throw "지원하지 않는 패키지 manifest 버전입니다: $($manifest.schemaVersion)"
 }
 
+$payloadRoot = Join-Path $package 'payload'
+if (-not (Test-Path -LiteralPath $payloadRoot -PathType Container)) {
+    throw "패키지 payload 폴더가 없습니다: $payloadRoot"
+}
+$filesByPath = [System.Collections.Generic.Dictionary[string, object]]::new(
+    [System.StringComparer]::OrdinalIgnoreCase)
+foreach ($file in $manifest.files) {
+    $relative = ([string]$file.path).Replace('\', '/')
+    if ([string]::IsNullOrWhiteSpace($relative) -or $filesByPath.ContainsKey($relative)) {
+        throw "패키지에 비어 있거나 중복된 경로가 있습니다: $relative"
+    }
+    $filesByPath.Add($relative, $file)
+    $source = Resolve-ContainedPath $payloadRoot $relative
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+        throw "패키지 파일이 없습니다: $relative"
+    }
+    if ((Get-FileSha256 $source) -ne ([string]$file.sha256).ToUpperInvariant()) {
+        throw "패키지 파일 해시가 manifest와 다릅니다: $relative"
+    }
+}
+
+if ([string]$manifest.loader -eq 'winhttp-doorstop') {
+    $requiredFiles = @(
+        'winhttp.dll',
+        'doorstop_config.ini',
+        'dotnet/.version',
+        'dotnet/coreclr.dll',
+        'dotnet/hostpolicy.dll',
+        'dotnet/Microsoft.NETCore.App.deps.json',
+        'dotnet/Microsoft.NETCore.App.runtimeconfig.json',
+        'dotnet/System.Private.CoreLib.dll',
+        'dotnet/System.Runtime.dll',
+        'dotnet/mscorlib.dll',
+        'BepInEx/core/dobby.dll',
+        'vrmod/runtime/GakumasVR.RuntimeBootstrap.dll',
+        'vrmod/runtime/GakumasVR.RuntimeBootstrap.deps.json',
+        'vrmod/runtime/GakumasVR.Core.dll',
+        'vrmod/runtime/openxr_loader.dll',
+        'vrmod/config/settings.json',
+        'vrmod/tools/GakumasVR.Configurator.exe',
+        'vrmod/LICENSE.txt',
+        'vrmod/THIRD_PARTY_NOTICES.txt',
+        'vrmod/licenses/Dobby-Apache-2.0.txt'
+    )
+    foreach ($required in $requiredFiles) {
+        if (-not $filesByPath.ContainsKey($required)) {
+            throw "클린 설치 필수 파일이 패키지에 없습니다: $required"
+        }
+    }
+    $settingsPolicy = $filesByPath['vrmod/config/settings.json']
+    $dobbyPolicy = $filesByPath['BepInEx/core/dobby.dll']
+    if (-not [bool]$settingsPolicy.preserveExisting -or
+        -not [bool]$settingsPolicy.preserveOnUninstall -or
+        -not [bool]$dobbyPolicy.preserveExisting -or
+        [bool]$dobbyPolicy.preserveOnUninstall) {
+        throw '패키지의 설정 또는 Dobby 보존 정책이 올바르지 않습니다.'
+    }
+}
+
 $localifyStatus = Get-LocalifyStatus $game
 switch ($localifyStatus) {
     'Installed' { Write-Host '한글패치 감지: version.dll과 gakumas-local을 보존한 채 VR을 설치합니다.' }
