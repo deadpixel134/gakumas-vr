@@ -17,6 +17,8 @@ var tests = new (string Name, Action Run)[]
     ("Grip toggle supports configured initial state", GripToggleSupportsInitialState),
     ("Analog click latches before the press threshold", AnalogClickLatchesBeforePress),
     ("Analog click cancels shallow presses", AnalogClickCancelsShallowPress),
+    ("Stereo startup waits for frames and Present", StereoStartupWaitsForFramesAndPresent),
+    ("Stereo startup reset requires a fresh generation", StereoStartupResetRequiresFreshGeneration),
     ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
     ("VR settings allow 2x eye render scale", VrSettingsAllowTwoTimesEyeRenderScale),
     ("VR settings preserve manual VFX controls", VrSettingsPreserveManualVfxControls),
@@ -112,6 +114,30 @@ static void AnalogClickCancelsShallowPress()
     Equal(AnalogPressTransition.Armed, latch.Update(true, 0.20f));
     False(latch.Cancel());
     False(latch.IsArmed);
+}
+
+static void StereoStartupWaitsForFramesAndPresent()
+{
+    var gate = new StereoStartupGate(requiredStableFrames: 2);
+    gate.Arm(frameCount: 100, presentSerial: 50);
+
+    False(gate.IsReady(frameCount: 101, presentSerial: 51));
+    False(gate.IsReady(frameCount: 102, presentSerial: 50));
+    True(gate.IsReady(frameCount: 102, presentSerial: 51));
+}
+
+static void StereoStartupResetRequiresFreshGeneration()
+{
+    var gate = new StereoStartupGate(requiredStableFrames: 2);
+    gate.Arm(frameCount: 100, presentSerial: 50);
+    True(gate.IsReady(frameCount: 102, presentSerial: 51));
+
+    gate.Reset();
+    False(gate.IsReady(frameCount: 200, presentSerial: 100));
+
+    gate.Arm(frameCount: 200, presentSerial: 100);
+    False(gate.IsReady(frameCount: 201, presentSerial: 101));
+    True(gate.IsReady(frameCount: 202, presentSerial: 101));
 }
 
 static void VrSettingsPreserveApprovedDefaults()

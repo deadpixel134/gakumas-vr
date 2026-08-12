@@ -13,6 +13,7 @@ internal sealed class MainThreadSampler
     private const bool EnableStereoCloneSetup = true;
     private const bool EnableStereoOneShotRender = true;
     private const int StereoContinuousIntervalMilliseconds = 33;
+    private const int StereoStartupStableFrames = 2;
     private const int StereoFrozenDiagnosticDurationMilliseconds = 30_000;
     private const int NaturalUiVisibilitySettleMilliseconds = 500;
     private const int M5TopologyPollMilliseconds = 1_000;
@@ -37,6 +38,8 @@ internal sealed class MainThreadSampler
         requiredStableFrames: 5,
         timeoutMilliseconds: 2_000);
     private readonly SceneClassifier _sceneClassifier = new(requiredStableFrames: 5);
+    private readonly StereoStartupGate _stereoStartupGate = new(
+        requiredStableFrames: StereoStartupStableFrames);
     private FrameCountDelegate? _original;
     private IntPtr _dobbyLibrary;
     private long _lastSampleMilliseconds;
@@ -220,7 +223,6 @@ internal sealed class MainThreadSampler
     private int? _stereoSourceRenderType;
     private int? _stereoCloneRenderType;
     private int? _stereoSourceAntialiasing;
-    private long _stereoCloneSetupMilliseconds;
     private long _stereoContinuousStartMilliseconds;
     private long _nextStereoRenderMilliseconds;
     private int _stereoContinuousFrameCount;
@@ -1012,7 +1014,9 @@ internal sealed class MainThreadSampler
         }
 
         long pumpNow = Environment.TickCount64;
-        if (pumpNow - _stereoCloneSetupMilliseconds < 3_000)
+        if (!_stereoStartupGate.IsReady(
+                _lastStereoPumpFrameCount,
+                D3D11DeviceCapture.PresentSerial))
         {
             return;
         }
@@ -1159,7 +1163,7 @@ internal sealed class MainThreadSampler
             _stereoSourceRenderType = null;
             _stereoCloneRenderType = null;
             _stereoSourceAntialiasing = null;
-            _stereoCloneSetupMilliseconds = 0;
+            _stereoStartupGate.Reset();
             _stereoContinuousStartMilliseconds = 0;
             _nextStereoRenderMilliseconds = 0;
             _stereoContinuousFrameCount = 0;
@@ -2187,10 +2191,12 @@ internal sealed class MainThreadSampler
                 StereoSourceAntialiasing = _stereoSourceAntialiasing,
                 StereoCloneAntialiasing = _stereoSourceAntialiasing,
                 OpenXrStereoViewStateFlags = stereo.ViewStateFlags,
-                Reason = "A fresh scene-bound stereo generation is ready; clone depth is explicit and the configured clone-only visual effect mode is ready or has safely fallen back to all post-processing off."
+                Reason = $"A fresh scene-bound stereo generation is ready; clone depth is explicit and the configured clone-only visual effect mode is ready or has safely fallen back to all post-processing off. Startup waits for {StereoStartupStableFrames} Unity frames and the next Present boundary instead of a fixed warm-up delay."
             });
             _stereoCloneSetupReady = true;
-            _stereoCloneSetupMilliseconds = Environment.TickCount64;
+            _stereoStartupGate.Arm(
+                _lastStereoPumpFrameCount,
+                D3D11DeviceCapture.PresentSerial);
         }
         catch (Exception exception)
         {

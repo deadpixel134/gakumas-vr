@@ -150,7 +150,7 @@ static void ActualDistributionPackage(string package)
     fixture.WriteGameFile("gakumas-local/config.json", "{}");
     InstallationEngine engine = new();
     InstallationResult installed = engine.Install(fixture.GameRoot, package);
-    Equal("0.164.0", installed.Version);
+    Equal("0.165.0", installed.Version);
     Equal(LocalifyStatus.Installed, installed.Localify);
     Equal(localifyProxy, File.ReadAllText(Path.Combine(fixture.GameRoot, "version.dll")));
     True(File.Exists(Path.Combine(
