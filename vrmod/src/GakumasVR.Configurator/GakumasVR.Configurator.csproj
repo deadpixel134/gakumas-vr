@@ -8,9 +8,10 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NuGetAudit>false</NuGetAudit>
     <AssemblyName>GakumasVR.Configurator</AssemblyName>
-    <Version>0.165.0</Version>
+    <Version>0.166.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\GakumasVR.Core\GakumasVR.Core.csproj" />
+    <ProjectReference Include="..\GakumasVR.Management\GakumasVR.Management.csproj" />
   </ItemGroup>
 </Project>

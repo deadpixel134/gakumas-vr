@@ -14,6 +14,7 @@ internal sealed class MainThreadSampler
     private const bool EnableStereoOneShotRender = true;
     private const int StereoContinuousIntervalMilliseconds = 33;
     private const int StereoStartupStableFrames = 2;
+    private const int StereoBlackFrameRetryMilliseconds = 100;
     private const int StereoFrozenDiagnosticDurationMilliseconds = 30_000;
     private const int NaturalUiVisibilitySettleMilliseconds = 500;
     private const int M5TopologyPollMilliseconds = 1_000;
@@ -40,6 +41,9 @@ internal sealed class MainThreadSampler
     private readonly SceneClassifier _sceneClassifier = new(requiredStableFrames: 5);
     private readonly StereoStartupGate _stereoStartupGate = new(
         requiredStableFrames: StereoStartupStableFrames);
+    private readonly StereoBlackFrameRetryPolicy _stereoBlackFrameRetry = new(
+        maximumAttempts: 20,
+        timeoutMilliseconds: 2_000);
     private FrameCountDelegate? _original;
     private IntPtr _dobbyLibrary;
     private long _lastSampleMilliseconds;
@@ -688,7 +692,7 @@ internal sealed class MainThreadSampler
             width > height &&
             _lastLiveCamera != IntPtr.Zero;
         bool nonLiveStereoEligible =
-            !IsLiveScene(scene) &&
+            IsApprovedNonLive3DScene(scene) &&
             _m6NonLiveWorldSurfaceEligible &&
             _lastLiveCamera != IntPtr.Zero;
         bool stereoPumpEligible = liveStereoEligible || nonLiveStereoEligible;
@@ -1164,6 +1168,7 @@ internal sealed class MainThreadSampler
             _stereoCloneRenderType = null;
             _stereoSourceAntialiasing = null;
             _stereoStartupGate.Reset();
+            _stereoBlackFrameRetry.Reset();
             _stereoContinuousStartMilliseconds = 0;
             _nextStereoRenderMilliseconds = 0;
             _stereoContinuousFrameCount = 0;
@@ -1429,6 +1434,10 @@ internal sealed class MainThreadSampler
     private static bool IsCommuScene(string scene) =>
         scene.StartsWith("env_3d_adv_", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsApprovedNonLive3DScene(string scene) =>
+        scene.StartsWith("env_3d_home_", StringComparison.OrdinalIgnoreCase) ||
+        IsCommuScene(scene);
+
     private static bool IsPanelScene(string scene) =>
         scene.Equals("Splash", StringComparison.OrdinalIgnoreCase) ||
         scene.Equals("Title", StringComparison.OrdinalIgnoreCase) ||
@@ -1460,8 +1469,9 @@ internal sealed class MainThreadSampler
             return;
         }
 
+        bool concreteScene = IsApprovedNonLive3DScene(scene);
         bool candidateValid =
-            orientationStable &&
+            (orientationStable || concreteScene) &&
             _m6WorldCandidateCamera != IntPtr.Zero &&
             _m6WorldCandidateTargetTexture != IntPtr.Zero &&
             _m6WorldCandidateTargetWidth > 0 &&
@@ -1471,7 +1481,7 @@ internal sealed class MainThreadSampler
                 screenHeight,
                 _m6WorldCandidateTargetWidth,
                 _m6WorldCandidateTargetHeight);
-        if (!candidateValid || worldSurfaceRawImage == IntPtr.Zero)
+        if (!candidateValid || (!concreteScene && worldSurfaceRawImage == IntPtr.Zero))
         {
             _m6NonLiveWorldSurfaceEligible = false;
             _m6WorldSurfaceRawImage = IntPtr.Zero;
@@ -1487,7 +1497,9 @@ internal sealed class MainThreadSampler
 
         _lastLiveCamera = _m6WorldCandidateCamera;
         _m6WorldSurfaceRawImage = worldSurfaceRawImage;
-        _m6WorldSurfacePath = worldSurfacePath;
+        _m6WorldSurfacePath = worldSurfaceRawImage != IntPtr.Zero
+            ? worldSurfacePath
+            : $"camera-only:{scene}";
         _m6NonLiveWorldSurfaceEligible = PublishWorldSourceTexture(
             coreImage,
             _m6WorldCandidateTargetTexture,
@@ -2579,22 +2591,36 @@ internal sealed class MainThreadSampler
         _stereoNaturalRenderArmTimestamp = 0;
         if (!leftVisible || !rightVisible)
         {
-            _stereoContinuousFailed = true;
-            _stereoDiagnosticSaved = true;
+            long blackNow = Environment.TickCount64;
+            StereoBlackFrameDecision decision =
+                _stereoBlackFrameRetry.ObserveBlack(blackNow);
+            bool timedOut = decision == StereoBlackFrameDecision.TimedOut;
+            _stereoContinuousFailed = timedOut;
+            _stereoDiagnosticSaved = timedOut;
+            if (!timedOut)
+            {
+                _nextStereoRenderMilliseconds =
+                    blackNow + StereoBlackFrameRetryMilliseconds;
+            }
             RuntimeProbe.Append(_logPath, new ProbeEvent
             {
                 TimestampUtc = now,
-                Event = "stereo-natural-output-rejected-black",
+                Event = timedOut
+                    ? "stereo-natural-output-black-timeout"
+                    : "stereo-natural-output-black-retry",
                 BootstrapVersion = RuntimeProbe.BootstrapVersion,
                 ProcessId = Environment.ProcessId,
                 Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
                 StereoRenderSubmitted = true,
                 StereoFrameCount = _stereoContinuousFrameCount,
-                Reason = $"Natural render output was rejected: leftVisible={leftVisible};rightVisible={rightVisible}."
+                Reason = timedOut
+                    ? $"Natural render output remained black for {_stereoBlackFrameRetry.AttemptCount} attempts; the front panel remains active until a new source generation is detected. leftVisible={leftVisible};rightVisible={rightVisible}."
+                    : $"Natural render output is still black; the front panel remains active and stereo will retry in {StereoBlackFrameRetryMilliseconds} ms. attempt={_stereoBlackFrameRetry.AttemptCount};leftVisible={leftVisible};rightVisible={rightVisible}."
             });
             return;
         }
 
+        _stereoBlackFrameRetry.Reset();
         bool firstValidatedPair = !_stereoOutputValidated;
         _stereoOutputValidated = true;
         UnityRenderSourceRegistry.UpdateStereoTextures(

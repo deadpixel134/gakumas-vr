@@ -9,7 +9,8 @@ List<(string Name, Action Test)> tests = new()
     ("Localify paths are rejected and existing files survive", LocalifyProtection),
     ("Modified installed files are preserved with state", ModifiedFileProtection),
     ("Payload preflight rejects corruption before writing", PayloadPreflightProtection),
-    ("Product preflight requires clean-install dependencies", ProductDependencyProtection)
+    ("Product preflight requires clean-install dependencies", ProductDependencyProtection),
+    ("Release update version and checksum policy", ReleaseUpdateVersionAndChecksumPolicy)
 };
 if (args.Length == 1)
 {
@@ -34,6 +35,23 @@ foreach ((string name, Action test) in tests)
 }
 Console.WriteLine($"Executed {tests.Count} management tests; failures: {failures}");
 return failures == 0 ? 0 : 1;
+
+static void ReleaseUpdateVersionAndChecksumPolicy()
+{
+    True(ReleaseUpdatePolicy.IsNewer("0.165.0", "v0.166.0"));
+    False(ReleaseUpdatePolicy.IsNewer("0.166.0.0", "v0.166.0"));
+    False(ReleaseUpdatePolicy.IsNewer("0.167.0", "v0.166.0"));
+    Equal(
+        new string('A', 64),
+        ReleaseUpdatePolicy.ParseSha256(
+            $"{new string('a', 64)}  GakumasVR-v0.166.0.zip",
+            "GakumasVR-v0.166.0.zip"));
+    Equal(
+        new string('B', 64),
+        ReleaseUpdatePolicy.ParseSha256(
+            $"sha256:{new string('b', 64)}",
+            "GakumasVR-v0.166.0.zip"));
+}
 
 static void InstallAndUninstall()
 {
@@ -150,7 +168,7 @@ static void ActualDistributionPackage(string package)
     fixture.WriteGameFile("gakumas-local/config.json", "{}");
     InstallationEngine engine = new();
     InstallationResult installed = engine.Install(fixture.GameRoot, package);
-    Equal("0.165.0", installed.Version);
+    Equal("0.166.0", installed.Version);
     Equal(LocalifyStatus.Installed, installed.Localify);
     Equal(localifyProxy, File.ReadAllText(Path.Combine(fixture.GameRoot, "version.dll")));
     True(File.Exists(Path.Combine(

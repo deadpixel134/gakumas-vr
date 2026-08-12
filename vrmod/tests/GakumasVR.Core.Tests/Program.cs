@@ -19,6 +19,8 @@ var tests = new (string Name, Action Run)[]
     ("Analog click cancels shallow presses", AnalogClickCancelsShallowPress),
     ("Stereo startup waits for frames and Present", StereoStartupWaitsForFramesAndPresent),
     ("Stereo startup reset requires a fresh generation", StereoStartupResetRequiresFreshGeneration),
+    ("Black stereo frames retry before timeout", BlackStereoFramesRetryBeforeTimeout),
+    ("Black stereo frame policy resets per generation", BlackStereoFramePolicyResetsPerGeneration),
     ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
     ("VR settings allow 2x eye render scale", VrSettingsAllowTwoTimesEyeRenderScale),
     ("VR settings preserve manual VFX controls", VrSettingsPreserveManualVfxControls),
@@ -138,6 +140,29 @@ static void StereoStartupResetRequiresFreshGeneration()
     gate.Arm(frameCount: 200, presentSerial: 100);
     False(gate.IsReady(frameCount: 201, presentSerial: 101));
     True(gate.IsReady(frameCount: 202, presentSerial: 101));
+}
+
+static void BlackStereoFramesRetryBeforeTimeout()
+{
+    var policy = new StereoBlackFrameRetryPolicy(
+        maximumAttempts: 3,
+        timeoutMilliseconds: 1_000);
+    Equal(StereoBlackFrameDecision.Retry, policy.ObserveBlack(100));
+    Equal(StereoBlackFrameDecision.Retry, policy.ObserveBlack(200));
+    Equal(StereoBlackFrameDecision.TimedOut, policy.ObserveBlack(300));
+    Equal(3, policy.AttemptCount);
+}
+
+static void BlackStereoFramePolicyResetsPerGeneration()
+{
+    var policy = new StereoBlackFrameRetryPolicy(
+        maximumAttempts: 3,
+        timeoutMilliseconds: 100);
+    Equal(StereoBlackFrameDecision.Retry, policy.ObserveBlack(1_000));
+    Equal(StereoBlackFrameDecision.TimedOut, policy.ObserveBlack(1_101));
+    policy.Reset();
+    Equal(0, policy.AttemptCount);
+    Equal(StereoBlackFrameDecision.Retry, policy.ObserveBlack(2_000));
 }
 
 static void VrSettingsPreserveApprovedDefaults()

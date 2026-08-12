@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.165.0',
+    [string]$Version = '0.166.0',
     [string]$OutputRoot
 )
 
@@ -116,5 +116,11 @@ if (Test-Path -LiteralPath $archivePath) {
     $archivePath,
     [System.IO.Compression.CompressionLevel]::Optimal,
     $false)
+$archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToUpperInvariant()
+Set-Content `
+    -LiteralPath "$archivePath.sha256" `
+    -Value "$archiveHash  $([System.IO.Path]::GetFileName($archivePath))" `
+    -Encoding ascii
 Write-Host "패키지 생성 완료: $packageRoot"
 Write-Host "배포 ZIP 생성 완료: $archivePath"
+Write-Host "SHA-256 파일 생성 완료: $archivePath.sha256"

@@ -1,9 +1,12 @@
+using System.Diagnostics;
 using GakumasVR.Core;
 
 namespace GakumasVR.Configurator;
 
 internal sealed class MainForm : Form
 {
+    private readonly StartupResult _startup;
+    private readonly UpdateService _updateService = new();
     private readonly TextBox _gameRoot = new() { Dock = DockStyle.Fill };
     private readonly CheckBox _runtimeEnabled = TaggedCheckBox("RuntimeEnabled");
     private readonly NumericUpDown _eyeScale = Number(0.50m, 2.00m, 0.01m, 3);
@@ -44,12 +47,15 @@ internal sealed class MainForm : Form
     private readonly NumericUpDown _scrollSensitivity = Number(0.10m, 5.00m, 0.10m, 2);
     private readonly CheckBox _requireFocus = TaggedCheckBox("RequireFocus");
     private readonly ToolStripStatusLabel _status = new();
+    private readonly Button _checkUpdates;
     private readonly TabPage _renderTab = new() { Tag = "TabRender" };
     private readonly TabPage _panelTab = new() { Tag = "TabPanel" };
     private readonly TabPage _inputTab = new() { Tag = "TabInput" };
 
-    public MainForm()
+    public MainForm(StartupResult startup)
     {
+        _startup = startup;
+        _checkUpdates = TaggedButton("CheckUpdates", CheckUpdates);
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(840, 740);
         ClientSize = new Size(980, 840);
@@ -123,6 +129,7 @@ internal sealed class MainForm : Form
         }));
         actions.Controls.Add(TaggedButton("Export", Export));
         actions.Controls.Add(TaggedButton("Import", Import));
+        actions.Controls.Add(_checkUpdates);
         footer.Controls.Add(actions, 1, 0);
         root.Controls.Add(footer, 0, 2);
 
@@ -137,6 +144,8 @@ internal sealed class MainForm : Form
         _manualVlBloom.CheckedChanged += (_, _) => UpdateManualVfxControls();
         ApplyLanguage(languageChanged: false);
         Load += (_, _) => Run("StatusLoaded", LoadSettings);
+        Shown += async (_, _) => await OnShownAsync();
+        FormClosed += (_, _) => _updateService.Dispose();
     }
 
     private void BuildRenderTab()
@@ -275,6 +284,116 @@ internal sealed class MainForm : Form
         {
             Run("StatusExported", () => SettingsStore.Export(dialog.FileName, Read()));
         }
+    }
+
+    private async Task OnShownAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_startup.UpdateError))
+        {
+            _status.Text = UiText.Format("UpdateFailed", _startup.UpdateError);
+            MessageBox.Show(
+                this,
+                _status.Text,
+                UiText.Get("AppTitle"),
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(_startup.UpdatedVersion))
+        {
+            _status.Text = UiText.Format("UpdateCompleted", _startup.UpdatedVersion);
+            return;
+        }
+        await CheckForUpdatesAsync(manual: false);
+    }
+
+    private async void CheckUpdates(object? sender, EventArgs args) =>
+        await CheckForUpdatesAsync(manual: true);
+
+    private async Task CheckForUpdatesAsync(bool manual)
+    {
+        if (!_checkUpdates.Enabled)
+        {
+            return;
+        }
+
+        _checkUpdates.Enabled = false;
+        try
+        {
+            _status.Text = UiText.Get("UpdateChecking");
+            AvailableUpdate? update = await _updateService.CheckAsync(CancellationToken.None);
+            if (update is null)
+            {
+                _status.Text = UiText.Format("UpdateCurrent", UpdateService.CurrentVersion);
+                return;
+            }
+
+            if (UpdateService.IsGameRunning())
+            {
+                _status.Text = UiText.Format("UpdateDeferredGameRunning", update.Version);
+                if (manual)
+                {
+                    MessageBox.Show(
+                        this,
+                        _status.Text,
+                        UiText.Get("AppTitle"),
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                return;
+            }
+
+            _status.Text = UiText.Format("UpdateAvailable", update.Version);
+            Progress<string> progress = new(message => _status.Text = message);
+            StagedUpdate staged = await _updateService.StageAsync(
+                update,
+                _gameRoot.Text,
+                progress,
+                CancellationToken.None);
+            _status.Text = UiText.Format("UpdateInstalling", update.Version);
+            LaunchAutomaticUpdater(staged);
+        }
+        catch (Exception exception)
+        {
+            _status.Text = UiText.Format("UpdateFailed", exception.Message);
+            if (manual)
+            {
+                MessageBox.Show(
+                    this,
+                    _status.Text,
+                    UiText.Get("AppTitle"),
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+        finally
+        {
+            if (!IsDisposed)
+            {
+                _checkUpdates.Enabled = true;
+            }
+        }
+    }
+
+    private void LaunchAutomaticUpdater(StagedUpdate update)
+    {
+        ProcessStartInfo start = new(update.InstallerPath)
+        {
+            UseShellExecute = true,
+            WorkingDirectory = update.PackageRoot
+        };
+        start.ArgumentList.Add("--auto-update");
+        start.ArgumentList.Add("--game-root");
+        start.ArgumentList.Add(Path.GetFullPath(_gameRoot.Text));
+        start.ArgumentList.Add("--package-root");
+        start.ArgumentList.Add(update.PackageRoot);
+        start.ArgumentList.Add("--cleanup-update");
+        start.ArgumentList.Add(update.StagingRoot);
+        start.ArgumentList.Add("--wait-pid");
+        start.ArgumentList.Add(Environment.ProcessId.ToString());
+        _ = Process.Start(start) ?? throw new InvalidOperationException(
+            UiText.Get("UpdateLauncherFailed"));
+        BeginInvoke(Close);
     }
 
     private VrSettings Read() => new()

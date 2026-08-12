@@ -5,6 +5,11 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (AutoUpdateRunner.IsRequested(args))
+        {
+            Environment.ExitCode = AutoUpdateRunner.Run(args);
+            return;
+        }
         InstallerText.Initialize();
         if (args.Contains("--verify-localization", StringComparer.OrdinalIgnoreCase))
         {
