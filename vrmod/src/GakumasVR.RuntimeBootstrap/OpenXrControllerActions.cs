@@ -339,7 +339,7 @@ internal sealed class OpenXrControllerActions : IDisposable
             rightAimSpace = IntPtr.Zero;
             Log(
                 "openxr-controller-actions-ready",
-                $"Quest Touch actions are attached;panelHand={settings.Panel.PanelHand};pointerHand={settings.Panel.PointerHand};toggle={settings.Panel.ToggleBinding};startEnabled={settings.Panel.StartEnabled};locomotionHand={settings.Tracking.LocomotionHand};viewTurnHand={OppositeHand(settings.Tracking.LocomotionHand)}.");
+                $"Quest Touch actions are attached;panelHand={settings.Panel.PanelHand};pointerHand={settings.Panel.PointerHand};toggle={settings.Panel.ToggleBinding};startEnabled={settings.Panel.StartEnabled};locomotionHand={settings.Tracking.LocomotionHand};viewTurnHand={OppositeHand(settings.Tracking.LocomotionHand)};viewTurnMode={settings.Tracking.ViewTurnMode};viewSnapAngle={settings.Tracking.ViewSnapAngleDegrees}.");
             return result;
         }
         catch (Exception exception)

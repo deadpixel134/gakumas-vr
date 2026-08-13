@@ -79,6 +79,13 @@ internal static class UiText
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     });
 
+    public static string Choice(VrViewTurnMode value) => Get(value switch
+    {
+        VrViewTurnMode.Smooth => "ChoiceViewTurnSmooth",
+        VrViewTurnMode.Snap => "ChoiceViewTurnSnap",
+        _ => throw new ArgumentOutOfRangeException(nameof(value))
+    });
+
     public static string VisualEffect(string value) => Get(value switch
     {
         VrVisualEffectModes.Approved => "ChoiceVfxApproved",
@@ -205,7 +212,9 @@ internal static class UiText
         ["LocomotionEnabled"] = "3D 이동 및 시야 회전 사용",
         ["LocomotionHand"] = "이동 손 (반대 손은 시야 회전)",
         ["LocomotionSpeed"] = "이동 속도 (m/s)",
+        ["ViewTurnMode"] = "시야 회전 방식",
         ["ViewTurnSpeed"] = "시야 회전 속도 (도/s)",
+        ["ViewSnapAngle"] = "스냅 회전 각도",
         ["InputSafety"] = "입력 안전",
         ["RequireFocus"] = "게임이 활성 창일 때만 입력",
         ["Save"] = "저장",
@@ -246,6 +255,8 @@ internal static class UiText
         ["ChoiceGrip"] = "그립",
         ["ChoicePrimaryFace"] = "주 표면 버튼 (A/X)",
         ["ChoiceSecondaryFace"] = "보조 표면 버튼 (B/Y)",
+        ["ChoiceViewTurnSmooth"] = "부드러운 연속 회전",
+        ["ChoiceViewTurnSnap"] = "스냅 회전",
         ["ChoiceVfxApproved"] = "권장 VFX",
         ["ChoiceVfxAllOn"] = "모든 VFX 켜기",
         ["ChoiceVfxAllOff"] = "모든 VFX 끄기",
@@ -306,7 +317,9 @@ internal static class UiText
         ["LocomotionEnabled"] = "Enable 3D movement and view rotation",
         ["LocomotionHand"] = "Movement hand (other hand turns view)",
         ["LocomotionSpeed"] = "Movement speed (m/s)",
+        ["ViewTurnMode"] = "View turn mode",
         ["ViewTurnSpeed"] = "View turn speed (deg/s)",
+        ["ViewSnapAngle"] = "Snap turn angle",
         ["InputSafety"] = "Input safety",
         ["RequireFocus"] = "Inject input only while the game is focused",
         ["Save"] = "Save",
@@ -347,6 +360,8 @@ internal static class UiText
         ["ChoiceGrip"] = "Grip",
         ["ChoicePrimaryFace"] = "Primary face button (A/X)",
         ["ChoiceSecondaryFace"] = "Secondary face button (B/Y)",
+        ["ChoiceViewTurnSmooth"] = "Smooth continuous turn",
+        ["ChoiceViewTurnSnap"] = "Snap turn",
         ["ChoiceVfxApproved"] = "Recommended VFX",
         ["ChoiceVfxAllOn"] = "All VFX on",
         ["ChoiceVfxAllOff"] = "All VFX off",
@@ -407,7 +422,9 @@ internal static class UiText
         ["LocomotionEnabled"] = "3D移動と視点回転を使用",
         ["LocomotionHand"] = "移動側（反対側は視点回転）",
         ["LocomotionSpeed"] = "移動速度 (m/s)",
+        ["ViewTurnMode"] = "視点回転方式",
         ["ViewTurnSpeed"] = "視点回転速度 (度/s)",
+        ["ViewSnapAngle"] = "スナップ回転角度",
         ["InputSafety"] = "入力の安全設定",
         ["RequireFocus"] = "ゲームがアクティブな時のみ入力",
         ["Save"] = "保存",
@@ -448,6 +465,8 @@ internal static class UiText
         ["ChoiceGrip"] = "グリップ",
         ["ChoicePrimaryFace"] = "メインフェイスボタン (A/X)",
         ["ChoiceSecondaryFace"] = "サブフェイスボタン (B/Y)",
+        ["ChoiceViewTurnSmooth"] = "スムーズ連続回転",
+        ["ChoiceViewTurnSnap"] = "スナップ回転",
         ["ChoiceVfxApproved"] = "推奨VFX",
         ["ChoiceVfxAllOn"] = "すべてのVFXをオン",
         ["ChoiceVfxAllOff"] = "すべてのVFXをオフ",

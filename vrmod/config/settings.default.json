@@ -23,7 +23,9 @@
     "locomotionEnabled": true,
     "locomotionHand": "right",
     "locomotionSpeed": 1.5,
-    "viewTurnSpeed": 90.0
+    "viewTurnMode": "snap",
+    "viewTurnSpeed": 90.0,
+    "viewSnapAngleDegrees": 15
   },
   "panel": {
     "panelHand": "left",

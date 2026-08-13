@@ -30,6 +30,8 @@ var tests = new (string Name, Action Run)[]
     ("Locomotion applies radial deadzone and frame clamp", LocomotionAppliesDeadzoneAndFrameClamp),
     ("Locomotion reset clears the scene offset", LocomotionResetClearsSceneOffset),
     ("View turn changes movement direction", ViewTurnChangesMovementDirection),
+    ("View turn keeps world yaw and pitch cardinal", ViewTurnKeepsWorldAxesCardinal),
+    ("Snap turn advances once per stick deflection", SnapTurnAdvancesOncePerDeflection),
     ("View turn reset clears artificial rotation", ViewTurnResetClearsRotation),
     ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
     ("VR settings allow 2x eye render scale", VrSettingsAllowTwoTimesEyeRenderScale),
@@ -329,7 +331,14 @@ static void ViewTurnChangesMovementDirection()
     var turn = new VrViewTurnIntegrator();
     for (int index = 0; index < 5; index++)
     {
-        True(turn.Update(1f, 0f, 0.10f, 180f, 0f));
+        True(turn.Update(
+            1f,
+            0f,
+            0.10f,
+            VrViewTurnMode.Smooth,
+            180f,
+            15,
+            0f));
     }
     var locomotion = new VrLocomotionIntegrator();
     True(locomotion.Update(0f, 1f, turn.Rotation, 0.10f, 2f));
@@ -337,10 +346,64 @@ static void ViewTurnChangesMovementDirection()
     Near(0f, locomotion.Offset.Z);
 }
 
+static void ViewTurnKeepsWorldAxesCardinal()
+{
+    var turn = new VrViewTurnIntegrator();
+    True(turn.Update(
+        0f,
+        1f,
+        0.10f,
+        VrViewTurnMode.Smooth,
+        300f,
+        15,
+        0f));
+    // The small off-axis Y component must not add pitch during a yaw input.
+    True(turn.Update(
+        1f,
+        0.30f,
+        0.10f,
+        VrViewTurnMode.Smooth,
+        900f,
+        15,
+        0f));
+
+    var locomotion = new VrLocomotionIntegrator();
+    True(locomotion.Update(0f, 1f, turn.Rotation, 0.10f, 2f));
+    Near(0.20f * MathF.Cos(MathF.PI / 6f), locomotion.Offset.X);
+    Near(0.10f, locomotion.Offset.Y);
+    Near(0f, locomotion.Offset.Z);
+}
+
+static void SnapTurnAdvancesOncePerDeflection()
+{
+    var turn = new VrViewTurnIntegrator();
+    True(turn.Update(1f, 0f, 0.10f, VrViewTurnMode.Snap, 90f, 15));
+    True(turn.Update(1f, 0f, 0.10f, VrViewTurnMode.Snap, 90f, 15));
+
+    var first = new VrLocomotionIntegrator();
+    True(first.Update(0f, 1f, turn.Rotation, 0.10f, 2f));
+    Near(0.20f * MathF.Sin(MathF.PI / 12f), first.Offset.X);
+    Near(0.20f * MathF.Cos(MathF.PI / 12f), first.Offset.Z);
+
+    True(turn.Update(0f, 0f, 0.10f, VrViewTurnMode.Snap, 90f, 15));
+    True(turn.Update(1f, 0f, 0.10f, VrViewTurnMode.Snap, 90f, 15));
+    var second = new VrLocomotionIntegrator();
+    True(second.Update(0f, 1f, turn.Rotation, 0.10f, 2f));
+    Near(0.10f, second.Offset.X);
+    Near(0.20f * MathF.Cos(MathF.PI / 6f), second.Offset.Z);
+}
+
 static void ViewTurnResetClearsRotation()
 {
     var turn = new VrViewTurnIntegrator();
-    True(turn.Update(1f, 1f, 0.10f, 90f, 0f));
+    True(turn.Update(
+        1f,
+        1f,
+        0.10f,
+        VrViewTurnMode.Smooth,
+        90f,
+        15,
+        0f));
     turn.Reset();
     Near(0f, turn.Rotation.X);
     Near(0f, turn.Rotation.Y);
@@ -377,7 +440,9 @@ static void VrSettingsPreserveApprovedDefaults()
     Equal(true, result.Settings.Tracking.LocomotionEnabled);
     Equal(VrHand.Right, result.Settings.Tracking.LocomotionHand);
     Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(VrViewTurnMode.Snap, result.Settings.Tracking.ViewTurnMode);
     Equal(90f, result.Settings.Tracking.ViewTurnSpeed);
+    Equal(15, result.Settings.Tracking.ViewSnapAngleDegrees);
     Equal(VrVisualEffectModes.Approved, result.Settings.Render.VisualEffectMode);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
@@ -448,7 +513,9 @@ static void VrSettingsLoadLegacyJsonWithoutManualVfx()
     Equal(true, result.Settings.Tracking.LocomotionEnabled);
     Equal(VrHand.Right, result.Settings.Tracking.LocomotionHand);
     Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(VrViewTurnMode.Snap, result.Settings.Tracking.ViewTurnMode);
     Equal(90f, result.Settings.Tracking.ViewTurnSpeed);
+    Equal(15, result.Settings.Tracking.ViewSnapAngleDegrees);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
     Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
@@ -463,7 +530,9 @@ static void VrSettingsLoadSwappedMovementHand()
             "locomotionEnabled": true,
             "locomotionHand": "left",
             "locomotionSpeed": 2.25,
-            "viewTurnSpeed": 120.0
+            "viewTurnMode": "smooth",
+            "viewTurnSpeed": 120.0,
+            "viewSnapAngleDegrees": 45
           }
         }
         """;
@@ -480,7 +549,9 @@ static void VrSettingsLoadSwappedMovementHand()
     False(result.UsedFallback);
     Equal(VrHand.Left, result.Settings.Tracking.LocomotionHand);
     Equal(2.25f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(VrViewTurnMode.Smooth, result.Settings.Tracking.ViewTurnMode);
     Equal(120f, result.Settings.Tracking.ViewTurnSpeed);
+    Equal(45, result.Settings.Tracking.ViewSnapAngleDegrees);
 }
 
 static void VrSettingsRepairInvalidValues()
@@ -493,7 +564,9 @@ static void VrSettingsRepairInvalidValues()
     settings.Render.ManualVisualEffects.VlBloomDiffusion = 0;
     settings.Tracking.LocomotionHand = (VrHand)99;
     settings.Tracking.LocomotionSpeed = 9f;
+    settings.Tracking.ViewTurnMode = (VrViewTurnMode)99;
     settings.Tracking.ViewTurnSpeed = 500f;
+    settings.Tracking.ViewSnapAngleDegrees = 20;
     settings.Input.BackButton = FaceButtonBinding.Primary;
     VrSettingsValidationResult result = VrSettingsValidator.Validate(settings);
     Equal(true, result.UsedFallback);
@@ -505,7 +578,9 @@ static void VrSettingsRepairInvalidValues()
     Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
     Equal(VrHand.Right, result.Settings.Tracking.LocomotionHand);
     Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(VrViewTurnMode.Snap, result.Settings.Tracking.ViewTurnMode);
     Equal(90f, result.Settings.Tracking.ViewTurnSpeed);
+    Equal(15, result.Settings.Tracking.ViewSnapAngleDegrees);
     Equal(FaceButtonBinding.Primary, result.Settings.Input.PrimaryClickButton);
     Equal(FaceButtonBinding.Secondary, result.Settings.Input.BackButton);
 }

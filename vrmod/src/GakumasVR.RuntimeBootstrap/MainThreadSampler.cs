@@ -36,7 +36,9 @@ internal sealed class MainThreadSampler
     private readonly bool _locomotionEnabled;
     private readonly VrHand _locomotionHand;
     private readonly float _locomotionSpeed;
+    private readonly VrViewTurnMode _viewTurnMode;
     private readonly float _viewTurnSpeed;
+    private readonly int _viewSnapAngleDegrees;
     private readonly FrameCountDelegate _replacement;
     private readonly DrawFlareDelegate _drawFlareReplacement;
     private readonly VlPostProcessRenderDelegate _vlPostProcessRenderReplacement;
@@ -295,7 +297,9 @@ internal sealed class MainThreadSampler
         _locomotionEnabled = settings.Tracking.LocomotionEnabled;
         _locomotionHand = settings.Tracking.LocomotionHand;
         _locomotionSpeed = settings.Tracking.LocomotionSpeed;
+        _viewTurnMode = settings.Tracking.ViewTurnMode;
         _viewTurnSpeed = settings.Tracking.ViewTurnSpeed;
+        _viewSnapAngleDegrees = settings.Tracking.ViewSnapAngleDegrees;
         _replacement = OnFrameCount;
         _drawFlareReplacement = OnDrawFlare;
         _vlPostProcessRenderReplacement = OnVlPostProcessRender;
@@ -3302,7 +3306,9 @@ internal sealed class MainThreadSampler
                 viewTurnAxisX,
                 viewTurnAxisY,
                 deltaSeconds,
+                _viewTurnMode,
                 _viewTurnSpeed,
+                _viewSnapAngleDegrees,
                 LocomotionDeadzone))
         {
             turning = false;
@@ -3354,7 +3360,7 @@ internal sealed class MainThreadSampler
                 ProcessId = Environment.ProcessId,
                 Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
                 Reason = turning
-                    ? $"The {OppositeHand(_locomotionHand)}-hand thumbstick applies smooth yaw and pitch to the independent VR view;speed={_viewTurnSpeed:F1}deg/s."
+                    ? $"The {OppositeHand(_locomotionHand)}-hand thumbstick applies cardinal world-axis yaw or pitch to the independent VR view;mode={_viewTurnMode};smoothSpeed={_viewTurnSpeed:F1}deg/s;snapAngle={_viewSnapAngleDegrees}deg."
                     : "The view-turn stick returned to its deadzone or became unavailable; the accumulated view rotation is retained."
             });
             _viewTurnWasMoving = turning;

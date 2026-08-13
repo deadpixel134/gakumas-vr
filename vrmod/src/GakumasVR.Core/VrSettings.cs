@@ -6,6 +6,12 @@ public enum VrHand
     Right
 }
 
+public enum VrViewTurnMode
+{
+    Smooth,
+    Snap
+}
+
 public enum FaceButtonBinding
 {
     Primary,
@@ -72,7 +78,11 @@ public sealed class VrTrackingSettings
 
     public float LocomotionSpeed { get; set; } = 1.5f;
 
+    public VrViewTurnMode ViewTurnMode { get; set; } = VrViewTurnMode.Snap;
+
     public float ViewTurnSpeed { get; set; } = 90f;
+
+    public int ViewSnapAngleDegrees { get; set; } = 15;
 }
 
 public sealed class VrManualVisualEffectSettings
@@ -241,12 +251,21 @@ public static class VrSettingsValidator
                     defaults.Tracking.LocomotionSpeed,
                     "tracking.locomotionSpeed",
                     issues),
+                ViewTurnMode = ValidateEnum(
+                    tracking.ViewTurnMode,
+                    defaults.Tracking.ViewTurnMode,
+                    "tracking.viewTurnMode",
+                    issues),
                 ViewTurnSpeed = ValidateRange(
                     tracking.ViewTurnSpeed,
                     15f,
                     180f,
                     defaults.Tracking.ViewTurnSpeed,
                     "tracking.viewTurnSpeed",
+                    issues),
+                ViewSnapAngleDegrees = ValidateSnapAngle(
+                    tracking.ViewSnapAngleDegrees,
+                    defaults.Tracking.ViewSnapAngleDegrees,
                     issues)
             },
             Panel = new VrPanelSettings
@@ -347,6 +366,20 @@ public static class VrSettingsValidator
         }
 
         issues.Add($"{name}:unknown-value");
+        return fallback;
+    }
+
+    private static int ValidateSnapAngle(
+        int value,
+        int fallback,
+        List<string> issues)
+    {
+        if (value is 15 or 30 or 45 or 60)
+        {
+            return value;
+        }
+
+        issues.Add("tracking.viewSnapAngleDegrees:unsupported-value");
         return fallback;
     }
 

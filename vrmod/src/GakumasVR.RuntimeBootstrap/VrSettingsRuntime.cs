@@ -58,7 +58,9 @@ internal static class VrSettingsRuntime
                     $"locomotion={_current.Tracking.LocomotionEnabled};" +
                     $"locomotionHand={_current.Tracking.LocomotionHand};" +
                     $"locomotionSpeed={_current.Tracking.LocomotionSpeed:R};" +
+                    $"viewTurnMode={_current.Tracking.ViewTurnMode};" +
                     $"viewTurnSpeed={_current.Tracking.ViewTurnSpeed:R};" +
+                    $"viewSnapAngle={_current.Tracking.ViewSnapAngleDegrees};" +
                     $"vfxMode={_current.Render.VisualEffectMode};" +
                     $"manualPost={_current.Render.ManualVisualEffects.PostProcessingEnabled};" +
                     $"manualBloom={_current.Render.ManualVisualEffects.VlBloomEnabled};" +

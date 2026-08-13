@@ -47,7 +47,9 @@ internal sealed class MainForm : Form
     private readonly CheckBox _locomotion = TaggedCheckBox("LocomotionEnabled");
     private readonly ComboBox _locomotionHand = ChoiceCombo();
     private readonly NumericUpDown _locomotionSpeed = Number(0.10m, 5.00m, 0.10m, 2);
+    private readonly ComboBox _viewTurnMode = ChoiceCombo();
     private readonly NumericUpDown _viewTurnSpeed = Number(15m, 180m, 5m, 0);
+    private readonly ComboBox _viewSnapAngle = ChoiceCombo();
     private readonly CheckBox _requireFocus = TaggedCheckBox("RequireFocus");
     private readonly ToolStripStatusLabel _status = new();
     private readonly Button _checkUpdates;
@@ -146,6 +148,7 @@ internal sealed class MainForm : Form
         _manualPostProcessing.CheckedChanged += (_, _) => UpdateManualVfxControls();
         _manualVlBloom.CheckedChanged += (_, _) => UpdateManualVfxControls();
         _locomotion.CheckedChanged += (_, _) => UpdateLocomotionControls();
+        _viewTurnMode.SelectedIndexChanged += (_, _) => UpdateLocomotionControls();
         ApplyLanguage(languageChanged: false);
         Load += (_, _) => Run("StatusLoaded", LoadSettings);
         Shown += async (_, _) => await OnShownAsync();
@@ -209,7 +212,9 @@ internal sealed class MainForm : Form
         AddRow(grid, "Locomotion", _locomotion);
         AddRow(grid, "LocomotionHand", _locomotionHand);
         AddRow(grid, "LocomotionSpeed", _locomotionSpeed);
+        AddRow(grid, "ViewTurnMode", _viewTurnMode);
         AddRow(grid, "ViewTurnSpeed", _viewTurnSpeed);
+        AddRow(grid, "ViewSnapAngle", _viewSnapAngle);
         AddRow(grid, "InputSafety", _requireFocus);
         _inputTab.Controls.Add(grid);
     }
@@ -228,6 +233,8 @@ internal sealed class MainForm : Form
         FaceButtonBinding primary = Selected(_primary, FaceButtonBinding.Primary);
         FaceButtonBinding back = Selected(_back, FaceButtonBinding.Secondary);
         VrHand locomotionHand = Selected(_locomotionHand, VrHand.Right);
+        VrViewTurnMode viewTurnMode = Selected(_viewTurnMode, VrViewTurnMode.Snap);
+        int viewSnapAngle = Selected(_viewSnapAngle, 15);
         string vfx = Selected(_vfx, VrVisualEffectModes.Approved);
 
         Text = UiText.Get("AppTitle");
@@ -242,6 +249,16 @@ internal sealed class MainForm : Form
             Enum.GetValues<VrHand>(),
             UiText.Choice,
             locomotionHand);
+        Populate(
+            _viewTurnMode,
+            Enum.GetValues<VrViewTurnMode>(),
+            UiText.Choice,
+            viewTurnMode);
+        Populate(
+            _viewSnapAngle,
+            new[] { 15, 30, 45, 60 },
+            value => $"{value}°",
+            viewSnapAngle);
         Populate(
             _vfx,
             new[]
@@ -436,7 +453,9 @@ internal sealed class MainForm : Form
             LocomotionEnabled = _locomotion.Checked,
             LocomotionHand = Selected(_locomotionHand, VrHand.Right),
             LocomotionSpeed = (float)_locomotionSpeed.Value,
-            ViewTurnSpeed = (float)_viewTurnSpeed.Value
+            ViewTurnMode = Selected(_viewTurnMode, VrViewTurnMode.Snap),
+            ViewTurnSpeed = (float)_viewTurnSpeed.Value,
+            ViewSnapAngleDegrees = Selected(_viewSnapAngle, 15)
         },
         Panel = new VrPanelSettings
         {
@@ -475,7 +494,9 @@ internal sealed class MainForm : Form
         _locomotion.Checked = settings.Tracking.LocomotionEnabled;
         Select(_locomotionHand, settings.Tracking.LocomotionHand);
         Set(_locomotionSpeed, settings.Tracking.LocomotionSpeed);
+        Select(_viewTurnMode, settings.Tracking.ViewTurnMode);
         Set(_viewTurnSpeed, settings.Tracking.ViewTurnSpeed);
+        Select(_viewSnapAngle, settings.Tracking.ViewSnapAngleDegrees);
         Select(_vfx, settings.Render.VisualEffectMode);
         VrManualVisualEffectSettings manual = settings.Render.ManualVisualEffects;
         _manualPostProcessing.Checked = manual.PostProcessingEnabled;
@@ -562,7 +583,11 @@ internal sealed class MainForm : Form
     {
         _locomotionHand.Enabled = _locomotion.Checked;
         _locomotionSpeed.Enabled = _locomotion.Checked;
-        _viewTurnSpeed.Enabled = _locomotion.Checked;
+        _viewTurnMode.Enabled = _locomotion.Checked;
+        bool smooth = Selected(_viewTurnMode, VrViewTurnMode.Snap) ==
+            VrViewTurnMode.Smooth;
+        _viewTurnSpeed.Enabled = _locomotion.Checked && smooth;
+        _viewSnapAngle.Enabled = _locomotion.Checked && !smooth;
     }
 
     private void UpdateEyeScaleWarning()
