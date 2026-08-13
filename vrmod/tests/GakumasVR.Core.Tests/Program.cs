@@ -21,6 +21,10 @@ var tests = new (string Name, Action Run)[]
     ("Stereo startup reset requires a fresh generation", StereoStartupResetRequiresFreshGeneration),
     ("Black stereo frames retry before timeout", BlackStereoFramesRetryBeforeTimeout),
     ("Black stereo frame policy resets per generation", BlackStereoFramePolicyResetsPerGeneration),
+    ("6DoF origin preserves configured eye separation", SixDofOriginPreservesEyeSeparation),
+    ("6DoF maps physical translation into Unity space", SixDofMapsPhysicalTranslation),
+    ("6DoF maps relative head rotation into Unity space", SixDofMapsRelativeRotation),
+    ("6DoF reset captures a fresh scene origin", SixDofResetCapturesFreshOrigin),
     ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
     ("VR settings allow 2x eye render scale", VrSettingsAllowTwoTimesEyeRenderScale),
     ("VR settings preserve manual VFX controls", VrSettingsPreserveManualVfxControls),
@@ -163,6 +167,97 @@ static void BlackStereoFramePolicyResetsPerGeneration()
     policy.Reset();
     Equal(0, policy.AttemptCount);
     Equal(StereoBlackFrameDecision.Retry, policy.ObserveBlack(2_000));
+}
+
+static void SixDofOriginPreservesEyeSeparation()
+{
+    var mapper = new SixDofPoseMapper();
+    True(mapper.TryMap(
+        StereoPose(-0.03f, 0f, 0f, 0.03f, 0f, 0f),
+        headTranslationScale: 1f,
+        eyeOffsetScale: 0.5f,
+        out UnityStereoPose mapped));
+
+    Near(-0.015f, mapped.Left.LocalPosition.X);
+    Near(0.015f, mapped.Right.LocalPosition.X);
+    Near(0f, mapped.Left.LocalPosition.Y);
+    Near(0f, mapped.Left.LocalPosition.Z);
+    Near(1f, mapped.Left.LocalRotation.W);
+}
+
+static void SixDofMapsPhysicalTranslation()
+{
+    var mapper = new SixDofPoseMapper();
+    True(mapper.TryMap(
+        StereoPose(-0.03f, 0f, 0f, 0.03f, 0f, 0f),
+        1f,
+        1f,
+        out _));
+    True(mapper.TryMap(
+        StereoPose(0.17f, 0.10f, -0.50f, 0.23f, 0.10f, -0.50f),
+        1f,
+        1f,
+        out UnityStereoPose mapped));
+
+    Near(0.17f, mapped.Left.LocalPosition.X);
+    Near(0.23f, mapped.Right.LocalPosition.X);
+    Near(0.10f, mapped.Left.LocalPosition.Y);
+    Near(0.50f, mapped.Left.LocalPosition.Z);
+}
+
+static void SixDofMapsRelativeRotation()
+{
+    var mapper = new SixDofPoseMapper();
+    True(mapper.TryMap(
+        StereoPose(-0.03f, 0f, 0f, 0.03f, 0f, 0f),
+        1f,
+        1f,
+        out _));
+    float halfAngle = MathF.PI * 0.25f;
+    TrackingQuaternion yaw = new(0f, MathF.Sin(halfAngle), 0f, MathF.Cos(halfAngle));
+    True(mapper.TryMap(
+        StereoPose(-0.03f, 0f, 0f, 0.03f, 0f, 0f, yaw),
+        1f,
+        1f,
+        out UnityStereoPose mapped));
+
+    Near(-MathF.Sin(halfAngle), mapped.Left.LocalRotation.Y);
+    Near(MathF.Cos(halfAngle), mapped.Left.LocalRotation.W);
+}
+
+static void SixDofResetCapturesFreshOrigin()
+{
+    var mapper = new SixDofPoseMapper();
+    True(mapper.TryMap(
+        StereoPose(-0.03f, 0f, 0f, 0.03f, 0f, 0f),
+        1f,
+        1f,
+        out _));
+    mapper.Reset();
+    True(mapper.TryMap(
+        StereoPose(1.97f, 1f, -3f, 2.03f, 1f, -3f),
+        1f,
+        1f,
+        out UnityStereoPose mapped));
+
+    Near(-0.03f, mapped.Left.LocalPosition.X);
+    Near(0f, mapped.Left.LocalPosition.Y);
+    Near(0f, mapped.Left.LocalPosition.Z);
+}
+
+static TrackingStereoPose StereoPose(
+    float leftX,
+    float leftY,
+    float leftZ,
+    float rightX,
+    float rightY,
+    float rightZ,
+    TrackingQuaternion? orientation = null)
+{
+    TrackingQuaternion rotation = orientation ?? new TrackingQuaternion(0f, 0f, 0f, 1f);
+    return new TrackingStereoPose(
+        new TrackingEyePose(new TrackingVector3(leftX, leftY, leftZ), rotation),
+        new TrackingEyePose(new TrackingVector3(rightX, rightY, rightZ), rotation));
 }
 
 static void VrSettingsPreserveApprovedDefaults()
@@ -476,5 +571,13 @@ static void False(bool value)
     if (value)
     {
         throw new InvalidOperationException("Expected false, got true.");
+    }
+}
+
+static void Near(float expected, float actual, float tolerance = 0.0001f)
+{
+    if (MathF.Abs(expected - actual) > tolerance)
+    {
+        throw new InvalidOperationException($"Expected {expected}, got {actual}.");
     }
 }

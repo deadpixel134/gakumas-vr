@@ -31,6 +31,10 @@ internal static class OpenXrStereoStateRegistry
     private static OpenXrEyeState _left;
     private static OpenXrEyeState _right;
     private static long _updatedMilliseconds;
+    private static ulong _worldViewStateFlags;
+    private static OpenXrEyeState _worldLeft;
+    private static OpenXrEyeState _worldRight;
+    private static long _worldUpdatedMilliseconds;
 
     public static void UpdateConfiguration(uint recommendedWidth, uint recommendedHeight)
     {
@@ -73,6 +77,42 @@ internal static class OpenXrStereoStateRegistry
                 ViewStateFlags = _viewStateFlags,
                 Left = _left,
                 Right = _right
+            };
+        }
+    }
+
+    public static void UpdateWorldViews(
+        ulong viewStateFlags,
+        OpenXrEyeState left,
+        OpenXrEyeState right)
+    {
+        lock (Sync)
+        {
+            _worldViewStateFlags = viewStateFlags;
+            _worldLeft = left;
+            _worldRight = right;
+            _worldUpdatedMilliseconds = Environment.TickCount64;
+        }
+    }
+
+    public static OpenXrStereoStateSnapshot? SnapshotWorld(int maximumAgeMilliseconds)
+    {
+        lock (Sync)
+        {
+            if (_recommendedWidth <= 0 || _recommendedHeight <= 0 ||
+                _worldUpdatedMilliseconds == 0 ||
+                Environment.TickCount64 - _worldUpdatedMilliseconds > maximumAgeMilliseconds)
+            {
+                return null;
+            }
+
+            return new OpenXrStereoStateSnapshot
+            {
+                RecommendedWidth = _recommendedWidth,
+                RecommendedHeight = _recommendedHeight,
+                ViewStateFlags = _worldViewStateFlags,
+                Left = _worldLeft,
+                Right = _worldRight
             };
         }
     }

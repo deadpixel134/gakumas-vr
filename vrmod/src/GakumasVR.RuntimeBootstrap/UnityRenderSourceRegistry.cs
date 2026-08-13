@@ -37,13 +37,17 @@ internal sealed class D3D11StereoTextureLease : IDisposable
         IntPtr rightTexture,
         long publishedTimestamp,
         long sequence,
-        bool requiresDynamicUi)
+        bool requiresDynamicUi,
+        OpenXrStereoStateSnapshot? renderState,
+        bool usesWorldSpace)
     {
         _leftTexture = leftTexture;
         _rightTexture = rightTexture;
         PublishedTimestamp = publishedTimestamp;
         Sequence = sequence;
         RequiresDynamicUi = requiresDynamicUi;
+        RenderState = renderState;
+        UsesWorldSpace = usesWorldSpace;
     }
 
     public IntPtr LeftTexture => Volatile.Read(ref _leftTexture);
@@ -55,6 +59,10 @@ internal sealed class D3D11StereoTextureLease : IDisposable
     public long Sequence { get; }
 
     public bool RequiresDynamicUi { get; }
+
+    public OpenXrStereoStateSnapshot? RenderState { get; }
+
+    public bool UsesWorldSpace { get; }
 
     public void Dispose()
     {
@@ -81,6 +89,8 @@ internal static class UnityRenderSourceRegistry
     private static long _stereoPublishedTimestamp;
     private static long _stereoSequence;
     private static bool _stereoRequiresDynamicUi;
+    private static OpenXrStereoStateSnapshot? _stereoRenderState;
+    private static bool _stereoUsesWorldSpace;
     private static readonly Dictionary<IntPtr, int> StereoLeaseCounts = new();
 
     public static void UpdateLiveWorldTexture(IntPtr texture, string sourceName)
@@ -240,7 +250,9 @@ internal static class UnityRenderSourceRegistry
     public static void UpdateStereoTextures(
         IntPtr leftTexture,
         IntPtr rightTexture,
-        bool requiresDynamicUi = false)
+        bool requiresDynamicUi = false,
+        OpenXrStereoStateSnapshot? renderState = null,
+        bool usesWorldSpace = false)
     {
         if (leftTexture == IntPtr.Zero || rightTexture == IntPtr.Zero)
         {
@@ -281,6 +293,8 @@ internal static class UnityRenderSourceRegistry
             _stereoPublishedTimestamp = Stopwatch.GetTimestamp();
             _stereoSequence++;
             _stereoRequiresDynamicUi = requiresDynamicUi;
+            _stereoRenderState = renderState;
+            _stereoUsesWorldSpace = usesWorldSpace;
             if (previousLeft != IntPtr.Zero)
             {
                 _ = Marshal.Release(previousLeft);
@@ -311,7 +325,9 @@ internal static class UnityRenderSourceRegistry
                 _stereoRightTexture,
                 _stereoPublishedTimestamp,
                 _stereoSequence,
-                _stereoRequiresDynamicUi);
+                _stereoRequiresDynamicUi,
+                _stereoRenderState,
+                _stereoUsesWorldSpace);
         }
     }
 
@@ -410,6 +426,8 @@ internal static class UnityRenderSourceRegistry
             _stereoUpdatedMilliseconds = 0;
             _stereoPublishedTimestamp = 0;
             _stereoRequiresDynamicUi = false;
+            _stereoRenderState = null;
+            _stereoUsesWorldSpace = false;
             if (previousLeft != IntPtr.Zero)
             {
                 _ = Marshal.Release(previousLeft);

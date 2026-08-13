@@ -15,6 +15,8 @@ internal sealed class MainThreadSampler
     private const int StereoContinuousIntervalMilliseconds = 33;
     private const int StereoStartupStableFrames = 2;
     private const int StereoBlackFrameRetryMilliseconds = 100;
+    private const int SixDofPoseMaximumAgeMilliseconds = 250;
+    private const float SixDofHeadTranslationScale = 1f;
     private const int StereoFrozenDiagnosticDurationMilliseconds = 30_000;
     private const int NaturalUiVisibilitySettleMilliseconds = 500;
     private const int M5TopologyPollMilliseconds = 1_000;
@@ -44,6 +46,7 @@ internal sealed class MainThreadSampler
     private readonly StereoBlackFrameRetryPolicy _stereoBlackFrameRetry = new(
         maximumAttempts: 20,
         timeoutMilliseconds: 2_000);
+    private readonly SixDofPoseMapper _sixDofPoseMapper = new();
     private FrameCountDelegate? _original;
     private IntPtr _dobbyLibrary;
     private long _lastSampleMilliseconds;
@@ -235,6 +238,8 @@ internal sealed class MainThreadSampler
     private long _nextStereoValidationMilliseconds;
     private long _stereoFrozenUntilMilliseconds;
     private bool _stereoNaturalRenderArmed;
+    private OpenXrStereoStateSnapshot? _stereoNaturalRenderState;
+    private bool _stereoNaturalRenderUsesWorldSpace;
     private long _stereoNaturalRenderStartPresentSerial;
     private long _stereoNaturalRenderArmTimestamp;
     private int _stereoNaturalRenderCompletionMask;
@@ -243,6 +248,7 @@ internal sealed class MainThreadSampler
     private IntPtr _stereoNaturalRightRenderTexture;
     private IntPtr _stereoPumpCoreImage;
     private bool _stereoPumpEligible;
+    private bool _stereoGenerationUsesSixDof;
     private IntPtr _stereoPumpSourceCamera;
     private IntPtr _stereoPumpSourceTexture;
     private int _lastStereoPumpFrameCount = -1;
@@ -700,13 +706,18 @@ internal sealed class MainThreadSampler
             _stereoPumpEligible &&
             (_stereoPumpSourceCamera != _lastLiveCamera ||
                 _stereoPumpSourceTexture != _lastLiveTargetTexture);
-        if (stereoPumpEligible != _stereoPumpEligible || stereoSourceChanged)
+        bool stereoTrackingModeChanged = stereoPumpEligible &&
+            _stereoPumpEligible &&
+            _stereoGenerationUsesSixDof != nonLiveStereoEligible;
+        if (stereoPumpEligible != _stereoPumpEligible ||
+            stereoSourceChanged || stereoTrackingModeChanged)
         {
-            if (!stereoPumpEligible || stereoSourceChanged)
+            if (!stereoPumpEligible || stereoSourceChanged || stereoTrackingModeChanged)
             {
                 RetireStereoCameraGeneration(now, coreImage, scene);
             }
             _stereoPumpEligible = stereoPumpEligible;
+            _stereoGenerationUsesSixDof = stereoPumpEligible && nonLiveStereoEligible;
             _stereoPumpSourceCamera = stereoPumpEligible
                 ? _lastLiveCamera
                 : IntPtr.Zero;
@@ -1073,6 +1084,8 @@ internal sealed class MainThreadSampler
         finally
         {
             _stereoNaturalRenderArmed = false;
+            _stereoNaturalRenderState = null;
+            _stereoNaturalRenderUsesWorldSpace = false;
             Volatile.Write(ref _stereoNaturalRenderCompletionMask, 0);
         }
     }
@@ -1177,6 +1190,8 @@ internal sealed class MainThreadSampler
             _nextStereoValidationMilliseconds = 0;
             _stereoFrozenUntilMilliseconds = 0;
             _stereoNaturalRenderArmed = false;
+            _stereoNaturalRenderState = null;
+            _stereoNaturalRenderUsesWorldSpace = false;
             _stereoNaturalRenderStartPresentSerial = 0;
             _stereoNaturalRenderArmTimestamp = 0;
             Volatile.Write(ref _stereoNaturalRenderCompletionMask, 0);
@@ -1193,6 +1208,8 @@ internal sealed class MainThreadSampler
             _stereoRateWindowStartMilliseconds = 0;
             _stereoRateWindowStartFrameCount = 0;
             _nextStereoStateUnavailableLogUtc = DateTimeOffset.MinValue;
+            _stereoGenerationUsesSixDof = false;
+            _sixDofPoseMapper.Reset();
 
             _cachedThreeDTextureRawImage = IntPtr.Zero;
             _cachedThreeDTextureCanvasRenderer = IntPtr.Zero;
@@ -1435,8 +1452,14 @@ internal sealed class MainThreadSampler
         scene.StartsWith("env_3d_adv_", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsApprovedNonLive3DScene(string scene) =>
+        scene.StartsWith("env_3d_", StringComparison.OrdinalIgnoreCase) &&
+        !IsConcreteLive3DScene(scene);
+
+    private static bool AllowsCameraOnlyNonLive3D(string scene) =>
         scene.StartsWith("env_3d_home_", StringComparison.OrdinalIgnoreCase) ||
-        IsCommuScene(scene);
+        scene.StartsWith("env_3d_adv_", StringComparison.OrdinalIgnoreCase) ||
+        scene.StartsWith("env_3d_lesson_", StringComparison.OrdinalIgnoreCase) ||
+        scene.StartsWith("env_3d_prod_", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsPanelScene(string scene) =>
         scene.Equals("Splash", StringComparison.OrdinalIgnoreCase) ||
@@ -1470,6 +1493,7 @@ internal sealed class MainThreadSampler
         }
 
         bool concreteScene = IsApprovedNonLive3DScene(scene);
+        bool cameraOnlyAllowed = AllowsCameraOnlyNonLive3D(scene);
         bool candidateValid =
             (orientationStable || concreteScene) &&
             _m6WorldCandidateCamera != IntPtr.Zero &&
@@ -1481,7 +1505,7 @@ internal sealed class MainThreadSampler
                 screenHeight,
                 _m6WorldCandidateTargetWidth,
                 _m6WorldCandidateTargetHeight);
-        if (!candidateValid || (!concreteScene && worldSurfaceRawImage == IntPtr.Zero))
+        if (!candidateValid || (!cameraOnlyAllowed && worldSurfaceRawImage == IntPtr.Zero))
         {
             _m6NonLiveWorldSurfaceEligible = false;
             _m6WorldSurfaceRawImage = IntPtr.Zero;
@@ -2291,8 +2315,11 @@ internal sealed class MainThreadSampler
                 }
             }
 
-            OpenXrStereoStateSnapshot? stereoSnapshot =
-                OpenXrStereoStateRegistry.Snapshot(1_500);
+            bool useSixDof = _stereoGenerationUsesSixDof;
+            OpenXrStereoStateSnapshot? stereoSnapshot = useSixDof
+                ? OpenXrStereoStateRegistry.SnapshotWorld(
+                    SixDofPoseMaximumAgeMilliseconds)
+                : OpenXrStereoStateRegistry.Snapshot(1_500);
             if (stereoSnapshot is null)
             {
                 if (now >= _nextStereoStateUnavailableLogUtc)
@@ -2312,6 +2339,16 @@ internal sealed class MainThreadSampler
                 return;
             }
             OpenXrStereoStateSnapshot stereo = stereoSnapshot;
+            UnityStereoPose sixDofPose = default;
+            bool positionTracked = (stereo.ViewStateFlags & 8UL) != 0UL;
+            if (useSixDof && !_sixDofPoseMapper.TryMap(
+                    ToTrackingStereoPose(stereo),
+                    positionTracked ? SixDofHeadTranslationScale : 0f,
+                    _stereoWorldEyeOffsetScale,
+                    out sixDofPose))
+            {
+                return;
+            }
             if (!TrySelectWritableNaturalStereoTargets(coreImage))
             {
                 StereoPerformanceTelemetry.RecordStereoBufferReuseBlocked();
@@ -2325,22 +2362,34 @@ internal sealed class MainThreadSampler
                 _lastLiveCamera);
             IntPtr transformClass = FindClass(coreImage, "UnityEngine", "Transform");
             IntPtr cameraClass = FindClass(coreImage, "UnityEngine", "Camera");
+            TrackingVector3 leftLocalPosition = useSixDof
+                ? sixDofPose.Left.LocalPosition
+                : new TrackingVector3(
+                    stereo.Left.PositionX * _stereoWorldEyeOffsetScale,
+                    stereo.Left.PositionY * _stereoWorldEyeOffsetScale,
+                    stereo.Left.PositionZ * _stereoWorldEyeOffsetScale);
+            TrackingVector3 rightLocalPosition = useSixDof
+                ? sixDofPose.Right.LocalPosition
+                : new TrackingVector3(
+                    stereo.Right.PositionX * _stereoWorldEyeOffsetScale,
+                    stereo.Right.PositionY * _stereoWorldEyeOffsetScale,
+                    stereo.Right.PositionZ * _stereoWorldEyeOffsetScale);
             IntPtr leftWorldPosition = InvokeWithObjectArgument(
                 FindMethodBySignature(transformClass, "TransformPoint", "UnityEngine.Vector3"),
                 sourceTransform,
                 BoxVector3(
                     coreImage,
-                    stereo.Left.PositionX * _stereoWorldEyeOffsetScale,
-                    stereo.Left.PositionY * _stereoWorldEyeOffsetScale,
-                    stereo.Left.PositionZ * _stereoWorldEyeOffsetScale));
+                    leftLocalPosition.X,
+                    leftLocalPosition.Y,
+                    leftLocalPosition.Z));
             IntPtr rightWorldPosition = InvokeWithObjectArgument(
                 FindMethodBySignature(transformClass, "TransformPoint", "UnityEngine.Vector3"),
                 sourceTransform,
                 BoxVector3(
                     coreImage,
-                    stereo.Right.PositionX * _stereoWorldEyeOffsetScale,
-                    stereo.Right.PositionY * _stereoWorldEyeOffsetScale,
-                    stereo.Right.PositionZ * _stereoWorldEyeOffsetScale));
+                    rightLocalPosition.X,
+                    rightLocalPosition.Y,
+                    rightLocalPosition.Z));
             float nearClip = InvokeInstanceFloat(
                 coreImage,
                 "UnityEngine",
@@ -2391,6 +2440,21 @@ internal sealed class MainThreadSampler
                 "Component",
                 "get_transform",
                 _stereoRightCamera);
+            if (useSixDof)
+            {
+                ApplyRelativeCameraRotation(
+                    coreImage,
+                    transformClass,
+                    sourceTransform,
+                    leftTransform,
+                    sixDofPose.Left.LocalRotation);
+                ApplyRelativeCameraRotation(
+                    coreImage,
+                    transformClass,
+                    sourceTransform,
+                    rightTransform,
+                    sixDofPose.Right.LocalRotation);
+            }
             _ = InvokeWithObjectArgument(
                 FindMethodBySignature(transformClass, "set_position", "UnityEngine.Vector3"),
                 leftTransform,
@@ -2439,6 +2503,8 @@ internal sealed class MainThreadSampler
                 _stereoRightCamera,
                 true);
             _stereoNaturalRenderArmed = true;
+            _stereoNaturalRenderState = stereo;
+            _stereoNaturalRenderUsesWorldSpace = useSixDof;
             long armPresentSerial = D3D11DeviceCapture.PresentSerial;
             _stereoNaturalRenderStartPresentSerial = armPresentSerial;
             _stereoNaturalRenderArmTimestamp = Stopwatch.GetTimestamp();
@@ -2457,7 +2523,9 @@ internal sealed class MainThreadSampler
                     Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
                     StereoRenderSubmitted = true,
                     OpenXrStereoViewStateFlags = stereo.ViewStateFlags,
-                    Reason = "Triple-buffered eye cameras publish after both clone renders complete; the first pair retains synchronous GPU validation while subsequent pairs rely on protected D3D11 command ordering, OpenXR final GPU completion, and lease-aware buffer reuse."
+                    Reason = useSixDof
+                        ? "Non-live 6DoF is active: clone cameras use scene-relative XR_LOCAL head rotation and 1:1 positional movement, while each published eye pair retains its exact render pose for projection submission."
+                        : "Triple-buffered eye cameras publish after both clone renders complete; the first pair retains synchronous GPU validation while subsequent pairs rely on protected D3D11 command ordering, OpenXR final GPU completion, and lease-aware buffer reuse."
                 });
             }
         }
@@ -2626,7 +2694,11 @@ internal sealed class MainThreadSampler
         UnityRenderSourceRegistry.UpdateStereoTextures(
             leftNativeTexture,
             rightNativeTexture,
-            requiresDynamicUi: _m6NonLiveWorldSurfaceEligible);
+            requiresDynamicUi: _m6NonLiveWorldSurfaceEligible,
+            renderState: _stereoNaturalRenderState,
+            usesWorldSpace: _stereoNaturalRenderUsesWorldSpace);
+        _stereoNaturalRenderState = null;
+        _stereoNaturalRenderUsesWorldSpace = false;
         StereoPerformanceTelemetry.RecordStereoPublish();
         _stereoPublishedLeftRenderTexture = _stereoNaturalLeftRenderTexture;
         _stereoPublishedRightRenderTexture = _stereoNaturalRightRenderTexture;
@@ -3081,6 +3153,62 @@ internal sealed class MainThreadSampler
             destinationTransform,
             rotation);
     }
+
+    private static TrackingStereoPose ToTrackingStereoPose(
+        OpenXrStereoStateSnapshot stereo) => new(
+            ToTrackingEyePose(stereo.Left),
+            ToTrackingEyePose(stereo.Right));
+
+    private static TrackingEyePose ToTrackingEyePose(OpenXrEyeState eye) => new(
+        new TrackingVector3(eye.PositionX, eye.PositionY, eye.PositionZ),
+        new TrackingQuaternion(
+            eye.OrientationX,
+            eye.OrientationY,
+            eye.OrientationZ,
+            eye.OrientationW));
+
+    private void ApplyRelativeCameraRotation(
+        IntPtr coreImage,
+        IntPtr transformClass,
+        IntPtr sourceTransform,
+        IntPtr destinationTransform,
+        TrackingQuaternion localRotation)
+    {
+        IntPtr sourceRotation = Invoke(
+            FindMethod(transformClass, "get_rotation"),
+            sourceTransform);
+        IntPtr sourceRotationValue = sourceRotation == IntPtr.Zero
+            ? IntPtr.Zero
+            : _api.ObjectUnbox(sourceRotation);
+        if (sourceRotationValue == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("Source camera rotation is unavailable.");
+        }
+        UiReplayQuaternion source =
+            Marshal.PtrToStructure<UiReplayQuaternion>(sourceRotationValue);
+        TrackingQuaternion worldRotation = MultiplyQuaternion(
+            new TrackingQuaternion(source.X, source.Y, source.Z, source.W),
+            localRotation);
+        _ = InvokeWithObjectArgument(
+            FindMethodBySignature(
+                transformClass,
+                "set_rotation",
+                "UnityEngine.Quaternion"),
+            destinationTransform,
+            BoxQuaternion(coreImage, worldRotation));
+    }
+
+    private static TrackingQuaternion MultiplyQuaternion(
+        TrackingQuaternion left,
+        TrackingQuaternion right) => new(
+            (left.W * right.X) + (left.X * right.W) +
+                (left.Y * right.Z) - (left.Z * right.Y),
+            (left.W * right.Y) - (left.X * right.Z) +
+                (left.Y * right.W) + (left.Z * right.X),
+            (left.W * right.Z) + (left.X * right.Y) -
+                (left.Y * right.X) + (left.Z * right.W),
+            (left.W * right.W) - (left.X * right.X) -
+                (left.Y * right.Y) - (left.Z * right.Z));
 
     private void TrySaveStereoRenderDiagnostics(DateTimeOffset now, IntPtr coreImage)
     {
@@ -5172,7 +5300,8 @@ internal sealed class MainThreadSampler
                 enabled &&
                 texture != IntPtr.Zero &&
                 texture == _m6WorldCandidateTargetTexture &&
-                IsApprovedM6WorldSurfacePath(path))
+                (IsApprovedM6WorldSurfacePath(path) ||
+                    IsApprovedNonLive3DScene(scene)))
             {
                 m6WorldSurface = rawImage;
                 m6WorldSurfacePath = path;
@@ -7701,6 +7830,32 @@ internal sealed class MainThreadSampler
         }
     }
 
+    private IntPtr BoxQuaternion(
+        IntPtr coreImage,
+        TrackingQuaternion rotation)
+    {
+        UiReplayQuaternion quaternion = new()
+        {
+            X = rotation.X,
+            Y = rotation.Y,
+            Z = rotation.Z,
+            W = rotation.W
+        };
+        IntPtr valueAddress = Marshal.AllocHGlobal(
+            Marshal.SizeOf<UiReplayQuaternion>());
+        try
+        {
+            Marshal.StructureToPtr(quaternion, valueAddress, fDeleteOld: false);
+            return _api.ValueBox(
+                FindClass(coreImage, "UnityEngine", "Quaternion"),
+                valueAddress);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(valueAddress);
+        }
+    }
+
     private IntPtr BoxColor(
         IntPtr coreImage,
         float red,
@@ -8227,6 +8382,15 @@ internal sealed class MainThreadSampler
         public float X;
         public float Y;
         public float Z;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct UiReplayQuaternion
+    {
+        public float X;
+        public float Y;
+        public float Z;
+        public float W;
     }
 
     private sealed class UiReplayCanvas

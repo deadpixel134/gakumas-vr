@@ -536,6 +536,30 @@ internal static class OpenXrProbe
             PoseInReferenceSpace = IdentityPose()
         };
         Check(createReferenceSpace(session, ref spaceInfo, out IntPtr localSpace), "create OpenXR view space");
+        XrReferenceSpaceCreateInfo worldSpaceInfo = new()
+        {
+            Type = 37,
+            ReferenceSpaceType = 2,
+            PoseInReferenceSpace = IdentityPose()
+        };
+        int worldSpaceResult = createReferenceSpace(
+            session,
+            ref worldSpaceInfo,
+            out IntPtr worldSpace);
+        if (worldSpaceResult != XrSuccess)
+        {
+            worldSpace = IntPtr.Zero;
+            RuntimeProbe.Append(RuntimeProbe.GetLogPath(), new ProbeEvent
+            {
+                TimestampUtc = DateTimeOffset.UtcNow,
+                Event = "openxr-world-space-unavailable",
+                BootstrapVersion = RuntimeProbe.BootstrapVersion,
+                ProcessId = Environment.ProcessId,
+                Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                OpenXrFrameLoopResult = worldSpaceResult,
+                Reason = "XR_LOCAL_REFERENCE_SPACE is unavailable; existing VIEW-space panels remain active and non-live 6DoF safely waits."
+            });
+        }
         IntPtr projectionLayerPointer = IntPtr.Zero;
         IntPtr cursorLayerPointer = IntPtr.Zero;
         IntPtr stereoProjectionLayerPointer = IntPtr.Zero;
@@ -543,6 +567,7 @@ internal static class OpenXrProbe
         IntPtr uiLayerPointer = IntPtr.Zero;
         IntPtr layerPointers = IntPtr.Zero;
         IntPtr stereoViewBuffer = IntPtr.Zero;
+        IntPtr worldStereoViewBuffer = IntPtr.Zero;
         IntPtr gpuCompletionQuery = IntPtr.Zero;
         OpenXrControllerActions? controllerActions = null;
         VrPointerInput? pointerInput = null;
@@ -561,6 +586,7 @@ internal static class OpenXrProbe
         int uiDiagnosticFrameCount = 0;
         bool stereoViewSampleLogged = false;
         bool stereoViewFailureLogged = false;
+        bool worldStereoViewSampleLogged = false;
         bool m6DynamicUiReadyLogged = false;
         DateTimeOffset nextM6DynamicUiFailureUtc = DateTimeOffset.MinValue;
         bool latestStereoViewsValid = false;
@@ -636,6 +662,10 @@ internal static class OpenXrProbe
             Marshal.WriteIntPtr(layerPointers, IntPtr.Size, uiLayerPointer);
             int stereoViewSize = Marshal.SizeOf<XrView>();
             stereoViewBuffer = Marshal.AllocHGlobal(2 * stereoViewSize);
+            if (worldSpace != IntPtr.Zero)
+            {
+                worldStereoViewBuffer = Marshal.AllocHGlobal(2 * stereoViewSize);
+            }
 
             bool ready = false;
             Stopwatch readyTimeout = Stopwatch.StartNew();
@@ -814,6 +844,65 @@ internal static class OpenXrProbe
                         Error = $"xrLocateViews={locateResult};viewCount={locatedViewCount}"
                     });
                     stereoViewFailureLogged = true;
+                }
+
+                if (worldSpace != IntPtr.Zero)
+                {
+                    for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
+                    {
+                        Marshal.StructureToPtr(
+                            new XrView { Type = 7 },
+                            IntPtr.Add(worldStereoViewBuffer, eyeIndex * stereoViewSize),
+                            fDeleteOld: false);
+                    }
+                    XrViewLocateInfo worldViewLocateInfo = new()
+                    {
+                        Type = 6,
+                        ViewConfigurationType = 2,
+                        DisplayTime = frameState.PredictedDisplayTime,
+                        Space = worldSpace
+                    };
+                    XrViewState worldViewState = new() { Type = 11 };
+                    int worldLocateResult = locateViews(
+                        session,
+                        ref worldViewLocateInfo,
+                        ref worldViewState,
+                        2,
+                        out uint worldLocatedViewCount,
+                        worldStereoViewBuffer);
+                    bool worldViewsValid =
+                        worldLocateResult == XrSuccess && worldLocatedViewCount == 2 &&
+                        (worldViewState.ViewStateFlags & 3UL) == 3UL;
+                    if (worldViewsValid)
+                    {
+                        XrView worldLeftView = Marshal.PtrToStructure<XrView>(
+                            worldStereoViewBuffer);
+                        XrView worldRightView = Marshal.PtrToStructure<XrView>(
+                            IntPtr.Add(worldStereoViewBuffer, stereoViewSize));
+                        OpenXrStereoStateRegistry.UpdateWorldViews(
+                            worldViewState.ViewStateFlags,
+                            CreateStereoEyeState(worldLeftView),
+                            CreateStereoEyeState(worldRightView));
+                        if (!worldStereoViewSampleLogged)
+                        {
+                            RuntimeProbe.Append(RuntimeProbe.GetLogPath(), new ProbeEvent
+                            {
+                                TimestampUtc = DateTimeOffset.UtcNow,
+                                Event = "openxr-world-view-sample",
+                                BootstrapVersion = RuntimeProbe.BootstrapVersion,
+                                ProcessId = Environment.ProcessId,
+                                Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                                OpenXrStereoViewStateFlags = worldViewState.ViewStateFlags,
+                                OpenXrStereoViews = new[]
+                                {
+                                    CreateStereoViewProbeRecord(0, worldLeftView),
+                                    CreateStereoViewProbeRecord(1, worldRightView)
+                                },
+                                Reason = "Predicted stereo views relative to XR_LOCAL_REFERENCE_SPACE are ready for non-live positional 6DoF."
+                            });
+                            worldStereoViewSampleLogged = true;
+                        }
+                    }
                 }
 
                 OpenXrControllerFrame controllerFrame = default;
@@ -1405,7 +1494,9 @@ internal static class OpenXrProbe
                         UnityRenderSourceRegistry.AcquireStereoTextures(750);
                     try
                     {
-                        if (stereoTextures is not null && latestStereoViewsValid)
+                        if (stereoTextures is not null &&
+                            (stereoTextures.RenderState is not null || latestStereoViewsValid) &&
+                            (!stereoTextures.UsesWorldSpace || worldSpace != IntPtr.Zero))
                         {
                             D3D11Texture2DDescription leftDescription =
                                 D3D11Interop.GetTextureDescription(stereoTextures.LeftTexture);
@@ -1472,18 +1563,25 @@ internal static class OpenXrProbe
 
                             int projectionViewSize =
                                 Marshal.SizeOf<XrCompositionLayerProjectionView>();
+                            OpenXrStereoStateSnapshot? renderState = stereoTextures.RenderState;
+                            XrView submittedLeftView = renderState is null
+                                ? latestLeftView
+                                : CreateXrView(renderState.Left);
+                            XrView submittedRightView = renderState is null
+                                ? latestRightView
+                                : CreateXrView(renderState.Right);
                             XrCompositionLayerProjectionView leftProjectionView = new()
                             {
                                 Type = 48,
-                                Pose = latestLeftView.Pose,
-                                Fov = latestLeftView.Fov,
+                                Pose = submittedLeftView.Pose,
+                                Fov = submittedLeftView.Fov,
                                 SubImage = CreateEyeSubImage(leftEyePanel)
                             };
                             XrCompositionLayerProjectionView rightProjectionView = new()
                             {
                                 Type = 48,
-                                Pose = latestRightView.Pose,
-                                Fov = latestRightView.Fov,
+                                Pose = submittedRightView.Pose,
+                                Fov = submittedRightView.Fov,
                                 SubImage = CreateEyeSubImage(rightEyePanel)
                             };
                             Marshal.StructureToPtr(
@@ -1497,7 +1595,9 @@ internal static class OpenXrProbe
                             XrCompositionLayerProjection stereoProjectionLayer = new()
                             {
                                 Type = 35,
-                                Space = localSpace,
+                                Space = stereoTextures.UsesWorldSpace
+                                    ? worldSpace
+                                    : localSpace,
                                 ViewCount = 2,
                                 Views = stereoProjectionViewsPointer
                             };
@@ -1651,6 +1751,11 @@ internal static class OpenXrProbe
                 Marshal.FreeHGlobal(stereoViewBuffer);
             }
 
+            if (worldStereoViewBuffer != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(worldStereoViewBuffer);
+            }
+
             if (projectionLayerPointer != IntPtr.Zero)
             {
                 Marshal.FreeHGlobal(projectionLayerPointer);
@@ -1684,6 +1789,11 @@ internal static class OpenXrProbe
             DestroyPanelSwapchainResources(cursorPanel, destroySwapchain);
             DestroyPanelSwapchainResources(panel, destroySwapchain);
             controllerActions?.Dispose();
+
+            if (worldSpace != IntPtr.Zero)
+            {
+                _ = destroySpace(worldSpace);
+            }
 
             if (localSpace != IntPtr.Zero)
             {
@@ -2031,6 +2141,34 @@ internal static class OpenXrProbe
         view.Fov.AngleRight,
         view.Fov.AngleUp,
         view.Fov.AngleDown);
+
+    private static XrView CreateXrView(OpenXrEyeState eye) => new()
+    {
+        Type = 7,
+        Pose = new XrPosef
+        {
+            Position = new XrVector3f
+            {
+                X = eye.PositionX,
+                Y = eye.PositionY,
+                Z = eye.PositionZ
+            },
+            Orientation = new XrQuaternionf
+            {
+                X = eye.OrientationX,
+                Y = eye.OrientationY,
+                Z = eye.OrientationZ,
+                W = eye.OrientationW
+            }
+        },
+        Fov = new XrFovf
+        {
+            AngleLeft = eye.FovLeft,
+            AngleRight = eye.FovRight,
+            AngleUp = eye.FovUp,
+            AngleDown = eye.FovDown
+        }
+    };
 
     private static EyeSwapchainResources CreateEyeSwapchainResources(
         IntPtr session,
