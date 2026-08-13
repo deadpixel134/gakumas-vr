@@ -17,6 +17,7 @@ internal sealed class MainForm : Form
         Margin = new Padding(3, 2, 3, 6)
     };
     private readonly NumericUpDown _worldEyeScale = Number(0m, 0.50m, 0.005m, 3);
+    private readonly CheckBox _liveSixDof = TaggedCheckBox("LiveSixDofEnabled");
     private readonly ComboBox _vfx = ChoiceCombo();
     private readonly CheckBox _manualPostProcessing = TaggedCheckBox("EffectEnabled");
     private readonly CheckBox _manualVlBloom = TaggedCheckBox("EffectEnabled");
@@ -163,6 +164,7 @@ internal sealed class MainForm : Form
         eyeScalePanel.Controls.Add(_eyeScaleWarning);
         AddRow(grid, "EyeScale", eyeScalePanel);
         AddRow(grid, "WorldEyeScale", _worldEyeScale);
+        AddRow(grid, "LiveSixDof", _liveSixDof);
         AddRow(grid, "VfxMode", _vfx);
         AddRow(grid, "VfxPostProcessing", _manualPostProcessing);
         AddRow(grid, "VfxVlBloom", _manualVlBloom);
@@ -416,6 +418,10 @@ internal sealed class MainForm : Form
                 VlFlareEnabled = _manualVlFlare.Checked
             }
         },
+        Tracking = new VrTrackingSettings
+        {
+            LiveSixDofEnabled = _liveSixDof.Checked
+        },
         Panel = new VrPanelSettings
         {
             PanelHand = Selected(_panelHand, VrHand.Left),
@@ -449,6 +455,7 @@ internal sealed class MainForm : Form
         _runtimeEnabled.Checked = settings.Runtime.Enabled;
         Set(_eyeScale, settings.Render.EyeRenderScale);
         Set(_worldEyeScale, settings.Render.WorldEyeOffsetScale);
+        _liveSixDof.Checked = settings.Tracking.LiveSixDofEnabled;
         Select(_vfx, settings.Render.VisualEffectMode);
         VrManualVisualEffectSettings manual = settings.Render.ManualVisualEffects;
         _manualPostProcessing.Checked = manual.PostProcessingEnabled;

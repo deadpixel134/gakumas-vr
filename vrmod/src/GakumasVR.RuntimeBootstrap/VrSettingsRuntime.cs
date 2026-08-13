@@ -54,6 +54,7 @@ internal static class VrSettingsRuntime
                     $"source={source};schema={_current.SchemaVersion};enabled={_current.Runtime.Enabled};" +
                     $"panelHand={_current.Panel.PanelHand};pointerHand={_current.Panel.PointerHand};" +
                     $"viewerFacing={_current.Panel.ViewerFacing};eyeScale={_current.Render.EyeRenderScale:R};" +
+                    $"liveSixDof={_current.Tracking.LiveSixDofEnabled};" +
                     $"vfxMode={_current.Render.VisualEffectMode};" +
                     $"manualPost={_current.Render.ManualVisualEffects.PostProcessingEnabled};" +
                     $"manualBloom={_current.Render.ManualVisualEffects.VlBloomEnabled};" +

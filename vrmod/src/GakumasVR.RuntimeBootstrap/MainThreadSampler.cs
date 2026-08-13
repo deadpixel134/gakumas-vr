@@ -30,6 +30,7 @@ internal sealed class MainThreadSampler
     private readonly VrManualVisualEffectSettings _manualVisualEffects;
     private readonly float _stereoRenderResolutionScale;
     private readonly float _stereoWorldEyeOffsetScale;
+    private readonly bool _liveSixDofEnabled;
     private readonly FrameCountDelegate _replacement;
     private readonly DrawFlareDelegate _drawFlareReplacement;
     private readonly VlPostProcessRenderDelegate _vlPostProcessRenderReplacement;
@@ -276,6 +277,7 @@ internal sealed class MainThreadSampler
         _manualVisualEffects = settings.Render.ManualVisualEffects;
         _stereoRenderResolutionScale = settings.Render.EyeRenderScale;
         _stereoWorldEyeOffsetScale = settings.Render.WorldEyeOffsetScale;
+        _liveSixDofEnabled = settings.Tracking.LiveSixDofEnabled;
         _replacement = OnFrameCount;
         _drawFlareReplacement = OnDrawFlare;
         _vlPostProcessRenderReplacement = OnVlPostProcessRender;
@@ -702,13 +704,15 @@ internal sealed class MainThreadSampler
             _m6NonLiveWorldSurfaceEligible &&
             _lastLiveCamera != IntPtr.Zero;
         bool stereoPumpEligible = liveStereoEligible || nonLiveStereoEligible;
+        bool sixDofEligible = nonLiveStereoEligible ||
+            (liveStereoEligible && _liveSixDofEnabled);
         bool stereoSourceChanged = stereoPumpEligible &&
             _stereoPumpEligible &&
             (_stereoPumpSourceCamera != _lastLiveCamera ||
                 _stereoPumpSourceTexture != _lastLiveTargetTexture);
         bool stereoTrackingModeChanged = stereoPumpEligible &&
             _stereoPumpEligible &&
-            _stereoGenerationUsesSixDof != nonLiveStereoEligible;
+            _stereoGenerationUsesSixDof != sixDofEligible;
         if (stereoPumpEligible != _stereoPumpEligible ||
             stereoSourceChanged || stereoTrackingModeChanged)
         {
@@ -717,7 +721,7 @@ internal sealed class MainThreadSampler
                 RetireStereoCameraGeneration(now, coreImage, scene);
             }
             _stereoPumpEligible = stereoPumpEligible;
-            _stereoGenerationUsesSixDof = stereoPumpEligible && nonLiveStereoEligible;
+            _stereoGenerationUsesSixDof = stereoPumpEligible && sixDofEligible;
             _stereoPumpSourceCamera = stereoPumpEligible
                 ? _lastLiveCamera
                 : IntPtr.Zero;
@@ -2524,7 +2528,9 @@ internal sealed class MainThreadSampler
                     StereoRenderSubmitted = true,
                     OpenXrStereoViewStateFlags = stereo.ViewStateFlags,
                     Reason = useSixDof
-                        ? "Non-live 6DoF is active: clone cameras use scene-relative XR_LOCAL head rotation and 1:1 positional movement, while each published eye pair retains its exact render pose for projection submission."
+                        ? _m6NonLiveWorldSurfaceEligible
+                            ? "Non-live 6DoF is active: clone cameras use scene-relative XR_LOCAL head rotation and 1:1 positional movement, while each published eye pair retains its exact render pose for projection submission."
+                            : "The experimental live 6DoF option is active: live clone cameras use scene-relative XR_LOCAL head rotation and 1:1 positional movement, while each published eye pair retains its exact render pose for projection submission."
                         : "Triple-buffered eye cameras publish after both clone renders complete; the first pair retains synchronous GPU validation while subsequent pairs rely on protected D3D11 command ordering, OpenXR final GPU completion, and lease-aware buffer reuse."
                 });
             }

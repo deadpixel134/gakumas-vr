@@ -37,6 +37,8 @@ public sealed class VrSettings
 
     public VrRenderSettings Render { get; set; } = new();
 
+    public VrTrackingSettings Tracking { get; set; } = new();
+
     public VrPanelSettings Panel { get; set; } = new();
 
     public VrInputSettings Input { get; set; } = new();
@@ -58,6 +60,11 @@ public sealed class VrRenderSettings
     public string VisualEffectMode { get; set; } = VrVisualEffectModes.Approved;
 
     public VrManualVisualEffectSettings ManualVisualEffects { get; set; } = new();
+}
+
+public sealed class VrTrackingSettings
+{
+    public bool LiveSixDofEnabled { get; set; }
 }
 
 public sealed class VrManualVisualEffectSettings
@@ -156,6 +163,7 @@ public static class VrSettingsValidator
         VrSettings defaults = VrSettings.CreateApprovedDefaults();
         VrRuntimeSettings runtime = source.Runtime ?? defaults.Runtime;
         VrRenderSettings render = source.Render ?? defaults.Render;
+        VrTrackingSettings tracking = source.Tracking ?? defaults.Tracking;
         VrManualVisualEffectSettings manualVisualEffects =
             render.ManualVisualEffects ?? defaults.Render.ManualVisualEffects;
         VrPanelSettings panel = source.Panel ?? defaults.Panel;
@@ -208,6 +216,10 @@ public static class VrSettingsValidator
                     VlStarStreakEnabled = manualVisualEffects.VlStarStreakEnabled,
                     VlFlareEnabled = manualVisualEffects.VlFlareEnabled
                 }
+            },
+            Tracking = new VrTrackingSettings
+            {
+                LiveSixDofEnabled = tracking.LiveSixDofEnabled
             },
             Panel = new VrPanelSettings
             {

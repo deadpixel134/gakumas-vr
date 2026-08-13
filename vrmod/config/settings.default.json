@@ -18,6 +18,9 @@
       "vlFlareEnabled": true
     }
   },
+  "tracking": {
+    "liveSixDofEnabled": false
+  },
   "panel": {
     "panelHand": "left",
     "pointerHand": "right",

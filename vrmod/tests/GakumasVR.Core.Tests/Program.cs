@@ -270,6 +270,7 @@ static void VrSettingsPreserveApprovedDefaults()
     Equal(true, result.Settings.Panel.ViewerFacing);
     Equal(0.10f, result.Settings.Panel.OffsetY);
     Equal(0.65f, result.Settings.Render.EyeRenderScale);
+    Equal(false, result.Settings.Tracking.LiveSixDofEnabled);
     Equal(VrVisualEffectModes.Approved, result.Settings.Render.VisualEffectMode);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
@@ -281,6 +282,7 @@ static void VrSettingsPreserveApprovedDefaults()
 static void VrSettingsPreserveManualVfxControls()
 {
     VrSettings settings = VrSettings.CreateApprovedDefaults();
+    settings.Tracking.LiveSixDofEnabled = true;
     settings.Render.VisualEffectMode = VrVisualEffectModes.Manual;
     settings.Render.ManualVisualEffects.PostProcessingEnabled = true;
     settings.Render.ManualVisualEffects.VlBloomEnabled = false;
@@ -295,6 +297,7 @@ static void VrSettingsPreserveManualVfxControls()
 
     Equal(false, result.UsedFallback);
     Equal(VrVisualEffectModes.Manual, result.Settings.Render.VisualEffectMode);
+    Equal(true, result.Settings.Tracking.LiveSixDofEnabled);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(false, result.Settings.Render.ManualVisualEffects.VlBloomEnabled);
     Equal(0.85f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
@@ -334,6 +337,7 @@ static void VrSettingsLoadLegacyJsonWithoutManualVfx()
 
     Equal(false, result.UsedFallback);
     Equal(VrVisualEffectModes.Manual, result.Settings.Render.VisualEffectMode);
+    Equal(false, result.Settings.Tracking.LiveSixDofEnabled);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
     Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
