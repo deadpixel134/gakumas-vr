@@ -9,13 +9,13 @@
 - Windows 11 x64
 - 正常にインストールされた学園アイドルマスターDMM版
 - OpenXRランタイムを利用できるPC VR環境
-- v0.164.0配布ZIPに含まれるDobbyランタイム依存ファイル
+- v0.173.0配布ZIPに含まれるDobbyランタイム依存ファイル
 
 > Localifyがある場合、インストーラーは翻訳・フォント・テクスチャ・設定と既存の`BepInEx/core/dobby.dll`を保持します。Localifyがない場合は必要なDobbyだけをインストールし、Localifyファイルは作成しません。ゲームフォルダーを変更する前に全ファイルのハッシュと必須依存関係を確認します。この経路はPowerShellとGUI管理エンジンの自動インストール／削除検証を通過していますが、VR実機確認はまだです。
 
 ## インストール手順
 
-1. GitHubの[Releasesページ](https://github.com/deadpixel134/gakumas-vr/releases)から最新プレリリースZIPをダウンロードします。
+1. GitHubの[Releasesページ](https://github.com/deadpixel134/gakumas-vr/releases)から最新正式リリースZIPをダウンロードします。
 2. ゲームを終了し、`gakumas.exe`が実行中でないことを確認します。
 3. ZIPをゲームフォルダー外の一時フォルダーへ展開します。
 4. `GakumasVR.Installer.exe`を実行します。
@@ -46,7 +46,7 @@ Quest LinkまたはAir Linkで接続し、Meta Quest LinkアプリでMetaラン�
 
 ## 更新
 
-ゲームを終了し、新しいReleaseのインストーラーで同じゲームフォルダーを選択します。`vrmod/config/settings.json`は保持され、置き換えるファイルはロールバック用にバックアップされます。
+設定ツールの起動時と**更新を確認**を押した時、現在のバージョンとGitHubの最新正式Releaseタグを比較します。新しい版があればZIPとSHA-256をダウンロード・検証し、ゲーム終了中にインストールして設定ツールを再起動します。ゲーム実行中は更新を保留します。手動更新は新しいReleaseのインストーラーで同じゲームフォルダーを選択します。`vrmod/config/settings.json`は保持され、置き換えるファイルはロールバック用にバックアップされます。
 
 ## アンインストール／ロールバック
 

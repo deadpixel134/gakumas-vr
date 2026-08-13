@@ -1,6 +1,6 @@
 # 학원 아이돌마스터 VR 모드 기술 설계
 
-상태: 구현 설계 — v0.154 M6 자동 정면 패널/손 패널 전환과 오른손 범용 입력 사용자 실기 완료, M7 제품화 진행
+상태: 구현 설계 — v0.173 M7 설정·설치·자동 업데이트·6DoF 조작 사용자 실기 완료, 정식 릴리스 기준
 
 현재 설치/검증/결함 상태는 [`GAKUMAS_VR_STATUS.md`](GAKUMAS_VR_STATUS.md), 단계별 완료 조건과 알림 규칙은 [`VR_MILESTONES.md`](VR_MILESTONES.md)를 기준으로 한다. 이 문서는 목표 구조와 확정된 기술 결정을 설명한다. 작업 문서는 마일스톤 완료 시점 또는 사용자의 명시적 문서 요청에서 동기화한다.
 
@@ -30,7 +30,7 @@
 - OpenXR 세션과 HMD swapchain은 화면 방향이 바뀌어도 유지한다.
 - 세로/가로 변경은 VR 패널의 종횡비와 입력 좌표계 변경으로 처리한다.
 - 라이브를 포함한 모든 VR 환경에서 최종 게임 백버퍼 전체를 공통 평면 패널 source로 유지한다. UI black-key나 장면별 UI 추출은 제품 기본 경로로 사용하지 않는다.
-- 기본 패널 손은 왼손, 기본 포인터 손은 오른손이다. 두 역할은 하드코딩하지 않고 향후 설정 GUI에서 교환 가능해야 한다.
+- 기본 패널 손은 왼손, 기본 포인터 손은 오른손이다. 두 역할과 관련 버튼은 설정 GUI에서 교환할 수 있다.
 - 완전 평면 문맥의 정면 패널은 주 콘텐츠이므로 자동 표시하며 Grip 토글이나 손 추적에 의존하지 않는다.
 - stereo 문맥의 보조 패널은 패널 손의 유효한 추적 pose가 HMD 시야 안에 있을 때만 표시한다. 시작 시 비활성이고 패널 손 Grip의 명확한 press edge로 ON/OFF를 토글한다. OFF 상태에서는 swapchain을 파괴하지 않되 백버퍼 복사, panel swapchain acquire/write, quad 제출과 포인터 hit-test를 모두 생략한다.
 - 원본 게임 카메라에는 HMD 자세를 직접 기록하지 않는다.
@@ -38,6 +38,16 @@
 - UI 분리에 실패하거나 카메라 구성이 불명확하면 패널 모드로 폴백한다.
 - HMD가 없거나 OpenXR 초기화에 실패하면 일반 창모드 게임이 정상 실행되어야 한다.
 - Localify의 번역, 폰트, 텍스처 교체 및 ImGui를 우선 보존한다.
+
+### 2.1 v0.173 6DoF 조작·roll 불변식
+
+- 기본 입력 역할은 왼손 world-axis 시야 회전, 오른손 final-view 3D 이동이며 설정의 `locomotionHand`로 교체한다. VR 스틱 스크롤은 항상 비활성화한다.
+- artificial yaw/pitch는 scalar로 따로 누적한다. 스틱 대각 오차는 절댓값이 큰 한 축만 선택하며 기본 snap은 15°, 활성 임계값 0.65, deadzone 재무장은 0.20이다.
+- scene base rotation은 forward에서 yaw/pitch만 추출하고 roll을 폐기한다. OpenXR absolute eye orientation은 Unity 좌표로 바꾼 뒤 yaw/pitch/roll을 각각 원점과 비교한다.
+- 최종 회전은 `Yaw(base + artificial + physical delta) × Pitch(base + artificial + physical delta) × Roll(physical delta)`로 매 프레임 재구성한다. 따라서 스틱·scene·진입 자세에서 roll이 유입되지 않고 사용자가 실제로 HMD를 기울인 변화량만 남는다.
+- raw relative HMD quaternion을 artificial quaternion에 통째로 곱하지 않는다. 기울어진 origin에서 physical yaw가 relative roll로 표현되어 수평선이 기울 수 있기 때문이다.
+- 물리 머리 위치, 눈 offset, controller locomotion offset은 동일한 roll-free world navigation basis를 쓴다. 이동 벡터에서 pitch를 제거하지 않으므로 위·아래 시야 전진은 상승·하강으로 이어진다.
+- 전체 수학·상태기·패널·폴백·이식 경계는 공개 명세 [`ko/VR_INTERACTION_SPEC.md`](ko/VR_INTERACTION_SPEC.md)를 권위 문서로 사용한다.
 
 ## 3. 전체 구조
 
@@ -87,7 +97,7 @@ flowchart LR
 | `UICaptureAdapter` | 역사적 live UI one-shot/진단 경로; 새 제품 기본 경로에서는 사용하지 않음 |
 | `CompositeCapture` | 분리가 불가능한 경우 최종 게임 화면 전체 캡처 |
 | `VRPanelRenderer` | 최종 백버퍼 전체를 flat-only 정면 pose 또는 stereo 문맥의 패널 손 pose에 표시 |
-| `QuestInputMapper` | 포인터 손의 레이, 클릭, 드래그, 스크롤, 뒤로가기 입력 변환 |
+| `QuestInputMapper` | 포인터 손의 레이, 클릭, 드래그와 뒤로가기 입력 변환 |
 | `Diagnostics` | 토큰을 제외한 전환·카메라·성능 로그 기록 |
 
 ### 현재 구현과 초기 설계의 차이
@@ -101,7 +111,7 @@ flowchart LR
 - 현재 승인 경로는 clone 카메라를 Unity 정상 렌더 루프에 참여시키고, actual clone completion으로 완성된 양안 쌍을 확인한 뒤 세 개의 eye buffer pair를 lease-aware하게 순환하는 방식이다.
 - v0.149는 OpenXR core Oculus Touch interaction profile로 좌·우 grip/aim pose와 squeeze/trigger/A·B/X·Y action을 만들고 session action set에 연결했다.
 - v0.150은 right thumbstick vector action을 추가하고, fresh stereo가 없으면 `XR_VIEW_REFERENCE_SPACE` 정면 1.6m에 전체 백버퍼 패널을 자동 표시한다. fresh stereo가 있으면 정면 패널을 제거하고 v0.149의 왼손 Grip/FOV 보조 패널로 전환한다.
-- v0.150은 right aim ray를 현재 패널 plane의 UV와 foreground 게임 client 좌표로 변환한다. 별도 alpha quad cursor, A click/drag, pre-press latch를 적용한 trigger click/drag, B→Escape와 thumbstick Y→wheel 입력을 연결한다. 직접 터치와 역할/버튼 설정 GUI는 아직 없다.
+- v0.150은 right aim ray를 현재 패널 plane의 UV와 foreground 게임 client 좌표로 변환한다. 별도 alpha quad cursor, A click/drag, pre-press latch를 적용한 trigger click/drag와 B→Escape를 연결한다. v0.160 계열 설정 GUI에서 손 역할·버튼·패널 배치를 편집하며 직접 터치는 사용자 결정으로 제품 범위에서 제외했다. v0.170부터 VR 스틱 스크롤은 비활성이고 양 스틱을 이동과 시야 회전에 사용한다.
 - v0.151은 OpenXR `XrActionStateGetInfo.Type`을 규격 값 58로 수정하고 액션 조회 실패를 개별 격리했다. 사용자 실기에서 ray cursor, A/trigger/B/stick과 Grip 토글이 정상 판정됐다.
 - v0.154 손 패널은 왼손 controller local +Y 0.10m의 상단 끝을 view-space 위치로 변환해 그 지점에 중심을 둔다. quad는 view-space 수직을 유지하고 매 프레임 플레이어를 향한다. 표시 gate는 왼손 tracking과 HMD FOV이며 방향 고정/추종 선택은 M7 GUI 항목이다.
 
@@ -172,7 +182,7 @@ M5 실기에서 화면 이름만으로 immersive를 허용하지 않고 실제 �
 | 영상 재생 | Unity `VideoPlayer`가 아니라 `Campus.Common.CampusVideoPlayer`가 홈 모니터와 가샤 배경의 `OnDemandVideoPlayerImage`에서 활성화된다. Canvas/RawImage/custom material 경로로 합성된다. | 영상과 UI를 포함한 최종 백버퍼를 종횡비 보존 정면 패널에 자동 표시하고 가짜 stereo를 만들지 않는다. 홈 모니터처럼 world에 포함된 영상은 평면 표면인 채 world 경로를 따른다. |
 | 라이브 | 검증된 `env_3d_live_*` world는 Projection Layer, 기존 UI는 one-shot alpha layer 경로를 사용한다. | stereo world는 유지하되, UI·시계·영상·조작은 다른 문맥과 동일한 최종 백버퍼 전체 손 패널로 통일한다. 기존 one-shot/black-key UI는 회귀 참고용이며 목표 경로가 아니다. |
 
-모든 immersive source는 scene-bound generation을 사용하고 source 상실 시 이전 eye texture를 즉시 clear한다. 최종 백버퍼 panel source는 world generation과 독립적으로 유지하며 원본 게임 카메라, PC mirror, UI와 Localify 합성을 그대로 보존한다. topology가 불명확하거나 stereo 추출에 실패하면 world를 중단하고 정면 패널로 자동 폴백한다. v0.151/v0.154 사용자 실기로 panel UV 기반 오른손 ray pointer/click/drag/scroll과 표시 전환을 확인해 M6를 달성했으며, M7은 직접 터치와 설정·제품화를 완성한다.
+모든 immersive source는 scene-bound generation을 사용하고 source 상실 시 이전 eye texture를 즉시 clear한다. 최종 백버퍼 panel source는 world generation과 독립적으로 유지하며 원본 게임 카메라, PC mirror, UI와 Localify 합성을 그대로 보존한다. topology가 불명확하거나 stereo 추출에 실패하면 world를 중단하고 정면 패널로 자동 폴백한다. v0.151/v0.154 사용자 실기로 panel UV 기반 오른손 ray pointer/click/drag와 표시 전환을 확인해 M6를 달성했고, v0.173에서 설정·설치·업데이트·6DoF 조작을 실기 승인해 M7을 달성했다.
 
 현재 프로토타입의 추가 제약:
 
@@ -332,7 +342,8 @@ stateDiagram-v2
 | 포인터 손 기본 전면 버튼(오른손 A/왼손 X) | 좌클릭/탭의 기본 입력 |
 | trigger 유지 | 드래그 |
 | 기본 전면 버튼 유지 | 드래그 |
-| 포인터 손 thumbstick Y | 스크롤 |
+| 이동 손 thumbstick | 최종 시야 기준 완전 3D 이동 |
+| 반대 손 thumbstick | 월드축 yaw/pitch 스냅 또는 부드러운 시야 회전 |
 | 포인터 손 보조 전면 버튼(오른손 B/왼손 Y) | 게임 뒤로가기/취소 |
 | 패널 손 Grip press edge | 패널 ON/OFF 토글 |
 | 별도 설정 가능 조합 | 시점 재중앙화 |
@@ -405,14 +416,14 @@ gameY = (1 - contentV) * gameHeight
 - UniverseLib/EventSystem 강제 교체와 강제 마우스 unlock은 끈다.
 - 그래픽 훅 공존 시험에 실패하면 VR 기능을 활성화하지 않고 일반 게임으로 종료한다.
 
-### 최종 GUI 설정 도구
+### 설정 GUI
 
-핵심 VR 렌더와 성능 기준이 확정된 뒤 별도 데스크톱 GUI를 제공한다. 장시간 안정성은 사용자 지시에 따라 제품화 선행 조건으로 두지 않는다.
+별도 데스크톱 GUI가 버전 있는 설정을 편집한다. 장시간 안정성은 사용자 지시에 따라 제품화 선행 조건으로 두지 않는다.
 
 - GUI는 게임 프로세스에 주입하지 않고 종료 상태에서 버전이 있는 설정 파일을 편집한다.
 - 런타임은 시작 시 설정 스키마와 범위를 검증하고 잘못된 값은 안전 기본값으로 대체한다.
-- 초기 항목은 world eye offset scale, eye render scale, 패널 손/포인터 손, 버튼 매핑, 패널 위치·크기·회전과 viewer-facing ON/OFF, 후처리 모드, 선호 OpenXR 런타임이다.
-- v0.138부터 사용하는 `render-resolution-scale.txt`의 현재 값 `0.65`, 허용 범위 `0.50~1.00`, 안전 기본값 `0.75`를 최종 schema로 이관한다.
+- 현재 항목은 world eye offset scale, eye render scale, 패널 손/포인터 손, 버튼 매핑, 패널 위치·크기·회전과 viewer-facing ON/OFF, 자동/수동 후처리, live 6DoF, 이동 손·속도, 스냅/부드러운 회전과 스냅 각도다.
+- legacy `render-resolution-scale.txt`는 JSON `render.eyeRenderScale`로 이관한다. 기본값은 `0.65`, 허용 범위 `0.50~2.00`, 안전 기본값 `0.75`이며 1.00 초과에서 GUI 경고를 표시한다.
 - world eye offset은 실측 물리 IPD에 곱하는 비율로 표시하며 현재 기본 후보는 27.5%다.
 - 설정 저장은 임시 파일 작성 후 교체하는 원자적 방식으로 하고 기본값 복원, 내보내기와 가져오기를 지원한다.
 - Localify 설정 파일과 namespace를 공유하거나 수정하지 않는다.
@@ -469,53 +480,34 @@ VR 모드를 완전히 끄는 조건:
 
 VR 실패는 게임 종료 사유가 되어서는 안 된다.
 
-## 13. 설정 초안
+## 13. 현재 설정 계약
 
-```ini
-[Runtime]
-Enabled = true
-Preferred = VirtualDesktopOpenXR
-AllowSteamVROpenXR = true
-AllowQuestLinkOpenXR = true
+권위 파일은 `vrmod/config/settings.default.json`과 `GakumasVR.Core/VrSettings.cs`다. 핵심 기본값은 다음과 같다.
 
-[Presentation]
-DefaultMode = Auto
-SafeModeKey = F10
-ManualModeKey = X
-TransitionStableFrames = 5
-TransitionTimeoutMs = 2000
-
-[Panel]
-Anchor = Controller
-PanelHand = Left
-StartEnabled = false
-ToggleAction = Grip
-VisibleOnlyInView = true
-RequireFrontFacing = true
-VisibilityHysteresisMs = 100
-ControllerOffset = Unspecified
-Curve = 0.0
-
-[Immersive]
-WorldScale = 1.0
-NearClip = 0.03
-LockCameraRoll = true
-DisableMotionBlur = true
-EyeRenderScale = 0.65
-
-[Input]
-ControllerPointer = true
-PointerHand = Right
-PrimaryClick = FaceButton
-PrimaryClickAlternative = Trigger
-SecondaryAction = FaceButtonSecondary
-LegacyMouseFallback = true
-RequireGameFocus = true
-
-[Compatibility]
-PreserveLocalify = true
-AllowUnknownGameVersion = false
+```text
+render.eyeRenderScale = 0.65                 # 0.50~2.00, invalid fallback 0.75
+render.worldEyeOffsetScale = 0.275
+tracking.liveSixDofEnabled = false
+tracking.locomotionEnabled = true
+tracking.locomotionHand = right
+tracking.locomotionSpeed = 1.5
+tracking.viewTurnMode = snap
+tracking.viewSnapAngleDegrees = 15
+panel.panelHand = left
+panel.pointerHand = right
+panel.startEnabled = false
+panel.viewerFacing = true
+panel.offset = (0.0, 0.1, 0.0)
+panel.maximumSize = (0.42, 0.42)
+panel.toggleBinding = grip
+input.primaryClickButton = primary
+input.backButton = secondary
+input.triggerClickEnabled = true
+input.thumbstickScrollEnabled = false
+input.requireGameFocus = true
 ```
+
+설정은 게임 종료 상태에서 GUI가 원자적으로 저장한다. 런타임은 시작 시 schema와 범위를 검증하고 Localify 설정 파일을 수정하지 않는다.
 
 ## 14. 검증 기준
 
@@ -526,7 +518,7 @@ AllowUnknownGameVersion = false
 - 라이브 진입/종료 후 원래 UI로 정상 복귀
 - 완전 평면 문맥에서 최종 게임 화면 전체가 시야 정면에 자동 표시되고, stereo 문맥에서는 왼손 Grip 보조 패널이 시야·tracking 조건에 맞춰 표시·숨김됨
 - 기본 오른손 ray cursor와 A/trigger/B/stick 조작이 정면/손 패널의 같은 UV 좌표 경로에서 동작함
-- 설정을 통한 패널 손/포인터 손 및 버튼 역할 교환은 M7에서 같은 입력 경로를 재사용함
+- 설정을 통한 패널 손/포인터 손·버튼·이동 손 교환이 같은 입력 경로를 재사용함
 - 한글 폰트와 번역 텍스처 유지
 - HMD 없이 일반 창모드 실행 가능
 - F10 안전모드가 어떤 장면에서도 동작
@@ -562,29 +554,27 @@ VR 품질:
 5. eye pose/FOV, 정적 Projection Layer와 깊이 조정
 6. Unity 정상 렌더 루프 기반 연속 스테레오(v0.82)
 
-현재 이후 순서:
+달성 및 이후 순서:
 
 1. M3는 v0.131 시각과 v0.90 UI 회귀 기준, M4는 v0.141 게임 속도 stereo/near-120Hz OpenXR 기준으로 달성했다. 생략된 안정성 항목은 검증 완료가 아니다.
 2. M5는 v0.142/v0.143에서 메인 홈, 진행 중 메뉴/선택, 커뮤니케이션과 영상 재생의 Camera/Canvas/RT/custom media topology를 조사하고 표시 정책을 사용자와 확정해 달성했다.
 3. M6는 승인된 실시간 3D 화면만 stereo generation으로 연결하고, 완전 평면 문맥은 자동 정면 패널, stereo 문맥은 왼손 Grip 보조 패널로 전환하는 v0.154 경로를 사용자 실기로 확인해 달성했다. 기존 비-live keyed UI 합성과 live one-shot UI는 제품 목표에서 제외한다.
-4. v0.151에서 기본 오른손 Quest ray cursor와 A/trigger/B/stick 입력을 정면/손 패널 좌표에서 실기 확인했다. M7에서 직접 터치, 패널 손/포인터 손, 버튼 역할과 viewer-facing 교환을 설정 schema와 GUI에 포함한다.
-5. `render-resolution-scale.txt`를 포함한 설정을 버전 있는 schema와 별도 GUI로 확장하되 게임 프로세스와 Localify 파일은 변경하지 않는다.
-6. 설치/제거/rollback 패키지를 만들고 VR 초기화 실패 시 창모드 게임 생존과 평면 폴백을 유지한다.
-7. scene/camera/UI 반응은 이벤트 기반 1~10ms fast path로만 개선하고 전체 객체 열거를 1ms 주기로 수행하지 않는다.
-8. 정확한 90/120 stereo 생산과 SteamVR/Quest Link 회귀는 선택적·비차단 작업으로 남긴다.
+4. v0.155~v0.166에서 버전 있는 설정, 한·영·일 GUI, 안전한 설치/제거/rollback, Dobby 포함 clean install과 GitHub stable Release 자동 업데이트를 완성했다.
+5. v0.167~v0.173에서 비-live 6DoF, 선택형 live 독립 6DoF, final-view 완전 3D 이동, 월드축 스냅/부드러운 회전과 physical HMD roll 분리를 구현했고 사용자 실기에서 최종 승인해 M7을 달성했다.
+6. scene/camera/UI 반응은 이벤트 기반 1~10ms fast path로만 유지하고 전체 객체 열거를 1ms 주기로 수행하지 않는다.
+7. M8에서는 SteamVR/Quest Link 실기, 게임 업데이트 호환성 gate와 배포 유지보수를 진행한다. 정확한 90/120 stereo 생산은 선택적·비차단 작업이다.
 
 ## 16. 아직 실측이 필요한 항목
 
 - 장시간 HMD 지속 성능은 사용자 지시에 따라 비차단·미검증
-- 직접 터치와 설정 GUI 기반 역할 교환
-- 설정 GUI 기반 패널 위치·크기·회전과 viewer-facing ON/OFF
+- 직접 터치는 사용자 결정으로 생략했으며 다시 요청받기 전에는 미실측 완료 조건으로 다루지 않음
 - v0.84 UICamera target 리디렉션의 PC 화면 영향과 완전 복구 여부
 - clone 카메라에서 블룸과 그림자가 누락되는 정확한 pass/설정
 - 스킬 사용 이벤트에서 생성되는 최상위 2D 이미지의 Canvas, sorting order, 카메라 및 합성 시점
 - Virtual Desktop 런타임에서 지원하는 composition layer와 refresh-rate 확장
 - 장시간 연속 스테레오의 메모리/GPU/재진입은 사용자 지시에 따라 비차단·미검증
 - SteamVR OpenXR와 Quest Link OpenXR 호환성
-- 라이브 좌상단 시계가 최종 백버퍼 손 패널에서 지속 갱신되는지 확인 — 기존 one-shot alpha UI 경로는 제품 목표에서 제외
+- 라이브 좌상단 시계 회귀는 사용자 결정으로 생략 — 기존 one-shot alpha UI 경로는 제품 목표에서 제외
 
 이 항목들은 런타임 진단으로 수집하며, 추측한 클래스 경로나 고정 IL2CPP 주소를 제품 코드에 넣지 않는다.
 

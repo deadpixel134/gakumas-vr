@@ -9,13 +9,13 @@
 - Windows 11 x64
 - A working installation of the DMM edition of Gakuen Idolmaster
 - A PC VR setup with an OpenXR runtime
-- The Dobby runtime dependency included in the v0.164.0 release ZIP
+- The Dobby runtime dependency included in the v0.173.0 release ZIP
 
 > When Localify is present, the installer preserves its translations, fonts, textures, settings, and any existing `BepInEx/core/dobby.dll`. Without Localify, it installs only the required Dobby dependency and does not create Localify files. All package hashes and required dependencies are checked before the game directory is changed. This path passes automated PowerShell and GUI management-engine install/uninstall validation but has not yet been VR hardware-tested.
 
 ## Install
 
-1. Download the newest prerelease ZIP from the [GitHub Releases page](https://github.com/deadpixel134/gakumas-vr/releases).
+1. Download the newest stable ZIP from the [GitHub Releases page](https://github.com/deadpixel134/gakumas-vr/releases).
 2. Fully close the game and make sure `gakumas.exe` is no longer running.
 3. Extract the ZIP to a temporary directory outside the game folder.
 4. Run `GakumasVR.Installer.exe`.
@@ -46,7 +46,7 @@ Connect with Quest Link or Air Link, set the Meta runtime as active OpenXR in th
 
 ## Update
 
-Close the game and run the installer from the new Release against the same game directory. `vrmod/config/settings.json` is preserved and replaced files are backed up for rollback.
+At startup and when **Check for updates** is pressed, the configurator compares its version with GitHub's latest stable Release tag. If newer, it downloads and verifies the ZIP and SHA-256, installs while the game is closed, and restarts itself. Updates are deferred while the game is running. Manual update remains available by running the new Release installer against the same game directory. `vrmod/config/settings.json` is preserved and replaced files are backed up for rollback.
 
 ## Uninstall or roll back
 

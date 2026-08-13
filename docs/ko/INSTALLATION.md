@@ -9,13 +9,13 @@
 - Windows 11 x64
 - DMM판 학원 아이돌마스터의 정상 설치본
 - OpenXR를 사용할 수 있는 PC VR 환경
-- v0.164.0 배포 ZIP에 포함된 Dobby 런타임 의존성
+- v0.173.0 배포 ZIP에 포함된 Dobby 런타임 의존성
 
 > 설치기는 Localify가 있으면 번역·폰트·텍스처·설정과 기존 `BepInEx/core/dobby.dll`을 보존합니다. Localify가 없으면 필요한 Dobby만 설치하고 Localify 파일은 새로 만들지 않습니다. 게임 폴더를 변경하기 전에 전체 패키지 해시와 필수 의존성을 검사합니다. 이 무한글패치 클린 설치 경로는 PowerShell·GUI 관리 엔진의 설치·제거 자동 검증을 통과했으며 VR 실기 검증은 아직 남아 있습니다.
 
 ## 설치
 
-1. GitHub의 [Releases 페이지](https://github.com/deadpixel134/gakumas-vr/releases)에서 최신 프리릴리스 ZIP을 내려받습니다.
+1. GitHub의 [Releases 페이지](https://github.com/deadpixel134/gakumas-vr/releases)에서 최신 정식 릴리스 ZIP을 내려받습니다.
 2. 게임과 DMM 런처에서 실행 중인 `gakumas.exe`를 완전히 종료합니다.
 3. ZIP을 게임 폴더가 아닌 임시 폴더에 풉니다.
 4. `GakumasVR.Installer.exe`를 실행합니다.
@@ -46,7 +46,7 @@ Quest Link 또는 Air Link로 PC에 연결하고 Meta Quest Link 앱에서 Meta 
 
 ## 업데이트
 
-게임을 종료하고 새 Release의 설치기를 같은 게임 폴더에 실행하십시오. 기존 `vrmod/config/settings.json`은 보존되며 교체되는 파일의 이전 버전은 롤백 폴더에 저장됩니다.
+설정 프로그램은 실행할 때와 **업데이트 확인** 버튼을 눌렀을 때 GitHub의 최신 정식 Release 태그를 현재 버전과 비교합니다. 새 버전이면 ZIP과 SHA-256을 내려받아 검증하고, 게임이 종료된 상태에서 설치한 뒤 설정 프로그램을 다시 시작합니다. 게임 실행 중에는 업데이트를 보류합니다. 수동 업데이트도 새 Release의 설치기를 같은 게임 폴더에 실행하면 됩니다. 기존 `vrmod/config/settings.json`은 보존되며 교체되는 파일의 이전 버전은 롤백 폴더에 저장됩니다.
 
 ## 제거와 롤백
 

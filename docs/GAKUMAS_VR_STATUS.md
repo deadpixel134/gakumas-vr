@@ -1,12 +1,12 @@
 # 학원 아이돌마스터 VR 모드 — 현재 상태와 인수인계
 
-최종 갱신: 2026-08-11  
-현재 소스 버전: v0.154.0  
-현재 설치 버전: v0.154.0  
-실기 기준 버전: v0.154.0(M6 표시·입력), v0.143.0(M5 topology), v0.141.0(M4 성능), v0.131.0(최종 시각), v0.90.0(UI 회귀)  
-테스트 상태: 코어 13/13·OpenXR x64 ABI·loader action export 15개·Release 빌드·설치 해시 일치, v0.154 PC/VR 실기 성공 및 사용자 승인  
-현재 마일스톤: M7 — 입력·설정·설치 제품화  
-현재 변경: M6 자동 정면 패널, stereo 왼손 Grip 보조 패널과 오른손 ray/A/trigger/B/stick 입력 실기 완료; 직접 터치, 좌우·버튼·패널 방향 설정 GUI와 라이브 시계 회귀는 M7
+최종 갱신: 2026-08-13
+현재 소스 버전: v0.173.0 (`1570d30`)
+현재 설치 버전: v0.173.0
+실기 기준 버전: v0.173.0(6DoF 이동·월드축 회전·roll 분리), v0.154.0(M6 표시·입력), v0.143.0(M5 topology), v0.141.0(M4 성능), v0.131.0(최종 시각), v0.90.0(UI 회귀)
+테스트 상태: 코어 39/39·관리 7/7·Release 빌드·199개 패키지 manifest·클린 설치·Localify 공존·설치 해시 일치, v0.173 사용자 VR 실기 성공 및 “완벽” 판정
+현재 마일스톤: **M7 달성 — 2026-08-13**, M8 런타임 호환성·유지보수 진행
+현재 변경: 모든 승인 3D 문맥의 positional 6DoF, 설정 선택형 live 독립 6DoF, 기본 왼손 월드축 15° 스냅 회전·오른손 완전 3D 시야 기준 이동, 실제 HMD roll 변화량만 보존
 
 이 문서는 다음 작업자가 가장 먼저 읽어야 하는 현재 상태의 기준 문서다. 목표 구조는 `GAKUMAS_VR_DESIGN.md`, 변경 내역은 `../vrmod/CHANGELOG.md`를 참고한다.
 
@@ -28,16 +28,24 @@
 
 ## 2. 현재 설치 상태
 
-- 설치 런타임: `vrmod/runtime/GakumasVR.RuntimeBootstrap.dll` v0.154.0
-- v0.154 빌드/설치 SHA-256: `7C4A29EA3FB7E6FE96AFC12B3231592987B4F9A4FDC2F6C0171DF7B095D428E7`
-- 설치 Core SHA-256: `B4B5C63CB507101D2B5F56EE784860628A9DBC27E87495987002A3DA2567C13B`
-- 직전 자동 롤백: v0.153 `vrmod/rollback/runtime-bootstrap-v0.153.0-20260811-204412/` SHA `25A5C2875D3614202D81F18AEC98CF121B2C20EBCBF85CF2E2101924127AA555`; v0.141 성능 기준도 별도 보관
-- 설치기: `vrmod/scripts/Install-Bootstrap.ps1`
-- 설치기는 `gakumas.exe` 실행 중 DLL 교체를 거부하고 기존 런타임을 자동 백업한다.
+- 설치 런타임: `vrmod/runtime/GakumasVR.RuntimeBootstrap.dll` v0.173.0
+- v0.173 빌드/패키지/설치 SHA-256: `0851E03A8A30B3FB3822C4626120CFB7463CC8C81405067D8A6659D36234FD15`
+- 배포 ZIP SHA-256: `CFC89565B303C631E0A4694774D40D4F74D19C8FC6B80E7F557E772FF121C9B0`
+- 직전 중첩 롤백: `vrmod/rollback/product-install-0.172.0-20260813-210118/`; 이전 제품 설치본도 버전별 보관
+- 설치기: 배포 루트 `GakumasVR.Installer.exe`, PowerShell 인터페이스 `vrmod/installer/Install-GakumasVR.ps1`
+- 설치기는 전체 payload를 쓰기 전에 검증하고 `gakumas.exe` 실행 중 교체를 거부한다. 제거는 manifest가 소유한 동일 해시 파일만 대상으로 하며 사용자 설정·Localify·수정된 파일을 보존한다.
+
+### v0.173 승인 조작 기준
+
+- 기본 왼손 스틱은 world yaw/pitch 회전, 오른손 스틱은 최종 시야 방향의 완전한 3D 이동이다. 설정의 이동 손을 바꾸면 역할이 자동 교체된다.
+- 기본 회전은 15° 스냅이며 15°/30°/45°/60°와 부드러운 회전을 선택할 수 있다. 우세한 한 축만 처리하고 중앙 복귀 전에는 스냅을 반복하지 않는다.
+- 게임 카메라의 roll과 VR 진입 당시 HMD 기울기는 제거한다. 현재 HMD absolute pose의 yaw/pitch/roll을 원점과 각각 비교하여 실제 physical roll 변화량만 마지막에 적용하므로 스틱 회전은 roll을 생성하지 않는다.
+- 위·아래를 보며 이동하면 최종 시야에 따라 상승·하강한다. 라이브 6DoF는 옵션이며 활성화하면 연출 카메라 경로와 독립된 진입 anchor를 사용한다.
+- 구현 계약과 다른 게임 이식 기준은 [`ko/VR_INTERACTION_SPEC.md`](ko/VR_INTERACTION_SPEC.md)에 정리했다.
 
 v0.100 두 번째 실기 PID 25368에서 live generation 3/4/5가 약 44.3초/40.3초/38.0초 지속되어 M2의 재진입·30초 조건을 충족했다. v0.101 PID 30636에서는 서로 다른 live source 3회와 자동 portrait 1픽셀 nudge/원복 2회가 failure 없이 기록됐고, 사용자가 수동 리사이즈 없는 정상 복귀를 확인했다. 따라서 M2를 2026-08-09 달성했다.
 
-M3는 사용자가 장시간·자원 수명 계측을 완료 조건에서 제외하고 시각·UI 기준으로 축소한 뒤 2026-08-10 달성했다. M4는 v0.141에서 게임 속도 stereo와 near-120Hz OpenXR submit을 사용자 승인 기준으로 확정해 같은 날 달성했다. M5는 v0.142/v0.143의 홈·메뉴·커뮤니케이션·custom video topology 실기와 당시 표시 정책 확정으로 같은 날 달성했다. M6는 v0.150~v0.154에서 자동 정면 패널, stereo 왼손 Grip 보조 패널, 오른손 범용 입력과 전환을 구현하고 사용자 VR 실기 및 v0.154 로그로 확인해 2026-08-11 달성했다. 사용자는 모든 안정성 전용 테스트를 생략하도록 지시했으며, 생략된 항목은 검증 완료가 아니라 비차단·미검증으로 남는다. 현재 단계는 M7 제품화다.
+M3는 사용자가 장시간·자원 수명 계측을 완료 조건에서 제외하고 시각·UI 기준으로 축소한 뒤 2026-08-10 달성했다. M4는 v0.141에서 게임 속도 stereo와 near-120Hz OpenXR submit을 사용자 승인 기준으로 확정해 같은 날 달성했다. M5는 v0.142/v0.143의 홈·메뉴·커뮤니케이션·custom video topology 실기와 당시 표시 정책 확정으로 같은 날 달성했다. M6는 v0.150~v0.154에서 자동 정면 패널, stereo 왼손 Grip 보조 패널, 오른손 범용 입력과 전환을 구현하고 사용자 VR 실기 및 v0.154 로그로 확인해 2026-08-11 달성했다. M7은 v0.155~v0.173의 다국어 설정·설치·자동 업데이트와 6DoF 조작을 v0.173 사용자 실기로 최종 승인해 2026-08-13 달성했다. 사용자는 직접 터치와 live 좌상단 시계 회귀, 모든 안정성 전용 테스트를 완료 조건에서 제외했으며, 생략된 항목은 검증 완료가 아니라 비차단·미검증으로 남는다. 현재 단계는 M8 런타임 호환성·유지보수다.
 
 2026-08-09 인수인계 재검사에서 `Verify-Baseline.ps1`은 `gakumas.exe`, `GameAssembly.dll`, `global-metadata.dat` 변경으로 실패했다. `UnityPlayer.dll`, Localify `version.dll`과 설정 파일은 일치한다. 이는 새 기준선 승인을 대신하지 않는다. 사용자가 현재 설치본에서 임시 호환성 테스트 진행을 명시적으로 승인했으므로 v0.96 이후 실기는 진행하되, 결과를 승인된 제품 기준선 검증과 구분해 기록한다. 상세 현재 해시와 인수인계 순서는 `VR_HANDOFF.md`를 따른다.
 
@@ -98,7 +106,7 @@ Doorstop Entrypoint (.NET 6)
 - fresh stereo가 있는 3D 문맥에서는 정면 패널을 제거하고 stereo world를 유지한다. 기본 왼손 보조 패널은 시작 OFF이고 Grip press edge로 토글하며, tracking·HMD 손 FOV와 100ms hysteresis를 적용한다. v0.154 패널 중심은 controller local +Y 0.10m의 상단 끝에 있고 view-space에서 수직으로 플레이어를 향한다. OFF에서는 관련 GPU copy/acquire/write/submit과 pointer hit-test를 생략한다.
 - v0.150은 기본 오른손 aim ray를 정면/손 패널 UV와 foreground game client 좌표에 연결했다. v0.151에서 잘못된 `XR_TYPE_ACTION_STATE_GET_INFO` 값을 58로 고치고 액션별 실패를 격리한 뒤, 별도 원형 cursor quad, A click/drag, pre-press 좌표 latch를 적용한 trigger click/drag, B→Escape, thumbstick Y→wheel을 사용자 실기로 확인했다. 게임 창이 foreground가 아니면 입력하지 않는다.
 - v0.154 PID 31424에는 `controller-pointer-input-ready`, `hand-panel-enabled/disabled`, 손 FOV에 따른 `hand-panel-visible/hidden`, `front-panel-mode-entered/exited`가 모두 기록됐다. 사용자는 평면 표시·종횡비·모든 입력·그립 토글·3D 이탈 자동 복귀와 최종 패널 위치를 정상 판정했다.
-- 직접 터치, 손 역할과 버튼 교환 설정 GUI는 아직 미구현이다. keyed UI-only 합성과 live one-shot alpha UI는 새 제품 목표가 아니며 stereo 추출이 불명확하면 정면 패널로 자동 폴백한다.
+- 직접 터치는 사용자 결정으로 현재 제품 범위에서 제외했다. 패널 손·포인터 손·버튼과 패널 배치·viewer-facing은 설정 GUI에서 변경할 수 있다. keyed UI-only 합성과 live one-shot alpha UI는 제품 기본 경로가 아니며 stereo 추출이 불명확하면 정면 패널로 자동 폴백한다.
 
 ### Virtual Desktop 평면 패널
 
@@ -138,7 +146,7 @@ v0.82 사용자 실기 결과:
 - 좌우 동기화 양호
 - 별도 크래시나 조작 지연 보고 없음
 
-현재 eye RenderTexture는 Quest 권장 2688x2880의 65%인 1744x1872로 생성된다. `render-resolution-scale.txt`는 시작 시 `0.50~1.00` 범위를 검증하고 누락·손상·범위 밖 값은 `0.75`로 폴백한다. v0.93부터 30초 생산 제한은 제거됐고 v0.100에서 같은 프로세스의 여러 라이브 재진입을 확인했다. 장시간 자원 수명과 누수 계측은 사용자 지시에 따라 비차단·미검증으로 남는다.
+기본 eye RenderTexture는 Quest 권장 2688x2880의 65%인 1744x1872로 생성된다. v0.162부터 설정 schema와 GUI는 `eyeRenderScale`의 `0.50~2.00` 범위를 허용하고 1.00 초과에서 성능·VRAM 경고를 표시하며, 누락·손상·범위 밖 값은 `0.75`로 폴백한다. v0.93부터 30초 생산 제한은 제거됐고 v0.100에서 같은 프로세스의 여러 라이브 재진입을 확인했다. 장시간 자원 수명과 누수 계측은 사용자 지시에 따라 비차단·미검증으로 남는다.
 
 ## 5. 확정된 실패 경로와 이유
 
@@ -430,23 +438,33 @@ SteamVR OpenXR와 Meta Quest Link OpenXR는 아직 회귀 테스트하지 않았
 | v0.152 | 손 패널 하단을 controller tip 위에 두는 offset 실험. 중심이 손 로컬 Y축으로 너무 멀어져 FOV gate를 통과하지 못해 패널 미표시 |
 | v0.153 | 손만 FOV gate로 사용하고 controller tip 위치에 view-space upright/viewer-facing 패널을 구성해 표시 복구. 사용자 실기에서 위치가 지나치게 높다고 판정 |
 | v0.154 | 패널 반높이와 추가 간격을 제거해 중심을 controller tip에 직접 배치. PID 31424의 입력·Grip·FOV·정면/stereo 전환 로그와 사용자 최종 승인으로 M6 달성 |
+| v0.155~v0.160 | 버전 있는 JSON 설정 schema, 한국어 기본의 한·영·일 설정 GUI, manifest 기반 설치·제거·rollback과 독립 EXE 설치기를 제품 흐름으로 통합 |
+| v0.161 | 자동/수동 VFX 설정과 수동 bloom·DoF·texture blur·star streak·flare 제어 추가 |
+| v0.162 | eye render scale 상한을 2.00으로 확장하고 1.00 초과 GUI 경고 추가 |
+| v0.163~v0.164 | Dobby를 배포본에 포함하고 payload 전체 사전 검증, clean install, Localify 공존·보존 검사를 강화 |
+| v0.165 | 3D source 발견 fast path를 단축해 몰입형 전환 지연 감소. 사용자 실기 완료 |
+| v0.166 | GitHub stable Release 기반 서명 없는 안전 자동 업데이트와 추가 3D 진입 단축. `main` 기준점 |
+| v0.167~v0.168 | 비-live positional 6DoF와 설정 선택형 live 독립 6DoF 추가 |
+| v0.169~v0.170 | 최종 시야 기준 완전 3D 이동, 좌·우 역할 교환과 VR 스틱 스크롤 비활성화 |
+| v0.171~v0.172 | 월드축 우세축 스냅/부드러운 회전과 world-space navigation 합성. 실기에서 스틱 회전 roll 누적이 남아 v0.173으로 이관 |
+| v0.173 | HMD yaw/pitch/roll을 원점 대비 성분별로 분리하고 실제 HMD roll 변화만 최종 적용. 사용자 VR 실기에서 “완벽” 판정, M7 달성 |
 
 ## 8. 다음 개발·테스트 체크리스트
 
-1. **M7 설정 schema/GUI:** 패널 손·포인터 손과 버튼 매핑, 패널 위치·크기·회전 및 viewer-facing ON/OFF를 별도 데스크톱 GUI에서 변경 가능하게 한다.
-2. **M7 직접 터치:** 오른손 ray 입력을 유지하면서 패널 근접 직접 터치를 같은 UV→게임 좌표 경로에 연결한다.
-3. **M7 라이브 시계 회귀:** live stereo 문맥의 최종 백버퍼 손 패널에서 좌상단 시계가 지속 갱신되는지 확인하고 기존 one-shot alpha UI에 의존하지 않는다.
-4. **M7 패키징:** 설치·제거·rollback, 설정 기본값 복원과 오류 시 창모드 생존/정면 패널 폴백을 제품 흐름으로 묶는다.
-5. **회귀:** v0.154 표시·입력, v0.141 성능, v0.131 영상, v0.90 UI와 PC mirror 기준을 유지한다.
-6. 전체 객체 열거를 1ms 주기로 옮기지 않는다. 안정성 전용 테스트는 수행하지 않고 미검증으로 남긴다.
+1. **M8 런타임 호환성:** SteamVR OpenXR와 Meta Quest Link/Air Link를 실제 장치에서 확인하기 전까지 예비 지원으로 표시한다.
+2. **게임 업데이트 gate:** 핵심 게임 파일 기준선이 바뀌면 자동 승인하지 않고 호환성 진단과 창모드 생존을 먼저 확인한다.
+3. **배포 유지보수:** GitHub stable Release의 ZIP과 `.sha256`을 같은 버전으로 게시하고 자동 업데이트가 게임 종료 상태에서만 교체하도록 유지한다.
+4. **회귀:** v0.173 6DoF/roll, v0.154 표시·입력, v0.141 성능, v0.131 영상, v0.90 UI와 PC mirror 기준을 유지한다.
+5. 전체 객체 열거를 1ms 주기로 옮기지 않는다. 안정성 전용 테스트는 수행하지 않고 비차단·미검증으로 남긴다.
+6. 직접 터치와 live 좌상단 시계 회귀는 사용자 결정으로 생략했다. 다시 요청받기 전에는 완료 조건으로 요구하지 않는다.
 
 ### VRCONFIG-001 — 최종 GUI 설정 도구
 
-상태: M6 달성, M7에서 제작 예정
+상태: **v0.173 구현·패키징·사용자 실기 완료**
 
 - 게임 프로세스에 UI 프레임워크를 주입하지 않는 별도 데스크톱 GUI로 만든다.
 - 최소 설정 항목은 월드 eye offset scale(현재 27.5%), eye render scale, 패널 손, 포인터 손, 손 기준 패널 offset/크기/회전, 가시성 여유, 후처리 모드와 OpenXR 런타임 선택이다.
-- 현재 런타임의 `render-resolution-scale.txt` 값 `0.65`, 허용 범위 `0.50~1.00`과 안전 기본값 `0.75`를 GUI schema에 그대로 승계한다.
+- `eyeRenderScale` 기본값은 `0.65`, 허용 범위는 `0.50~2.00`, 안전 폴백은 `0.75`다. GUI는 1.00 초과에서 성능·VRAM 경고를 표시한다.
 - GUI는 버전이 명시된 설정 파일을 원자적으로 저장하고, 런타임은 시작 시 검증한 값만 읽는다. 범위 밖 값이나 손상된 파일은 안전 기본값으로 폴백한다.
 - Localify 설정과 파일을 수정하지 않으며, 기본값 복원과 설정 내보내기/가져오기를 제공한다.
 - 런타임 하드코딩을 설정 파일로 전환할 때 v0.141 렌더 기준과 안전 폴백을 보존한다.

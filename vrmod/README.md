@@ -4,7 +4,7 @@
 
 학원 아이돌마스터 DMM판을 위한 독립 Doorstop + IL2CPP + OpenXR VR 런타임입니다. 사용자 문서는 [설치](../docs/ko/INSTALLATION.md), [사용 방법](../docs/ko/USAGE.md), [프로그램 구조](../docs/ko/ARCHITECTURE.md)에서 확인할 수 있습니다.
 
-현재 런타임 버전은 **v0.164.0**, 진행 단계는 **M7 제품화**입니다. M2~M6의 완료 근거와 미검증 항목은 [마일스톤](../docs/VR_MILESTONES.md)과 [현재 상태](../docs/GAKUMAS_VR_STATUS.md)를 기준으로 판정합니다. 빌드·설치 성공과 PC·VR 실기 성공은 서로 다른 상태입니다.
+현재 런타임 버전은 **v0.173.0**, 진행 단계는 **M8 런타임 호환성·유지보수**입니다. M2~M7의 완료 근거와 미검증 항목은 [마일스톤](../docs/VR_MILESTONES.md)과 [현재 상태](../docs/GAKUMAS_VR_STATUS.md)를 기준으로 판정합니다. 빌드·설치 성공과 PC·VR 실기 성공은 서로 다른 상태입니다. 범용 6DoF 조작과 roll 처리의 권위 명세는 [VR 조작·구조 이식 명세](../docs/ko/VR_INTERACTION_SPEC.md)입니다.
 
 ## 저장소 구조
 
@@ -46,12 +46,12 @@ dotnet run --project .\vrmod\tests\GakumasVR.Core.Tests\GakumasVR.Core.Tests.csp
 dotnet run --project .\vrmod\tests\GakumasVR.Management.Tests\GakumasVR.Management.Tests.csproj -c Release
 ```
 
-`Build-Package.ps1`은 ZIP 생성 전에 전체 manifest, Dobby/OpenXR 네이티브 로딩, 무한글패치 클린 설치·제거와 Localify 공존·보존을 자동 검사합니다. v0.164.0 결과는 Core 20/20, 기본 Management 6/6, 실제 배포 패키지 포함 Management 7/7, manifest 199/199입니다. 실제 결과가 문서보다 우선합니다.
+`Build-Package.ps1`은 ZIP 생성 전에 전체 manifest, Dobby/OpenXR 네이티브 로딩, 무한글패치 클린 설치·제거와 Localify 공존·보존을 자동 검사합니다. v0.173.0 결과는 Core 39/39, 실제 배포 패키지 포함 Management 7/7, manifest 199/199입니다. 실제 결과가 문서보다 우선합니다.
 
 배포 패키지는 다음과 같이 만듭니다.
 
 ```powershell
-.\vrmod\installer\Build-Package.ps1 -Version 0.164.0
+.\vrmod\installer\Build-Package.ps1 -Version 0.173.0
 ```
 
 출력은 `vrmod/dist/` 아래로 제한됩니다. 스크립트는 런타임을 빌드하고 설정기·설치기를 self-contained 단일 EXE로 publish한 뒤 payload SHA-256 manifest와 ZIP을 만듭니다.

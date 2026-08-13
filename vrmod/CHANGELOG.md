@@ -2,6 +2,74 @@
 
 코드 변경과 실기 결과를 분리해 기록한다. 작업 문서는 마일스톤 완료 시점 또는 사용자의 명시적 문서 요청에서 함께 갱신한다.
 
+## v0.173.0 — 2026-08-13
+
+상태: 코어 39/39·관리 7/7·Release 빌드·199개 패키지 manifest·clean install·Localify 공존 검증 및 사용자 VR 실기 성공 — **M7 달성**
+
+- OpenXR absolute HMD orientation을 원점 대비 yaw/pitch/roll 성분으로 분리한다. scene base와 artificial stick 회전에서는 roll을 제거하고, 현재 HMD의 실제 physical roll 변화량만 마지막에 합성한다.
+- raw relative HMD quaternion을 navigation 회전에 통째로 곱을 때 기울어진 origin의 physical yaw가 roll로 새던 경로를 폐기했다. 최종 순서는 `Yaw × Pitch × physical Roll`이며 스틱 회전은 roll을 만들지 않는다.
+- 사용자는 최종 VR 실기 결과를 “완벽했다”고 판정했다. 런타임 SHA-256은 `0851E03A8A30B3FB3822C4626120CFB7463CC8C81405067D8A6659D36234FD15`, 배포 ZIP SHA-256은 `CFC89565B303C631E0A4694774D40D4F74D19C8FC6B80E7F557E772FF121C9B0`다.
+
+## v0.172.0 — 2026-08-13
+
+- HMD 위치·컨트롤러 이동·스틱 회전을 하나의 world-space navigation 합성으로 정리하고 scene camera roll을 제거했다.
+- 사용자 실기에서 고개를 돌린 상태의 회전 뒤 수평이 기울어지는 현상이 남아, relative quaternion의 roll leakage를 v0.173에서 성분 분리로 수정했다.
+
+## v0.171.0 — 2026-08-13
+
+- 반대 손 스틱에 world-axis yaw/pitch 시야 회전을 구현했다. 대각 입력은 절댓값이 큰 한 축만 선택하고 기본 15° 스냅, 선택 15°/30°/45°/60°와 smooth 모드를 설정에 추가했다.
+- 스냅 활성 임계값 0.65와 deadzone 0.20 재무장으로 한 번 기울일 때 한 번만 회전한다.
+
+## v0.170.0 — 2026-08-13
+
+- VR 스틱 스크롤을 비활성화하고 기본 왼손을 시야 회전, 오른손을 이동으로 지정했다. `locomotionHand`를 바꾸면 역할이 자동 교환된다.
+- 이동은 최종 HMD 시야의 pitch를 포함한 forward/right basis를 매 프레임 사용해 위·아래를 보며 전진할 때 상승·하강한다.
+
+## v0.169.0 — 2026-08-13
+
+- 컨트롤러 스틱 이동을 현재 시야 중심 기준으로 추가했다. 이후 실기 피드백에 따라 수평면 제한과 패널/스크롤 역할 모델을 v0.170의 완전 3D 이동·양손 navigation으로 교체했다.
+
+## v0.168.0 — 2026-08-13
+
+- live 장면에서도 설정으로 6DoF를 활성화할 수 있게 했다. 활성화 시 게임 연출 카메라의 경로·각도와 독립된 진입 anchor를 사용하며 기본값은 OFF다.
+
+## v0.167.0 — 2026-08-13
+
+- 승인된 비-live 3D 장면에 positional 6DoF를 추가했다. scene/source generation이 바뀌면 origin을 다시 잡고 stale pose는 적용하지 않는다.
+
+## v0.166.0 — 2026-08-13
+
+- 설정 프로그램이 GitHub의 최신 stable Release를 확인해 새 버전의 ZIP과 `.sha256`을 내려받고, 크기·해시·archive 구조를 검증한 뒤 게임 종료 상태에서 설치기로 넘기는 자동 업데이트를 추가했다.
+- 캐시된 scene/source 신호를 이용해 3D 전환 fast path를 추가로 단축했다. 이 버전은 이후 6DoF 브랜치의 `main` 기준점이다.
+
+## v0.165.0 — 2026-08-13
+
+- 3D 장면 감지 후 VR 전환 지연의 주 원인이 저주기 topology 확인과 stable-frame gate임을 분리하고, 안전 조건을 유지한 event/cache fast path로 전환 반응을 줄였다.
+- 사용자 VR 실기 완료 판정을 받았다.
+
+## v0.164.0 — 2026-08-12
+
+- 패키지를 게임 폴더에 쓰기 전에 199개 payload manifest, 필수 clean-install 구성, Dobby/OpenXR 네이티브 로딩과 보존 정책을 모두 검증한다.
+- manifest 소유 파일 중 설치 당시 해시가 같은 파일만 제거해 Localify·사용자 설정·수정된 파일을 보존한다.
+
+## v0.163.0 — 2026-08-12
+
+- Apache-2.0 Dobby 바이너리와 라이선스를 배포 ZIP에 포함해 clean install에서 별도 한글 패치/BepInEx 설치에 의존하지 않게 했다.
+
+## v0.162.0 — 2026-08-11
+
+- eye render scale 허용 범위를 `0.50~2.00`으로 확장하고 설정 GUI에서 1.00 초과 시 성능·VRAM 경고를 표시한다.
+
+## v0.161.0 — 2026-08-11
+
+- 설정 GUI에 자동 VFX preset과 post-processing, VL bloom intensity/diffusion, depth of field, texture blur, star streak, flare의 수동 설정을 추가했다.
+
+## v0.155.0~v0.160.0 — 2026-08-11~2026-08-12
+
+- 버전 있는 JSON 설정 schema와 한국어 기본의 한국어·영어·일본어 설정 GUI를 도입하고, 가져오기/내보내기/기본값 복원을 추가했다.
+- 설정과 설치 프로그램을 독립 EXE로 패키징하고 창 크기를 조정했다. manifest 기반 설치·제거·rollback은 Localify와 사용자 파일을 소유 대상으로 간주하지 않는다.
+- 직접 터치와 live 좌상단 시계 회귀는 사용자 결정으로 제품 완료 조건에서 제외했다. ray/A/trigger/B 입력과 Grip 패널 토글을 유지했다.
+
 ## v0.154.0 — 2026-08-11
 
 상태: 코어 테스트/Release 빌드/설치/해시 검증 및 사용자 PC/VR 실기 성공 — **M6 달성**

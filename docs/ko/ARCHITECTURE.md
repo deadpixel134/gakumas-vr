@@ -39,6 +39,8 @@ Unity Doorstop이 게임 프로세스에서 .NET 6 런타임을 시작하고 `Ga
 
 OpenXR Oculus Touch action profile에서 손 pose, aim pose, Grip, Trigger, A/B/X/Y와 Thumbstick을 읽습니다. 포인터 ray와 표시 중인 패널 평면의 교차점을 게임 client 좌표로 변환하고 Windows 입력으로 전달합니다. 포인터 손과 패널 손은 서로 달라야 하며 설정에서 교체할 수 있습니다.
 
+6DoF navigation은 게임 카메라의 roll을 제거한 월드 yaw/pitch, 별도 누적한 스틱 yaw/pitch, 원점 이후 HMD yaw/pitch/roll 변화량을 분해해 재합성합니다. 기본 왼손은 15° 월드축 스냅 회전, 오른손은 최종 시야 방향의 3D 이동이며 설정에서 역할을 교체합니다. 스틱은 roll을 만들 수 없고 실제 HMD roll 변화량만 최종 화면에 반영됩니다. 이식 가능한 수학·입력·수명 계약은 [VR 조작·포즈 합성 명세](VR_INTERACTION_SPEC.md)에 정리되어 있습니다.
+
 ## 설치와 파일 보호
 
 설치기는 패키지 manifest의 상대 경로와 SHA-256을 검증하고 게임 폴더 안으로 제한된 파일만 설치합니다. 기존 대상 파일은 `vrmod/rollback/`에 백업합니다. 제거할 때는 설치 당시 해시가 그대로인 파일만 삭제·복원하며 변경된 파일은 보존하고 경고합니다.

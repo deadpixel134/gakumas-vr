@@ -39,6 +39,8 @@ Unity Doorstopがゲームプロセス内で.NET 6を起動し、`GakumasVR.Runt
 
 OpenXR Oculus Touch action profileから手／aim pose、Grip、Trigger、A/B/X/Y、Thumbstickを取得します。ポインターrayと表示中パネルの交点をゲームのclient座標へ変換し、Windows入力として送ります。パネル側とポインター側の手は異なる必要があり、設定で交換できます。
 
+6DoF navigationは、rollを除去したシーンyaw/pitch、別に累積したスティックyaw/pitch、原点取得後のHMD yaw/pitch/roll差分を分解・再合成します。デフォルトは左スティックの15°ワールド軸snapと、右スティックの最終3D視点方向移動で、設定から役割を交換できます。スティックはrollを生成できず、実際のHMD roll差分だけが最終画面に残ります。移植可能な数式・入力・寿命契約は[VR操作・ポーズ合成仕様](VR_INTERACTION_SPEC.md)を参照してください。
+
 ## インストールの安全性
 
 インストーラーはpackage manifestの相対パスとSHA-256を検証し、選択したゲームフォルダー内の限定されたパスだけへ書き込みます。既存ファイルは`vrmod/rollback/`へバックアップします。アンインストール時はインストール時のハッシュと一致するファイルだけを削除・復元し、変更済みファイルは警告して保持します。
