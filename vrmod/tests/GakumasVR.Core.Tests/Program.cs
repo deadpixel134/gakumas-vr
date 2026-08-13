@@ -31,6 +31,7 @@ var tests = new (string Name, Action Run)[]
     ("Locomotion reset clears the scene offset", LocomotionResetClearsSceneOffset),
     ("View turn changes movement direction", ViewTurnChangesMovementDirection),
     ("View turn keeps world yaw and pitch cardinal", ViewTurnKeepsWorldAxesCardinal),
+    ("World view composition removes scene camera roll", WorldViewCompositionRemovesSceneRoll),
     ("Snap turn advances once per stick deflection", SnapTurnAdvancesOncePerDeflection),
     ("View turn reset clears artificial rotation", ViewTurnResetClearsRotation),
     ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
@@ -393,6 +394,38 @@ static void SnapTurnAdvancesOncePerDeflection()
     Near(0.20f * MathF.Cos(MathF.PI / 6f), second.Offset.Z);
 }
 
+static void WorldViewCompositionRemovesSceneRoll()
+{
+    TrackingQuaternion baseRotation = MultiplyTestQuaternion(
+        AxisAngle(0f, 1f, 0f, 40f),
+        MultiplyTestQuaternion(
+            AxisAngle(1f, 0f, 0f, -20f),
+            AxisAngle(0f, 0f, 1f, 25f)));
+    var turn = new VrViewTurnIntegrator();
+    True(turn.TryCreateWorldNavigationRotation(baseRotation, out TrackingQuaternion leveled));
+
+    TrackingVector3 originalForward = RotateTestVector(
+        baseRotation,
+        new TrackingVector3(0f, 0f, 1f));
+    TrackingVector3 leveledForward = RotateTestVector(
+        leveled,
+        new TrackingVector3(0f, 0f, 1f));
+    TrackingVector3 leveledRight = RotateTestVector(
+        leveled,
+        new TrackingVector3(1f, 0f, 0f));
+    Near(originalForward.X, leveledForward.X);
+    Near(originalForward.Y, leveledForward.Y);
+    Near(originalForward.Z, leveledForward.Z);
+    Near(0f, leveledRight.Y);
+
+    True(turn.Update(1f, 0.1f, 0.10f, VrViewTurnMode.Snap, 90f, 30));
+    True(turn.TryCreateWorldNavigationRotation(baseRotation, out TrackingQuaternion turned));
+    TrackingVector3 turnedRight = RotateTestVector(
+        turned,
+        new TrackingVector3(1f, 0f, 0f));
+    Near(0f, turnedRight.Y);
+}
+
 static void ViewTurnResetClearsRotation()
 {
     var turn = new VrViewTurnIntegrator();
@@ -425,6 +458,57 @@ static TrackingStereoPose StereoPose(
         new TrackingEyePose(new TrackingVector3(leftX, leftY, leftZ), rotation),
         new TrackingEyePose(new TrackingVector3(rightX, rightY, rightZ), rotation));
 }
+
+static TrackingQuaternion AxisAngle(float x, float y, float z, float degrees)
+{
+    float halfRadians = degrees * MathF.PI / 360f;
+    float sine = MathF.Sin(halfRadians);
+    return new TrackingQuaternion(
+        x * sine,
+        y * sine,
+        z * sine,
+        MathF.Cos(halfRadians));
+}
+
+static TrackingQuaternion MultiplyTestQuaternion(
+    TrackingQuaternion left,
+    TrackingQuaternion right) => new(
+        (left.W * right.X) + (left.X * right.W) +
+            (left.Y * right.Z) - (left.Z * right.Y),
+        (left.W * right.Y) - (left.X * right.Z) +
+            (left.Y * right.W) + (left.Z * right.X),
+        (left.W * right.Z) + (left.X * right.Y) -
+            (left.Y * right.X) + (left.Z * right.W),
+        (left.W * right.W) - (left.X * right.X) -
+            (left.Y * right.Y) - (left.Z * right.Z));
+
+static TrackingVector3 RotateTestVector(
+    TrackingQuaternion rotation,
+    TrackingVector3 value)
+{
+    TrackingVector3 q = new(rotation.X, rotation.Y, rotation.Z);
+    TrackingVector3 t = ScaleTestVector(CrossTestVector(q, value), 2f);
+    return AddTestVector(
+        value,
+        AddTestVector(
+            ScaleTestVector(t, rotation.W),
+            CrossTestVector(q, t)));
+}
+
+static TrackingVector3 CrossTestVector(
+    TrackingVector3 left,
+    TrackingVector3 right) => new(
+        (left.Y * right.Z) - (left.Z * right.Y),
+        (left.Z * right.X) - (left.X * right.Z),
+        (left.X * right.Y) - (left.Y * right.X));
+
+static TrackingVector3 ScaleTestVector(TrackingVector3 value, float scale) =>
+    new(value.X * scale, value.Y * scale, value.Z * scale);
+
+static TrackingVector3 AddTestVector(
+    TrackingVector3 left,
+    TrackingVector3 right) =>
+    new(left.X + right.X, left.Y + right.Y, left.Z + right.Z);
 
 static void VrSettingsPreserveApprovedDefaults()
 {

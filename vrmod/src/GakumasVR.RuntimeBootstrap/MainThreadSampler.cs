@@ -2413,77 +2413,95 @@ internal sealed class MainThreadSampler
                     Reason = "The live VR origin was captured once for this stereo generation; subsequent game-camera path and angle changes do not move the VR viewpoint."
                 });
             }
+            TrackingVector3 navigationBasePosition = default;
+            TrackingQuaternion navigationBaseRotation =
+                new(0f, 0f, 0f, 1f);
+            if (useSixDof)
+            {
+                if (independentLiveAnchor)
+                {
+                    navigationBasePosition = _liveSixDofAnchorPosition;
+                    navigationBaseRotation = _liveSixDofAnchorRotation;
+                }
+                else if (!TryReadWorldPose(
+                    transformClass,
+                    sourceTransform,
+                    out navigationBasePosition,
+                    out navigationBaseRotation))
+                {
+                    return;
+                }
+            }
             TrackingVector3 locomotionOffset = default;
-            TrackingQuaternion viewTurnRotation = useSixDof
+            TrackingQuaternion navigationWorldRotation = useSixDof
                 ? UpdateNavigation(
                     now,
+                    navigationBaseRotation,
                     sixDofPose.Left.LocalRotation,
                     out locomotionOffset)
                 : new TrackingQuaternion(0f, 0f, 0f, 1f);
-            TrackingQuaternion leftLocalRotation = useSixDof
+            TrackingQuaternion leftWorldRotation = useSixDof
                 ? MultiplyQuaternion(
-                    viewTurnRotation,
+                    navigationWorldRotation,
                     sixDofPose.Left.LocalRotation)
                 : default;
-            TrackingQuaternion rightLocalRotation = useSixDof
+            TrackingQuaternion rightWorldRotation = useSixDof
                 ? MultiplyQuaternion(
-                    viewTurnRotation,
+                    navigationWorldRotation,
                     sixDofPose.Right.LocalRotation)
                 : default;
-            TrackingVector3 leftLocalPosition = useSixDof
+            TrackingVector3 leftWorldTrackedPosition = useSixDof
                 ? AddTrackingPosition(
-                    RotateTrackingVector(
-                        viewTurnRotation,
-                        sixDofPose.Left.LocalPosition),
-                    locomotionOffset)
+                    navigationBasePosition,
+                    AddTrackingPosition(
+                        RotateTrackingVector(
+                            navigationWorldRotation,
+                            sixDofPose.Left.LocalPosition),
+                        locomotionOffset))
                 : new TrackingVector3(
                     stereo.Left.PositionX * _stereoWorldEyeOffsetScale,
                     stereo.Left.PositionY * _stereoWorldEyeOffsetScale,
                     stereo.Left.PositionZ * _stereoWorldEyeOffsetScale);
-            TrackingVector3 rightLocalPosition = useSixDof
+            TrackingVector3 rightWorldTrackedPosition = useSixDof
                 ? AddTrackingPosition(
-                    RotateTrackingVector(
-                        viewTurnRotation,
-                        sixDofPose.Right.LocalPosition),
-                    locomotionOffset)
+                    navigationBasePosition,
+                    AddTrackingPosition(
+                        RotateTrackingVector(
+                            navigationWorldRotation,
+                            sixDofPose.Right.LocalPosition),
+                        locomotionOffset))
                 : new TrackingVector3(
                     stereo.Right.PositionX * _stereoWorldEyeOffsetScale,
                     stereo.Right.PositionY * _stereoWorldEyeOffsetScale,
                     stereo.Right.PositionZ * _stereoWorldEyeOffsetScale);
-            TrackingVector3 anchoredLeftPosition = independentLiveAnchor
-                ? TransformLiveAnchorPoint(leftLocalPosition)
-                : default;
-            IntPtr leftWorldPosition = independentLiveAnchor
+            IntPtr leftWorldPosition = useSixDof
                 ? BoxVector3(
                     coreImage,
-                    anchoredLeftPosition.X,
-                    anchoredLeftPosition.Y,
-                    anchoredLeftPosition.Z)
+                    leftWorldTrackedPosition.X,
+                    leftWorldTrackedPosition.Y,
+                    leftWorldTrackedPosition.Z)
                 : InvokeWithObjectArgument(
                     FindMethodBySignature(transformClass, "TransformPoint", "UnityEngine.Vector3"),
                     sourceTransform,
                     BoxVector3(
                         coreImage,
-                        leftLocalPosition.X,
-                        leftLocalPosition.Y,
-                        leftLocalPosition.Z));
-            TrackingVector3 anchoredRightPosition = independentLiveAnchor
-                ? TransformLiveAnchorPoint(rightLocalPosition)
-                : default;
-            IntPtr rightWorldPosition = independentLiveAnchor
+                        leftWorldTrackedPosition.X,
+                        leftWorldTrackedPosition.Y,
+                        leftWorldTrackedPosition.Z));
+            IntPtr rightWorldPosition = useSixDof
                 ? BoxVector3(
                     coreImage,
-                    anchoredRightPosition.X,
-                    anchoredRightPosition.Y,
-                    anchoredRightPosition.Z)
+                    rightWorldTrackedPosition.X,
+                    rightWorldTrackedPosition.Y,
+                    rightWorldTrackedPosition.Z)
                 : InvokeWithObjectArgument(
                     FindMethodBySignature(transformClass, "TransformPoint", "UnityEngine.Vector3"),
                     sourceTransform,
                     BoxVector3(
                         coreImage,
-                        rightLocalPosition.X,
-                        rightLocalPosition.Y,
-                        rightLocalPosition.Z));
+                        rightWorldTrackedPosition.X,
+                        rightWorldTrackedPosition.Y,
+                        rightWorldTrackedPosition.Z));
             float nearClip = InvokeInstanceFloat(
                 coreImage,
                 "UnityEngine",
@@ -2536,34 +2554,16 @@ internal sealed class MainThreadSampler
                 _stereoRightCamera);
             if (useSixDof)
             {
-                if (independentLiveAnchor)
-                {
-                    ApplyAnchoredCameraRotation(
-                        coreImage,
-                        transformClass,
-                        leftTransform,
-                        leftLocalRotation);
-                    ApplyAnchoredCameraRotation(
-                        coreImage,
-                        transformClass,
-                        rightTransform,
-                        rightLocalRotation);
-                }
-                else
-                {
-                    ApplyRelativeCameraRotation(
-                        coreImage,
-                        transformClass,
-                        sourceTransform,
-                        leftTransform,
-                        leftLocalRotation);
-                    ApplyRelativeCameraRotation(
-                        coreImage,
-                        transformClass,
-                        sourceTransform,
-                        rightTransform,
-                        rightLocalRotation);
-                }
+                ApplyWorldCameraRotation(
+                    coreImage,
+                    transformClass,
+                    leftTransform,
+                    leftWorldRotation);
+                ApplyWorldCameraRotation(
+                    coreImage,
+                    transformClass,
+                    rightTransform,
+                    rightWorldRotation);
             }
             _ = InvokeWithObjectArgument(
                 FindMethodBySignature(transformClass, "set_position", "UnityEngine.Vector3"),
@@ -3281,6 +3281,7 @@ internal sealed class MainThreadSampler
 
     private TrackingQuaternion UpdateNavigation(
         DateTimeOffset now,
+        TrackingQuaternion baseWorldRotation,
         TrackingQuaternion physicalHeadRotation,
         out TrackingVector3 locomotionOffset)
     {
@@ -3313,9 +3314,15 @@ internal sealed class MainThreadSampler
         {
             turning = false;
         }
-        TrackingQuaternion viewTurnRotation = _viewTurnIntegrator.Rotation;
+        if (!_viewTurnIntegrator.TryCreateWorldNavigationRotation(
+                baseWorldRotation,
+                out TrackingQuaternion navigationWorldRotation))
+        {
+            navigationWorldRotation = new TrackingQuaternion(0f, 0f, 0f, 1f);
+            turning = false;
+        }
         TrackingQuaternion currentViewRotation = MultiplyQuaternion(
-            viewTurnRotation,
+            navigationWorldRotation,
             physicalHeadRotation);
         bool moving = ((axisX * axisX) + (axisY * axisY)) >
             LocomotionDeadzone * LocomotionDeadzone;
@@ -3367,7 +3374,7 @@ internal sealed class MainThreadSampler
         }
 
         locomotionOffset = _locomotionIntegrator.Offset;
-        return viewTurnRotation;
+        return navigationWorldRotation;
     }
 
     private void ResetSixDofNavigationState()
@@ -3424,20 +3431,12 @@ internal sealed class MainThreadSampler
         _liveSixDofAnchorCaptured = true;
     }
 
-    private TrackingVector3 TransformLiveAnchorPoint(TrackingVector3 local) =>
-        AddTrackingPosition(
-            _liveSixDofAnchorPosition,
-            RotateTrackingVector(_liveSixDofAnchorRotation, local));
-
-    private void ApplyAnchoredCameraRotation(
+    private void ApplyWorldCameraRotation(
         IntPtr coreImage,
         IntPtr transformClass,
         IntPtr destinationTransform,
-        TrackingQuaternion localRotation)
+        TrackingQuaternion worldRotation)
     {
-        TrackingQuaternion worldRotation = MultiplyQuaternion(
-            _liveSixDofAnchorRotation,
-            localRotation);
         _ = InvokeWithObjectArgument(
             FindMethodBySignature(
                 transformClass,
@@ -3445,6 +3444,47 @@ internal sealed class MainThreadSampler
                 "UnityEngine.Quaternion"),
             destinationTransform,
             BoxQuaternion(coreImage, worldRotation));
+    }
+
+    private bool TryReadWorldPose(
+        IntPtr transformClass,
+        IntPtr sourceTransform,
+        out TrackingVector3 position,
+        out TrackingQuaternion rotation)
+    {
+        position = default;
+        rotation = default;
+        IntPtr boxedPosition = Invoke(
+            FindMethod(transformClass, "get_position"),
+            sourceTransform);
+        IntPtr positionValue = boxedPosition == IntPtr.Zero
+            ? IntPtr.Zero
+            : _api.ObjectUnbox(boxedPosition);
+        IntPtr boxedRotation = Invoke(
+            FindMethod(transformClass, "get_rotation"),
+            sourceTransform);
+        IntPtr rotationValue = boxedRotation == IntPtr.Zero
+            ? IntPtr.Zero
+            : _api.ObjectUnbox(boxedRotation);
+        if (positionValue == IntPtr.Zero || rotationValue == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        UiReplayVector3 sourcePosition =
+            Marshal.PtrToStructure<UiReplayVector3>(positionValue);
+        UiReplayQuaternion sourceRotation =
+            Marshal.PtrToStructure<UiReplayQuaternion>(rotationValue);
+        position = new TrackingVector3(
+            sourcePosition.X,
+            sourcePosition.Y,
+            sourcePosition.Z);
+        rotation = new TrackingQuaternion(
+            sourceRotation.X,
+            sourceRotation.Y,
+            sourceRotation.Z,
+            sourceRotation.W);
+        return true;
     }
 
     private static TrackingVector3 RotateTrackingVector(
@@ -3482,37 +3522,6 @@ internal sealed class MainThreadSampler
             (left.Y * right.Z) - (left.Z * right.Y),
             (left.Z * right.X) - (left.X * right.Z),
             (left.X * right.Y) - (left.Y * right.X));
-
-    private void ApplyRelativeCameraRotation(
-        IntPtr coreImage,
-        IntPtr transformClass,
-        IntPtr sourceTransform,
-        IntPtr destinationTransform,
-        TrackingQuaternion localRotation)
-    {
-        IntPtr sourceRotation = Invoke(
-            FindMethod(transformClass, "get_rotation"),
-            sourceTransform);
-        IntPtr sourceRotationValue = sourceRotation == IntPtr.Zero
-            ? IntPtr.Zero
-            : _api.ObjectUnbox(sourceRotation);
-        if (sourceRotationValue == IntPtr.Zero)
-        {
-            throw new InvalidOperationException("Source camera rotation is unavailable.");
-        }
-        UiReplayQuaternion source =
-            Marshal.PtrToStructure<UiReplayQuaternion>(sourceRotationValue);
-        TrackingQuaternion worldRotation = MultiplyQuaternion(
-            new TrackingQuaternion(source.X, source.Y, source.Z, source.W),
-            localRotation);
-        _ = InvokeWithObjectArgument(
-            FindMethodBySignature(
-                transformClass,
-                "set_rotation",
-                "UnityEngine.Quaternion"),
-            destinationTransform,
-            BoxQuaternion(coreImage, worldRotation));
-    }
 
     private static TrackingQuaternion MultiplyQuaternion(
         TrackingQuaternion left,
