@@ -17,6 +17,8 @@ internal sealed class MainThreadSampler
     private const int StereoBlackFrameRetryMilliseconds = 100;
     private const int SixDofPoseMaximumAgeMilliseconds = 250;
     private const float SixDofHeadTranslationScale = 1f;
+    private const int LocomotionInputMaximumAgeMilliseconds = 250;
+    private const float LocomotionDeadzone = 0.20f;
     private const int StereoFrozenDiagnosticDurationMilliseconds = 30_000;
     private const int NaturalUiVisibilitySettleMilliseconds = 500;
     private const int M5TopologyPollMilliseconds = 1_000;
@@ -31,6 +33,9 @@ internal sealed class MainThreadSampler
     private readonly float _stereoRenderResolutionScale;
     private readonly float _stereoWorldEyeOffsetScale;
     private readonly bool _liveSixDofEnabled;
+    private readonly bool _locomotionEnabled;
+    private readonly LocomotionInputMode _locomotionInputMode;
+    private readonly float _locomotionSpeed;
     private readonly FrameCountDelegate _replacement;
     private readonly DrawFlareDelegate _drawFlareReplacement;
     private readonly VlPostProcessRenderDelegate _vlPostProcessRenderReplacement;
@@ -48,6 +53,7 @@ internal sealed class MainThreadSampler
         maximumAttempts: 20,
         timeoutMilliseconds: 2_000);
     private readonly SixDofPoseMapper _sixDofPoseMapper = new();
+    private readonly VrLocomotionIntegrator _locomotionIntegrator = new();
     private FrameCountDelegate? _original;
     private IntPtr _dobbyLibrary;
     private long _lastSampleMilliseconds;
@@ -250,6 +256,11 @@ internal sealed class MainThreadSampler
     private IntPtr _stereoPumpCoreImage;
     private bool _stereoPumpEligible;
     private bool _stereoGenerationUsesSixDof;
+    private long _lastLocomotionUpdateTimestamp;
+    private bool _locomotionWasMoving;
+    private bool _liveSixDofAnchorCaptured;
+    private TrackingVector3 _liveSixDofAnchorPosition;
+    private TrackingQuaternion _liveSixDofAnchorRotation;
     private IntPtr _stereoPumpSourceCamera;
     private IntPtr _stereoPumpSourceTexture;
     private int _lastStereoPumpFrameCount = -1;
@@ -278,6 +289,9 @@ internal sealed class MainThreadSampler
         _stereoRenderResolutionScale = settings.Render.EyeRenderScale;
         _stereoWorldEyeOffsetScale = settings.Render.WorldEyeOffsetScale;
         _liveSixDofEnabled = settings.Tracking.LiveSixDofEnabled;
+        _locomotionEnabled = settings.Tracking.LocomotionEnabled;
+        _locomotionInputMode = settings.Tracking.LocomotionInputMode;
+        _locomotionSpeed = settings.Tracking.LocomotionSpeed;
         _replacement = OnFrameCount;
         _drawFlareReplacement = OnDrawFlare;
         _vlPostProcessRenderReplacement = OnVlPostProcessRender;
@@ -695,8 +709,13 @@ internal sealed class MainThreadSampler
             }
         }
 
+        bool concreteLiveScene = IsConcreteLive3DScene(scene);
+        if (_liveSixDofAnchorCaptured && !IsLiveScene(scene))
+        {
+            ResetSixDofNavigationState();
+        }
         bool liveStereoEligible =
-            IsConcreteLive3DScene(scene) &&
+            concreteLiveScene &&
             width > height &&
             _lastLiveCamera != IntPtr.Zero;
         bool nonLiveStereoEligible =
@@ -1105,6 +1124,8 @@ internal sealed class MainThreadSampler
             _stereoRightCamera != IntPtr.Zero;
         bool retiredLiveGeneration = hadCloneGeneration &&
             !_stereoGenerationRequiresDynamicUi;
+        bool preserveIndependentLiveNavigation =
+            _liveSixDofAnchorCaptured && IsLiveScene(scene);
         string stage = "stop-eye-cameras";
         Exception? resetFailure = null;
         try
@@ -1213,7 +1234,10 @@ internal sealed class MainThreadSampler
             _stereoRateWindowStartFrameCount = 0;
             _nextStereoStateUnavailableLogUtc = DateTimeOffset.MinValue;
             _stereoGenerationUsesSixDof = false;
-            _sixDofPoseMapper.Reset();
+            if (!preserveIndependentLiveNavigation)
+            {
+                ResetSixDofNavigationState();
+            }
 
             _cachedThreeDTextureRawImage = IntPtr.Zero;
             _cachedThreeDTextureCanvasRenderer = IntPtr.Zero;
@@ -2366,34 +2390,74 @@ internal sealed class MainThreadSampler
                 _lastLiveCamera);
             IntPtr transformClass = FindClass(coreImage, "UnityEngine", "Transform");
             IntPtr cameraClass = FindClass(coreImage, "UnityEngine", "Camera");
+            bool independentLiveAnchor = useSixDof &&
+                !_stereoGenerationRequiresDynamicUi;
+            if (independentLiveAnchor && !_liveSixDofAnchorCaptured)
+            {
+                CaptureLiveSixDofAnchor(transformClass, sourceTransform);
+                RuntimeProbe.Append(_logPath, new ProbeEvent
+                {
+                    TimestampUtc = now,
+                    Event = "live-sixdof-independent-anchor-captured",
+                    BootstrapVersion = RuntimeProbe.BootstrapVersion,
+                    ProcessId = Environment.ProcessId,
+                    Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                    Reason = "The live VR origin was captured once for this stereo generation; subsequent game-camera path and angle changes do not move the VR viewpoint."
+                });
+            }
+            TrackingVector3 locomotionOffset = useSixDof
+                ? UpdateLocomotionOffset(now, sixDofPose.Left.LocalRotation)
+                : default;
             TrackingVector3 leftLocalPosition = useSixDof
-                ? sixDofPose.Left.LocalPosition
+                ? AddTrackingPosition(
+                    sixDofPose.Left.LocalPosition,
+                    locomotionOffset)
                 : new TrackingVector3(
                     stereo.Left.PositionX * _stereoWorldEyeOffsetScale,
                     stereo.Left.PositionY * _stereoWorldEyeOffsetScale,
                     stereo.Left.PositionZ * _stereoWorldEyeOffsetScale);
             TrackingVector3 rightLocalPosition = useSixDof
-                ? sixDofPose.Right.LocalPosition
+                ? AddTrackingPosition(
+                    sixDofPose.Right.LocalPosition,
+                    locomotionOffset)
                 : new TrackingVector3(
                     stereo.Right.PositionX * _stereoWorldEyeOffsetScale,
                     stereo.Right.PositionY * _stereoWorldEyeOffsetScale,
                     stereo.Right.PositionZ * _stereoWorldEyeOffsetScale);
-            IntPtr leftWorldPosition = InvokeWithObjectArgument(
-                FindMethodBySignature(transformClass, "TransformPoint", "UnityEngine.Vector3"),
-                sourceTransform,
-                BoxVector3(
+            TrackingVector3 anchoredLeftPosition = independentLiveAnchor
+                ? TransformLiveAnchorPoint(leftLocalPosition)
+                : default;
+            IntPtr leftWorldPosition = independentLiveAnchor
+                ? BoxVector3(
                     coreImage,
-                    leftLocalPosition.X,
-                    leftLocalPosition.Y,
-                    leftLocalPosition.Z));
-            IntPtr rightWorldPosition = InvokeWithObjectArgument(
-                FindMethodBySignature(transformClass, "TransformPoint", "UnityEngine.Vector3"),
-                sourceTransform,
-                BoxVector3(
+                    anchoredLeftPosition.X,
+                    anchoredLeftPosition.Y,
+                    anchoredLeftPosition.Z)
+                : InvokeWithObjectArgument(
+                    FindMethodBySignature(transformClass, "TransformPoint", "UnityEngine.Vector3"),
+                    sourceTransform,
+                    BoxVector3(
+                        coreImage,
+                        leftLocalPosition.X,
+                        leftLocalPosition.Y,
+                        leftLocalPosition.Z));
+            TrackingVector3 anchoredRightPosition = independentLiveAnchor
+                ? TransformLiveAnchorPoint(rightLocalPosition)
+                : default;
+            IntPtr rightWorldPosition = independentLiveAnchor
+                ? BoxVector3(
                     coreImage,
-                    rightLocalPosition.X,
-                    rightLocalPosition.Y,
-                    rightLocalPosition.Z));
+                    anchoredRightPosition.X,
+                    anchoredRightPosition.Y,
+                    anchoredRightPosition.Z)
+                : InvokeWithObjectArgument(
+                    FindMethodBySignature(transformClass, "TransformPoint", "UnityEngine.Vector3"),
+                    sourceTransform,
+                    BoxVector3(
+                        coreImage,
+                        rightLocalPosition.X,
+                        rightLocalPosition.Y,
+                        rightLocalPosition.Z));
             float nearClip = InvokeInstanceFloat(
                 coreImage,
                 "UnityEngine",
@@ -2446,18 +2510,34 @@ internal sealed class MainThreadSampler
                 _stereoRightCamera);
             if (useSixDof)
             {
-                ApplyRelativeCameraRotation(
-                    coreImage,
-                    transformClass,
-                    sourceTransform,
-                    leftTransform,
-                    sixDofPose.Left.LocalRotation);
-                ApplyRelativeCameraRotation(
-                    coreImage,
-                    transformClass,
-                    sourceTransform,
-                    rightTransform,
-                    sixDofPose.Right.LocalRotation);
+                if (independentLiveAnchor)
+                {
+                    ApplyAnchoredCameraRotation(
+                        coreImage,
+                        transformClass,
+                        leftTransform,
+                        sixDofPose.Left.LocalRotation);
+                    ApplyAnchoredCameraRotation(
+                        coreImage,
+                        transformClass,
+                        rightTransform,
+                        sixDofPose.Right.LocalRotation);
+                }
+                else
+                {
+                    ApplyRelativeCameraRotation(
+                        coreImage,
+                        transformClass,
+                        sourceTransform,
+                        leftTransform,
+                        sixDofPose.Left.LocalRotation);
+                    ApplyRelativeCameraRotation(
+                        coreImage,
+                        transformClass,
+                        sourceTransform,
+                        rightTransform,
+                        sixDofPose.Right.LocalRotation);
+                }
             }
             _ = InvokeWithObjectArgument(
                 FindMethodBySignature(transformClass, "set_position", "UnityEngine.Vector3"),
@@ -2530,7 +2610,7 @@ internal sealed class MainThreadSampler
                     Reason = useSixDof
                         ? _m6NonLiveWorldSurfaceEligible
                             ? "Non-live 6DoF is active: clone cameras use scene-relative XR_LOCAL head rotation and 1:1 positional movement, while each published eye pair retains its exact render pose for projection submission."
-                            : "The experimental live 6DoF option is active: live clone cameras use scene-relative XR_LOCAL head rotation and 1:1 positional movement, while each published eye pair retains its exact render pose for projection submission."
+                            : "The experimental live 6DoF option is active: the entry camera pose is retained as an independent VR anchor, game-camera path and angle changes are ignored, and XR_LOCAL head movement plus view-relative thumbstick locomotion control the viewpoint."
                         : "Triple-buffered eye cameras publish after both clone renders complete; the first pair retains synchronous GPU validation while subsequent pairs rely on protected D3D11 command ordering, OpenXR final GPU completion, and lease-aware buffer reuse."
                 });
             }
@@ -3172,6 +3252,165 @@ internal sealed class MainThreadSampler
             eye.OrientationY,
             eye.OrientationZ,
             eye.OrientationW));
+
+    private TrackingVector3 UpdateLocomotionOffset(
+        DateTimeOffset now,
+        TrackingQuaternion currentHeadRotation)
+    {
+        long timestamp = Stopwatch.GetTimestamp();
+        float deltaSeconds = _lastLocomotionUpdateTimestamp == 0
+            ? 0f
+            : (timestamp - _lastLocomotionUpdateTimestamp) /
+                (float)Stopwatch.Frequency;
+        _lastLocomotionUpdateTimestamp = timestamp;
+
+        OpenXrLocomotionStateSnapshot? input = _locomotionEnabled
+            ? OpenXrLocomotionStateRegistry.Snapshot(
+                LocomotionInputMaximumAgeMilliseconds)
+            : null;
+        float axisX = input?.AxisX ?? 0f;
+        float axisY = input?.AxisY ?? 0f;
+        bool moving = ((axisX * axisX) + (axisY * axisY)) >
+            LocomotionDeadzone * LocomotionDeadzone;
+        if (!_locomotionIntegrator.Update(
+                axisX,
+                axisY,
+                currentHeadRotation,
+                deltaSeconds,
+                _locomotionSpeed,
+                LocomotionDeadzone))
+        {
+            moving = false;
+        }
+
+        if (moving != _locomotionWasMoving)
+        {
+            RuntimeProbe.Append(_logPath, new ProbeEvent
+            {
+                TimestampUtc = now,
+                Event = moving
+                    ? "controller-locomotion-started"
+                    : "controller-locomotion-stopped",
+                BootstrapVersion = RuntimeProbe.BootstrapVersion,
+                ProcessId = Environment.ProcessId,
+                Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                Reason = moving
+                    ? $"The non-panel-hand thumbstick moves relative to the current horizontal HMD view every frame;mode={_locomotionInputMode};speed={_locomotionSpeed:F2}m/s;deadzone={LocomotionDeadzone:F2}."
+                    : "The locomotion stick returned to its deadzone or became unavailable; the accumulated scene offset is retained."
+            });
+            _locomotionWasMoving = moving;
+        }
+
+        return _locomotionIntegrator.Offset;
+    }
+
+    private void ResetSixDofNavigationState()
+    {
+        _sixDofPoseMapper.Reset();
+        _locomotionIntegrator.Reset();
+        _lastLocomotionUpdateTimestamp = 0;
+        _locomotionWasMoving = false;
+        _liveSixDofAnchorCaptured = false;
+        _liveSixDofAnchorPosition = default;
+        _liveSixDofAnchorRotation = default;
+    }
+
+    private void CaptureLiveSixDofAnchor(
+        IntPtr transformClass,
+        IntPtr sourceTransform)
+    {
+        IntPtr boxedPosition = Invoke(
+            FindMethod(transformClass, "get_position"),
+            sourceTransform);
+        IntPtr positionValue = boxedPosition == IntPtr.Zero
+            ? IntPtr.Zero
+            : _api.ObjectUnbox(boxedPosition);
+        IntPtr boxedRotation = Invoke(
+            FindMethod(transformClass, "get_rotation"),
+            sourceTransform);
+        IntPtr rotationValue = boxedRotation == IntPtr.Zero
+            ? IntPtr.Zero
+            : _api.ObjectUnbox(boxedRotation);
+        if (positionValue == IntPtr.Zero || rotationValue == IntPtr.Zero)
+        {
+            throw new InvalidOperationException(
+                "The live source-camera transform could not be captured for independent 6DoF.");
+        }
+
+        UiReplayVector3 position =
+            Marshal.PtrToStructure<UiReplayVector3>(positionValue);
+        UiReplayQuaternion rotation =
+            Marshal.PtrToStructure<UiReplayQuaternion>(rotationValue);
+        _liveSixDofAnchorPosition = new TrackingVector3(
+            position.X,
+            position.Y,
+            position.Z);
+        _liveSixDofAnchorRotation = new TrackingQuaternion(
+            rotation.X,
+            rotation.Y,
+            rotation.Z,
+            rotation.W);
+        _liveSixDofAnchorCaptured = true;
+    }
+
+    private TrackingVector3 TransformLiveAnchorPoint(TrackingVector3 local) =>
+        AddTrackingPosition(
+            _liveSixDofAnchorPosition,
+            RotateTrackingVector(_liveSixDofAnchorRotation, local));
+
+    private void ApplyAnchoredCameraRotation(
+        IntPtr coreImage,
+        IntPtr transformClass,
+        IntPtr destinationTransform,
+        TrackingQuaternion localRotation)
+    {
+        TrackingQuaternion worldRotation = MultiplyQuaternion(
+            _liveSixDofAnchorRotation,
+            localRotation);
+        _ = InvokeWithObjectArgument(
+            FindMethodBySignature(
+                transformClass,
+                "set_rotation",
+                "UnityEngine.Quaternion"),
+            destinationTransform,
+            BoxQuaternion(coreImage, worldRotation));
+    }
+
+    private static TrackingVector3 RotateTrackingVector(
+        TrackingQuaternion rotation,
+        TrackingVector3 value)
+    {
+        TrackingVector3 quaternionVector = new(
+            rotation.X,
+            rotation.Y,
+            rotation.Z);
+        TrackingVector3 twiceCross = ScaleTrackingPosition(
+            CrossTrackingPosition(quaternionVector, value),
+            2f);
+        return AddTrackingPosition(
+            value,
+            AddTrackingPosition(
+                ScaleTrackingPosition(twiceCross, rotation.W),
+                CrossTrackingPosition(quaternionVector, twiceCross)));
+    }
+
+    private static TrackingVector3 AddTrackingPosition(
+        TrackingVector3 left,
+        TrackingVector3 right) =>
+        new(left.X + right.X, left.Y + right.Y, left.Z + right.Z);
+
+    private static TrackingVector3 ScaleTrackingPosition(
+        TrackingVector3 value,
+        float scale) =>
+        new(value.X * scale, value.Y * scale, value.Z * scale);
+
+    private static TrackingVector3 CrossTrackingPosition(
+        TrackingVector3 left,
+        TrackingVector3 right) =>
+        new(
+            (left.Y * right.Z) - (left.Z * right.Y),
+            (left.Z * right.X) - (left.X * right.Z),
+            (left.X * right.Y) - (left.Y * right.X));
 
     private void ApplyRelativeCameraRotation(
         IntPtr coreImage,

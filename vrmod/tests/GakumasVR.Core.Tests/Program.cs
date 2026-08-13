@@ -1,5 +1,6 @@
 using GakumasVR.Core;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 var tests = new (string Name, Action Run)[]
 {
@@ -25,10 +26,16 @@ var tests = new (string Name, Action Run)[]
     ("6DoF maps physical translation into Unity space", SixDofMapsPhysicalTranslation),
     ("6DoF maps relative head rotation into Unity space", SixDofMapsRelativeRotation),
     ("6DoF reset captures a fresh scene origin", SixDofResetCapturesFreshOrigin),
+    ("Locomotion moves in the horizontal view direction", LocomotionMovesInViewDirection),
+    ("Locomotion applies radial deadzone and frame clamp", LocomotionAppliesDeadzoneAndFrameClamp),
+    ("Locomotion reset clears the scene offset", LocomotionResetClearsSceneOffset),
+    ("Split thumbsticks keep scrolling and locomotion separate", SplitThumbsticksKeepRolesSeparate),
+    ("Contextual off-hand thumbstick follows panel state", ContextualThumbstickFollowsPanelState),
     ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
     ("VR settings allow 2x eye render scale", VrSettingsAllowTwoTimesEyeRenderScale),
     ("VR settings preserve manual VFX controls", VrSettingsPreserveManualVfxControls),
     ("VR settings load legacy JSON without manual VFX", VrSettingsLoadLegacyJsonWithoutManualVfx),
+    ("VR settings load contextual locomotion mode", VrSettingsLoadContextualLocomotionMode),
     ("VR settings repair invalid roles and ranges", VrSettingsRepairInvalidValues),
     ("VR settings reject unsupported schema", VrSettingsRejectUnsupportedSchema)
 };
@@ -245,6 +252,85 @@ static void SixDofResetCapturesFreshOrigin()
     Near(0f, mapped.Left.LocalPosition.Z);
 }
 
+static void LocomotionMovesInViewDirection()
+{
+    var locomotion = new VrLocomotionIntegrator();
+    TrackingQuaternion identity = new(0f, 0f, 0f, 1f);
+    True(locomotion.Update(0f, 1f, identity, 0.10f, 2f));
+    Near(0f, locomotion.Offset.X);
+    Near(0f, locomotion.Offset.Y);
+    Near(0.20f, locomotion.Offset.Z);
+
+    float halfAngle = MathF.PI * 0.25f;
+    TrackingQuaternion rightFacing = new(
+        0f,
+        MathF.Sin(halfAngle),
+        0f,
+        MathF.Cos(halfAngle));
+    True(locomotion.Update(0f, 1f, rightFacing, 0.10f, 2f));
+    Near(0.20f, locomotion.Offset.X);
+    Near(0.20f, locomotion.Offset.Z);
+}
+
+static void LocomotionAppliesDeadzoneAndFrameClamp()
+{
+    var locomotion = new VrLocomotionIntegrator();
+    TrackingQuaternion identity = new(0f, 0f, 0f, 1f);
+    True(locomotion.Update(0.10f, 0.10f, identity, 1f, 5f));
+    Near(0f, locomotion.Offset.X);
+    Near(0f, locomotion.Offset.Z);
+
+    True(locomotion.Update(1f, 0f, identity, 1f, 5f));
+    Near(0.50f, locomotion.Offset.X);
+    Near(0f, locomotion.Offset.Z);
+}
+
+static void LocomotionResetClearsSceneOffset()
+{
+    var locomotion = new VrLocomotionIntegrator();
+    True(locomotion.Update(
+        1f,
+        0f,
+        new TrackingQuaternion(0f, 0f, 0f, 1f),
+        0.10f,
+        1f));
+    locomotion.Reset();
+    Near(0f, locomotion.Offset.X);
+    Near(0f, locomotion.Offset.Y);
+    Near(0f, locomotion.Offset.Z);
+}
+
+static void SplitThumbsticksKeepRolesSeparate()
+{
+    VrThumbstickRouting panelOff = VrThumbstickRouter.Route(
+        LocomotionInputMode.SplitHands,
+        panelEnabled: false);
+    VrThumbstickRouting panelOn = VrThumbstickRouter.Route(
+        LocomotionInputMode.SplitHands,
+        panelEnabled: true);
+    True(panelOff.PanelHandScroll);
+    False(panelOff.OffHandScroll);
+    True(panelOff.OffHandLocomotion);
+    Equal(panelOff, panelOn);
+}
+
+static void ContextualThumbstickFollowsPanelState()
+{
+    VrThumbstickRouting panelOff = VrThumbstickRouter.Route(
+        LocomotionInputMode.ContextualOffHand,
+        panelEnabled: false);
+    False(panelOff.PanelHandScroll);
+    False(panelOff.OffHandScroll);
+    True(panelOff.OffHandLocomotion);
+
+    VrThumbstickRouting panelOn = VrThumbstickRouter.Route(
+        LocomotionInputMode.ContextualOffHand,
+        panelEnabled: true);
+    False(panelOn.PanelHandScroll);
+    True(panelOn.OffHandScroll);
+    False(panelOn.OffHandLocomotion);
+}
+
 static TrackingStereoPose StereoPose(
     float leftX,
     float leftY,
@@ -271,6 +357,9 @@ static void VrSettingsPreserveApprovedDefaults()
     Equal(0.10f, result.Settings.Panel.OffsetY);
     Equal(0.65f, result.Settings.Render.EyeRenderScale);
     Equal(false, result.Settings.Tracking.LiveSixDofEnabled);
+    Equal(true, result.Settings.Tracking.LocomotionEnabled);
+    Equal(LocomotionInputMode.SplitHands, result.Settings.Tracking.LocomotionInputMode);
+    Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
     Equal(VrVisualEffectModes.Approved, result.Settings.Render.VisualEffectMode);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
@@ -338,9 +427,38 @@ static void VrSettingsLoadLegacyJsonWithoutManualVfx()
     Equal(false, result.UsedFallback);
     Equal(VrVisualEffectModes.Manual, result.Settings.Render.VisualEffectMode);
     Equal(false, result.Settings.Tracking.LiveSixDofEnabled);
+    Equal(true, result.Settings.Tracking.LocomotionEnabled);
+    Equal(LocomotionInputMode.SplitHands, result.Settings.Tracking.LocomotionInputMode);
+    Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
     Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
+}
+
+static void VrSettingsLoadContextualLocomotionMode()
+{
+    const string json = """
+        {
+          "schemaVersion": 1,
+          "tracking": {
+            "locomotionEnabled": true,
+            "locomotionInputMode": "contextualOffHand",
+            "locomotionSpeed": 2.25
+          }
+        }
+        """;
+    JsonSerializerOptions options = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+    };
+    VrSettings? parsed = JsonSerializer.Deserialize<VrSettings>(json, options);
+
+    VrSettingsValidationResult result = VrSettingsValidator.Validate(parsed);
+
+    False(result.UsedFallback);
+    Equal(LocomotionInputMode.ContextualOffHand, result.Settings.Tracking.LocomotionInputMode);
+    Equal(2.25f, result.Settings.Tracking.LocomotionSpeed);
 }
 
 static void VrSettingsRepairInvalidValues()
@@ -351,6 +469,8 @@ static void VrSettingsRepairInvalidValues()
     settings.Render.EyeRenderScale = 2.01f;
     settings.Render.ManualVisualEffects.VlBloomIntensityScale = 4f;
     settings.Render.ManualVisualEffects.VlBloomDiffusion = 0;
+    settings.Tracking.LocomotionInputMode = (LocomotionInputMode)99;
+    settings.Tracking.LocomotionSpeed = 9f;
     settings.Input.BackButton = FaceButtonBinding.Primary;
     VrSettingsValidationResult result = VrSettingsValidator.Validate(settings);
     Equal(true, result.UsedFallback);
@@ -360,6 +480,8 @@ static void VrSettingsRepairInvalidValues()
     Equal(0.75f, result.Settings.Render.EyeRenderScale);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
     Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
+    Equal(LocomotionInputMode.SplitHands, result.Settings.Tracking.LocomotionInputMode);
+    Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
     Equal(FaceButtonBinding.Primary, result.Settings.Input.PrimaryClickButton);
     Equal(FaceButtonBinding.Secondary, result.Settings.Input.BackButton);
 }

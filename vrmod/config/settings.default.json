@@ -19,7 +19,10 @@
     }
   },
   "tracking": {
-    "liveSixDofEnabled": false
+    "liveSixDofEnabled": false,
+    "locomotionEnabled": true,
+    "locomotionInputMode": "splitHands",
+    "locomotionSpeed": 1.5
   },
   "panel": {
     "panelHand": "left",

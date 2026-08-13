@@ -19,6 +19,12 @@ public enum PanelToggleBinding
     SecondaryFace
 }
 
+public enum LocomotionInputMode
+{
+    SplitHands,
+    ContextualOffHand
+}
+
 public static class VrVisualEffectModes
 {
     public const string Approved = "vl-bloom-140-diffusion-min-vldof-textureblur-off";
@@ -65,6 +71,13 @@ public sealed class VrRenderSettings
 public sealed class VrTrackingSettings
 {
     public bool LiveSixDofEnabled { get; set; }
+
+    public bool LocomotionEnabled { get; set; } = true;
+
+    public LocomotionInputMode LocomotionInputMode { get; set; } =
+        LocomotionInputMode.SplitHands;
+
+    public float LocomotionSpeed { get; set; } = 1.5f;
 }
 
 public sealed class VrManualVisualEffectSettings
@@ -219,7 +232,20 @@ public static class VrSettingsValidator
             },
             Tracking = new VrTrackingSettings
             {
-                LiveSixDofEnabled = tracking.LiveSixDofEnabled
+                LiveSixDofEnabled = tracking.LiveSixDofEnabled,
+                LocomotionEnabled = tracking.LocomotionEnabled,
+                LocomotionInputMode = ValidateEnum(
+                    tracking.LocomotionInputMode,
+                    defaults.Tracking.LocomotionInputMode,
+                    "tracking.locomotionInputMode",
+                    issues),
+                LocomotionSpeed = ValidateRange(
+                    tracking.LocomotionSpeed,
+                    0.10f,
+                    5f,
+                    defaults.Tracking.LocomotionSpeed,
+                    "tracking.locomotionSpeed",
+                    issues)
             },
             Panel = new VrPanelSettings
             {

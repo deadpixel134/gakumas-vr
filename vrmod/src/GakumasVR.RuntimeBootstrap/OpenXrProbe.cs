@@ -934,6 +934,10 @@ internal static class OpenXrProbe
                         }
                     }
                 }
+                OpenXrLocomotionStateRegistry.Update(
+                    controllerFrame.LocomotionThumbstickActive,
+                    controllerFrame.LocomotionThumbstickX,
+                    controllerFrame.LocomotionThumbstickY);
                 bool handPanelInView =
                     controllerFrame.PanelPoseTracked &&
                     currentStereoViewsValid &&
@@ -1789,6 +1793,7 @@ internal static class OpenXrProbe
             DestroyPanelSwapchainResources(cursorPanel, destroySwapchain);
             DestroyPanelSwapchainResources(panel, destroySwapchain);
             controllerActions?.Dispose();
+            OpenXrLocomotionStateRegistry.Clear();
 
             if (worldSpace != IntPtr.Zero)
             {

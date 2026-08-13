@@ -46,6 +46,9 @@ internal sealed class MainForm : Form
     private readonly CheckBox _trigger = TaggedCheckBox("TriggerEnabled");
     private readonly CheckBox _scroll = TaggedCheckBox("ScrollEnabled");
     private readonly NumericUpDown _scrollSensitivity = Number(0.10m, 5.00m, 0.10m, 2);
+    private readonly CheckBox _locomotion = TaggedCheckBox("LocomotionEnabled");
+    private readonly ComboBox _locomotionMode = ChoiceCombo();
+    private readonly NumericUpDown _locomotionSpeed = Number(0.10m, 5.00m, 0.10m, 2);
     private readonly CheckBox _requireFocus = TaggedCheckBox("RequireFocus");
     private readonly ToolStripStatusLabel _status = new();
     private readonly Button _checkUpdates;
@@ -143,6 +146,7 @@ internal sealed class MainForm : Form
         _eyeScale.ValueChanged += (_, _) => UpdateEyeScaleWarning();
         _manualPostProcessing.CheckedChanged += (_, _) => UpdateManualVfxControls();
         _manualVlBloom.CheckedChanged += (_, _) => UpdateManualVfxControls();
+        _locomotion.CheckedChanged += (_, _) => UpdateLocomotionControls();
         ApplyLanguage(languageChanged: false);
         Load += (_, _) => Run("StatusLoaded", LoadSettings);
         Shown += async (_, _) => await OnShownAsync();
@@ -205,6 +209,9 @@ internal sealed class MainForm : Form
         AddRow(grid, "Trigger", _trigger);
         AddRow(grid, "Scroll", _scroll);
         AddRow(grid, "ScrollSensitivity", _scrollSensitivity);
+        AddRow(grid, "Locomotion", _locomotion);
+        AddRow(grid, "LocomotionMode", _locomotionMode);
+        AddRow(grid, "LocomotionSpeed", _locomotionSpeed);
         AddRow(grid, "InputSafety", _requireFocus);
         _inputTab.Controls.Add(grid);
     }
@@ -222,6 +229,9 @@ internal sealed class MainForm : Form
         PanelToggleBinding toggle = Selected(_toggle, PanelToggleBinding.Grip);
         FaceButtonBinding primary = Selected(_primary, FaceButtonBinding.Primary);
         FaceButtonBinding back = Selected(_back, FaceButtonBinding.Secondary);
+        LocomotionInputMode locomotionMode = Selected(
+            _locomotionMode,
+            LocomotionInputMode.SplitHands);
         string vfx = Selected(_vfx, VrVisualEffectModes.Approved);
 
         Text = UiText.Get("AppTitle");
@@ -231,6 +241,11 @@ internal sealed class MainForm : Form
         Populate(_toggle, Enum.GetValues<PanelToggleBinding>(), UiText.Choice, toggle);
         Populate(_primary, Enum.GetValues<FaceButtonBinding>(), UiText.Choice, primary);
         Populate(_back, Enum.GetValues<FaceButtonBinding>(), UiText.Choice, back);
+        Populate(
+            _locomotionMode,
+            Enum.GetValues<LocomotionInputMode>(),
+            UiText.Choice,
+            locomotionMode);
         Populate(
             _vfx,
             new[]
@@ -243,6 +258,7 @@ internal sealed class MainForm : Form
             UiText.VisualEffect,
             vfx);
         UpdateManualVfxControls();
+        UpdateLocomotionControls();
         UpdateEyeScaleWarning();
         _status.Text = UiText.Get(languageChanged ? "StatusLanguageChanged" : "StatusReady");
     }
@@ -420,7 +436,12 @@ internal sealed class MainForm : Form
         },
         Tracking = new VrTrackingSettings
         {
-            LiveSixDofEnabled = _liveSixDof.Checked
+            LiveSixDofEnabled = _liveSixDof.Checked,
+            LocomotionEnabled = _locomotion.Checked,
+            LocomotionInputMode = Selected(
+                _locomotionMode,
+                LocomotionInputMode.SplitHands),
+            LocomotionSpeed = (float)_locomotionSpeed.Value
         },
         Panel = new VrPanelSettings
         {
@@ -456,6 +477,9 @@ internal sealed class MainForm : Form
         Set(_eyeScale, settings.Render.EyeRenderScale);
         Set(_worldEyeScale, settings.Render.WorldEyeOffsetScale);
         _liveSixDof.Checked = settings.Tracking.LiveSixDofEnabled;
+        _locomotion.Checked = settings.Tracking.LocomotionEnabled;
+        Select(_locomotionMode, settings.Tracking.LocomotionInputMode);
+        Set(_locomotionSpeed, settings.Tracking.LocomotionSpeed);
         Select(_vfx, settings.Render.VisualEffectMode);
         VrManualVisualEffectSettings manual = settings.Render.ManualVisualEffects;
         _manualPostProcessing.Checked = manual.PostProcessingEnabled;
@@ -487,6 +511,7 @@ internal sealed class MainForm : Form
         _scroll.Checked = settings.Input.ThumbstickScrollEnabled;
         Set(_scrollSensitivity, settings.Input.ScrollSensitivity);
         _requireFocus.Checked = settings.Input.RequireGameFocus;
+        UpdateLocomotionControls();
         UpdateEyeScaleWarning();
     }
 
@@ -537,6 +562,12 @@ internal sealed class MainForm : Form
         bool bloom = postProcessing && _manualVlBloom.Checked;
         _manualVlBloomIntensity.Enabled = bloom;
         _manualVlBloomDiffusion.Enabled = bloom;
+    }
+
+    private void UpdateLocomotionControls()
+    {
+        _locomotionMode.Enabled = _locomotion.Checked;
+        _locomotionSpeed.Enabled = _locomotion.Checked;
     }
 
     private void UpdateEyeScaleWarning()
