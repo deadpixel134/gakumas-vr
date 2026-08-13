@@ -4,7 +4,7 @@
 
 Gakumas VR is an unofficial Meta Quest/OpenXR VR mod for the DMM version of Gakuen Idolmaster. Supported 3D scenes are presented in stereo VR, while other content appears on aspect-correct flat panels that can be controlled with VR controllers.
 
-The current public build is the **v0.173.0 stable release**. Development and hardware validation use Meta Quest 2 with the Virtual Desktop OpenXR runtime. SteamVR OpenXR and Meta Quest Link are preliminary targets and have not yet been hardware-tested by this project.
+The current public build is the **v0.174.0 stable release**. The core 6DoF controls were hardware-validated through v0.173 on Meta Quest 2 with Virtual Desktop OpenXR; v0.174 retains that behavior and changes the defaults. SteamVR OpenXR and Meta Quest Link are preliminary targets and have not yet been hardware-tested by this project.
 
 ## Documentation
 
@@ -19,7 +19,7 @@ The current public build is the **v0.173.0 stable release**. Development and har
 
 - OpenXR stereo output in supported 3D environments, including Live, Home, and Communications
 - Automatic front panel for 2D screens and an optional left-hand panel in 3D
-- Right-hand 3D movement, left-hand world-axis turning, and 15° default snap turn
+- Right-hand 3D movement, left-hand world-axis turning, and 30° default snap turn
 - Right-hand ray pointer, A/trigger click, and B back
 - Korean, English, and Japanese installer and configurator
 - Render scale, stereo depth, panel placement, hand roles, buttons, and VFX controls
@@ -28,7 +28,7 @@ The current public build is the **v0.173.0 stable release**. Development and har
 ## Important limitations
 
 - This stable release targets Windows 11 x64, the DMM edition, and Unity 6000.0.77f1.
-- The release ZIP includes the required Dobby binary. Before touching the game directory, the v0.173.0 installer preflights every payload hash, required clean-install component, and preservation policy.
+- The release ZIP includes the required Dobby binary. Before touching the game directory, the v0.174.0 installer preflights every payload hash, required clean-install component, and preservation policy.
 - If something fails, close the game and use the installer to uninstall or roll back. Before attaching logs to an issue, check them for account identifiers or authentication data.
 
 This repository does not contain game files, Localify assets, user settings, logs, rollback data, or build outputs. Project source is released under the [MIT License](LICENSE); third-party components retain their own licenses. See [Credits and third-party licenses](CREDITS.md).

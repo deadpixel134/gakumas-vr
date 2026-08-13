@@ -19,7 +19,7 @@
 | Click or hold-drag | A button or right Trigger |
 | Back | B button (`Esc`) |
 | 3D movement | Right Thumbstick, including current view pitch |
-| View turning | Left Thumbstick, 15° snap by default |
+| View turning | Left Thumbstick, 30° snap by default |
 | Toggle 3D auxiliary panel | Left Grip |
 
 Use A when pulling the trigger would disturb fine aim. Trigger input latches the early press position to reduce drift and becomes a drag only after being held and moved far enough. Thumbstick scrolling is disabled in VR. Direct touch is not supported.
@@ -42,7 +42,7 @@ After installation, run `game directory\vrmod\tools\GakumasVR.Configurator.exe`.
 - **Panel:** panel/pointer hands, initial state, placement, size, rotation, viewer-facing behavior, and toggle binding
 - **Input:** click/back buttons, trigger click, movement hand and speed, snap/smooth turning, snap angle, and game-focus requirement
 
-The movement hand defaults to right and the opposite left hand turns the view. Changing the movement hand swaps both roles. Snap steps are 15°/30°/45°/60°. Stick turning never creates view roll; only physical HMD tilt introduced after VR entry is retained. See the [VR interaction and pose-composition specification](VR_INTERACTION_SPEC.md) for the portable implementation contract.
+Live 6DoF is enabled by default and uses an entry anchor independent of the live direction camera. The movement hand defaults to right, movement speed defaults to 1.95m/s, and the opposite left hand turns the view. Changing the movement hand swaps both roles. The default snap step is 30°, with 15°/30°/45°/60° available. Stick turning never creates view roll; only physical HMD tilt introduced after VR entry is retained. See the [VR interaction and pose-composition specification](VR_INTERACTION_SPEC.md) for the portable implementation contract.
 
 Save only while the game is closed. Invalid values are replaced with safe defaults and the reason is logged.
 

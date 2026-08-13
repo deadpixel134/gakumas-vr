@@ -39,7 +39,7 @@ While fresh 3D eye textures are being produced, the projection world is displaye
 
 The OpenXR Oculus Touch action profile supplies hand/aim poses, Grip, Trigger, A/B/X/Y, and Thumbstick state. The pointer ray is intersected with the currently visible panel, converted to game-client coordinates, and delivered as Windows input. Panel and pointer hands must differ and can be swapped in settings.
 
-6DoF navigation decomposes and rebuilds the pose from roll-free scene yaw/pitch, separately accumulated stick yaw/pitch, and HMD yaw/pitch/roll deltas since origin capture. By default, the left stick performs 15° world-axis snap turns and the right stick moves along the full final 3D view; settings can swap the roles. The stick cannot create roll, while actual physical HMD roll delta remains visible. See the [VR interaction and pose-composition specification](VR_INTERACTION_SPEC.md) for the portable math, input, and lifetime contract.
+6DoF navigation decomposes and rebuilds the pose from roll-free scene yaw/pitch, separately accumulated stick yaw/pitch, and HMD yaw/pitch/roll deltas since origin capture. Independent live 6DoF is enabled by default. The left stick performs 30° world-axis snap turns and the right stick moves at 1.95m/s along the full final 3D view; settings can swap the roles. The stick cannot create roll, while actual physical HMD roll delta remains visible. See the [VR interaction and pose-composition specification](VR_INTERACTION_SPEC.md) for the portable math, input, and lifetime contract.
 
 ## Installation safety
 

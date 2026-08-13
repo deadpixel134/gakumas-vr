@@ -1,6 +1,6 @@
 # 학원 아이돌마스터 VR 모드 기술 설계
 
-상태: 구현 설계 — v0.173 M7 설정·설치·자동 업데이트·6DoF 조작 사용자 실기 완료, 정식 릴리스 기준
+상태: 구현 설계 — v0.173 M7 사용자 실기 기준을 유지하고 v0.174에서 live 6DoF·회전·이동 기본값 조정
 
 현재 설치/검증/결함 상태는 [`GAKUMAS_VR_STATUS.md`](GAKUMAS_VR_STATUS.md), 단계별 완료 조건과 알림 규칙은 [`VR_MILESTONES.md`](VR_MILESTONES.md)를 기준으로 한다. 이 문서는 목표 구조와 확정된 기술 결정을 설명한다. 작업 문서는 마일스톤 완료 시점 또는 사용자의 명시적 문서 요청에서 동기화한다.
 
@@ -39,10 +39,11 @@
 - HMD가 없거나 OpenXR 초기화에 실패하면 일반 창모드 게임이 정상 실행되어야 한다.
 - Localify의 번역, 폰트, 텍스처 교체 및 ImGui를 우선 보존한다.
 
-### 2.1 v0.173 6DoF 조작·roll 불변식
+### 2.1 v0.173~v0.174 6DoF 조작·roll 불변식
 
 - 기본 입력 역할은 왼손 world-axis 시야 회전, 오른손 final-view 3D 이동이며 설정의 `locomotionHand`로 교체한다. VR 스틱 스크롤은 항상 비활성화한다.
-- artificial yaw/pitch는 scalar로 따로 누적한다. 스틱 대각 오차는 절댓값이 큰 한 축만 선택하며 기본 snap은 15°, 활성 임계값 0.65, deadzone 재무장은 0.20이다.
+- artificial yaw/pitch는 scalar로 따로 누적한다. 스틱 대각 오차는 절댓값이 큰 한 축만 선택하며 v0.174 기본 snap은 30°, 활성 임계값 0.65, deadzone 재무장은 0.20이다.
+- v0.174의 제품 기본값은 live 독립 6DoF ON, 이동 속도 1.95m/s다. 저장된 사용자 설정은 업데이트에서 보존되며 이 값은 신규 설정과 기본값 복원에 적용한다.
 - scene base rotation은 forward에서 yaw/pitch만 추출하고 roll을 폐기한다. OpenXR absolute eye orientation은 Unity 좌표로 바꾼 뒤 yaw/pitch/roll을 각각 원점과 비교한다.
 - 최종 회전은 `Yaw(base + artificial + physical delta) × Pitch(base + artificial + physical delta) × Roll(physical delta)`로 매 프레임 재구성한다. 따라서 스틱·scene·진입 자세에서 roll이 유입되지 않고 사용자가 실제로 HMD를 기울인 변화량만 남는다.
 - raw relative HMD quaternion을 artificial quaternion에 통째로 곱하지 않는다. 기울어진 origin에서 physical yaw가 relative roll로 표현되어 수평선이 기울 수 있기 때문이다.
@@ -487,12 +488,12 @@ VR 실패는 게임 종료 사유가 되어서는 안 된다.
 ```text
 render.eyeRenderScale = 0.65                 # 0.50~2.00, invalid fallback 0.75
 render.worldEyeOffsetScale = 0.275
-tracking.liveSixDofEnabled = false
+tracking.liveSixDofEnabled = true
 tracking.locomotionEnabled = true
 tracking.locomotionHand = right
-tracking.locomotionSpeed = 1.5
+tracking.locomotionSpeed = 1.95
 tracking.viewTurnMode = snap
-tracking.viewSnapAngleDegrees = 15
+tracking.viewSnapAngleDegrees = 30
 panel.panelHand = left
 panel.pointerHand = right
 panel.startEnabled = false

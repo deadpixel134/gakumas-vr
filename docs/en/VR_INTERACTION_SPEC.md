@@ -4,14 +4,15 @@
 
 [Project home](../../README.en.md) · [Usage](USAGE.md) · [Architecture](ARCHITECTURE.md)
 
-This document defines the portable interaction contract validated by users in Gakumas VR v0.173.0. Game-specific camera discovery may change, but preserving these invariants should reproduce the same controls, comfort, and failure behavior in another Unity VR mod.
+This document defines the portable interaction contract hardware-validated in Gakumas VR v0.173.0 and given revised defaults in v0.174.0. Game-specific camera discovery may change, but preserving these invariants should reproduce the same controls, comfort, and failure behavior in another Unity VR mod.
 
 ## User-visible contract
 
 - Default roles: left stick turns the view; right stick moves. Selecting the movement hand in settings swaps both roles.
 - Movement follows the full final 3D view direction. Looking up while moving forward ascends; looking down descends.
 - Stick turning changes world-space yaw or pitch only and never creates roll.
-- Default turning is a 15° snap. Available steps are 15°/30°/45°/60°, with optional smooth turning.
+- Default turning is a 30° snap. Available steps are 15°/30°/45°/60°, with optional smooth turning.
+- Independent live 6DoF is enabled by default and movement speed defaults to 1.95m/s.
 - Only physical HMD roll introduced after the VR origin is retained. Entry tilt, scene-camera roll, and roll derived from stick turning are removed.
 - Thumbstick scrolling is disabled in VR.
 - Without fresh stereo, the final game backbuffer appears on a front panel. In 3D, the same backbuffer is available on a hand panel and operated by the other hand's ray and buttons.
@@ -32,7 +33,7 @@ Independent live 6DoF captures the game camera's entry world pose once; later au
 
 ## Movement
 
-Apply deadzone-remapped `(strafe, 0, forward)` through the final view quaternion. Do not flatten the vector onto XZ. Clamp integration `dt` to 0.1 seconds. Defaults are deadzone 0.20 and 1.5m/s. Physical head translation, eye offsets, and accumulated locomotion must share the same world navigation basis.
+Apply deadzone-remapped `(strafe, 0, forward)` through the final view quaternion. Do not flatten the vector onto XZ. Clamp integration `dt` to 0.1 seconds. Defaults are deadzone 0.20 and 1.95m/s. Physical head translation, eye offsets, and accumulated locomotion must share the same world navigation basis.
 
 ## Stick-turn state machine
 
