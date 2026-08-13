@@ -35,7 +35,7 @@ var tests = new (string Name, Action Run)[]
     ("World view composition removes scene camera roll", WorldViewCompositionRemovesSceneRoll),
     ("Snap turn advances once per stick deflection", SnapTurnAdvancesOncePerDeflection),
     ("View turn reset clears artificial rotation", ViewTurnResetClearsRotation),
-    ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
+    ("VR settings preserve product defaults", VrSettingsPreserveProductDefaults),
     ("VR settings allow 2x eye render scale", VrSettingsAllowTwoTimesEyeRenderScale),
     ("VR settings preserve manual VFX controls", VrSettingsPreserveManualVfxControls),
     ("VR settings load legacy JSON without manual VFX", VrSettingsLoadLegacyJsonWithoutManualVfx),
@@ -583,7 +583,7 @@ static TrackingVector3 AddTestVector(
     TrackingVector3 right) =>
     new(left.X + right.X, left.Y + right.Y, left.Z + right.Z);
 
-static void VrSettingsPreserveApprovedDefaults()
+static void VrSettingsPreserveProductDefaults()
 {
     VrSettingsValidationResult result = VrSettingsValidator.Validate(
         VrSettings.CreateApprovedDefaults());
@@ -593,13 +593,13 @@ static void VrSettingsPreserveApprovedDefaults()
     Equal(true, result.Settings.Panel.ViewerFacing);
     Equal(0.10f, result.Settings.Panel.OffsetY);
     Equal(0.65f, result.Settings.Render.EyeRenderScale);
-    Equal(false, result.Settings.Tracking.LiveSixDofEnabled);
+    Equal(true, result.Settings.Tracking.LiveSixDofEnabled);
     Equal(true, result.Settings.Tracking.LocomotionEnabled);
     Equal(VrHand.Right, result.Settings.Tracking.LocomotionHand);
-    Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(1.95f, result.Settings.Tracking.LocomotionSpeed);
     Equal(VrViewTurnMode.Snap, result.Settings.Tracking.ViewTurnMode);
     Equal(90f, result.Settings.Tracking.ViewTurnSpeed);
-    Equal(15, result.Settings.Tracking.ViewSnapAngleDegrees);
+    Equal(30, result.Settings.Tracking.ViewSnapAngleDegrees);
     Equal(VrVisualEffectModes.Approved, result.Settings.Render.VisualEffectMode);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
@@ -666,13 +666,13 @@ static void VrSettingsLoadLegacyJsonWithoutManualVfx()
 
     Equal(false, result.UsedFallback);
     Equal(VrVisualEffectModes.Manual, result.Settings.Render.VisualEffectMode);
-    Equal(false, result.Settings.Tracking.LiveSixDofEnabled);
+    Equal(true, result.Settings.Tracking.LiveSixDofEnabled);
     Equal(true, result.Settings.Tracking.LocomotionEnabled);
     Equal(VrHand.Right, result.Settings.Tracking.LocomotionHand);
-    Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(1.95f, result.Settings.Tracking.LocomotionSpeed);
     Equal(VrViewTurnMode.Snap, result.Settings.Tracking.ViewTurnMode);
     Equal(90f, result.Settings.Tracking.ViewTurnSpeed);
-    Equal(15, result.Settings.Tracking.ViewSnapAngleDegrees);
+    Equal(30, result.Settings.Tracking.ViewSnapAngleDegrees);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
     Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
@@ -734,10 +734,10 @@ static void VrSettingsRepairInvalidValues()
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
     Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
     Equal(VrHand.Right, result.Settings.Tracking.LocomotionHand);
-    Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(1.95f, result.Settings.Tracking.LocomotionSpeed);
     Equal(VrViewTurnMode.Snap, result.Settings.Tracking.ViewTurnMode);
     Equal(90f, result.Settings.Tracking.ViewTurnSpeed);
-    Equal(15, result.Settings.Tracking.ViewSnapAngleDegrees);
+    Equal(30, result.Settings.Tracking.ViewSnapAngleDegrees);
     Equal(FaceButtonBinding.Primary, result.Settings.Input.PrimaryClickButton);
     Equal(FaceButtonBinding.Secondary, result.Settings.Input.BackButton);
 }

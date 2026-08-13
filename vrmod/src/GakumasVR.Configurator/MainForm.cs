@@ -234,7 +234,7 @@ internal sealed class MainForm : Form
         FaceButtonBinding back = Selected(_back, FaceButtonBinding.Secondary);
         VrHand locomotionHand = Selected(_locomotionHand, VrHand.Right);
         VrViewTurnMode viewTurnMode = Selected(_viewTurnMode, VrViewTurnMode.Snap);
-        int viewSnapAngle = Selected(_viewSnapAngle, 15);
+        int viewSnapAngle = Selected(_viewSnapAngle, 30);
         string vfx = Selected(_vfx, VrVisualEffectModes.Approved);
 
         Text = UiText.Get("AppTitle");
@@ -455,7 +455,7 @@ internal sealed class MainForm : Form
             LocomotionSpeed = (float)_locomotionSpeed.Value,
             ViewTurnMode = Selected(_viewTurnMode, VrViewTurnMode.Snap),
             ViewTurnSpeed = (float)_viewTurnSpeed.Value,
-            ViewSnapAngleDegrees = Selected(_viewSnapAngle, 15)
+            ViewSnapAngleDegrees = Selected(_viewSnapAngle, 30)
         },
         Panel = new VrPanelSettings
         {

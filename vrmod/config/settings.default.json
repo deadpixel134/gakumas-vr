@@ -19,13 +19,13 @@
     }
   },
   "tracking": {
-    "liveSixDofEnabled": false,
+    "liveSixDofEnabled": true,
     "locomotionEnabled": true,
     "locomotionHand": "right",
-    "locomotionSpeed": 1.5,
+    "locomotionSpeed": 1.95,
     "viewTurnMode": "snap",
     "viewTurnSpeed": 90.0,
-    "viewSnapAngleDegrees": 15
+    "viewSnapAngleDegrees": 30
   },
   "panel": {
     "panelHand": "left",

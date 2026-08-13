@@ -70,19 +70,19 @@ public sealed class VrRenderSettings
 
 public sealed class VrTrackingSettings
 {
-    public bool LiveSixDofEnabled { get; set; }
+    public bool LiveSixDofEnabled { get; set; } = true;
 
     public bool LocomotionEnabled { get; set; } = true;
 
     public VrHand LocomotionHand { get; set; } = VrHand.Right;
 
-    public float LocomotionSpeed { get; set; } = 1.5f;
+    public float LocomotionSpeed { get; set; } = 1.95f;
 
     public VrViewTurnMode ViewTurnMode { get; set; } = VrViewTurnMode.Snap;
 
     public float ViewTurnSpeed { get; set; } = 90f;
 
-    public int ViewSnapAngleDegrees { get; set; } = 15;
+    public int ViewSnapAngleDegrees { get; set; } = 30;
 }
 
 public sealed class VrManualVisualEffectSettings
