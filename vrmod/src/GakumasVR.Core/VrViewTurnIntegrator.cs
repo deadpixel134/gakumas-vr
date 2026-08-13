@@ -15,35 +15,48 @@ public sealed class VrViewTurnIntegrator
         out TrackingQuaternion worldRotation)
     {
         worldRotation = default;
-        if (!TryNormalize(baseWorldRotation, out TrackingQuaternion normalizedBase))
+        if (!TryGetBaseYawPitch(
+                baseWorldRotation,
+                out float baseYaw,
+                out float basePitch))
         {
             return false;
         }
-
-        TrackingVector3 forward = Rotate(
-            normalizedBase,
-            new TrackingVector3(0f, 0f, 1f));
-        float horizontalLength = MathF.Sqrt(
-            (forward.X * forward.X) + (forward.Z * forward.Z));
-        float baseYaw;
-        if (horizontalLength > 0.0001f)
-        {
-            baseYaw = MathF.Atan2(forward.X, forward.Z);
-        }
-        else
-        {
-            TrackingVector3 right = Rotate(
-                normalizedBase,
-                new TrackingVector3(1f, 0f, 0f));
-            baseYaw = MathF.Atan2(-right.Z, right.X);
-        }
-
-        float basePitch = MathF.Atan2(-forward.Y, horizontalLength);
         float finalPitch = Math.Clamp(
             basePitch + _pitchRadians,
             -MathF.PI * 0.495f,
             MathF.PI * 0.495f);
         worldRotation = FromYawPitch(baseYaw + _yawRadians, finalPitch);
+        return true;
+    }
+
+    public bool TryCreateWorldViewRotation(
+        TrackingQuaternion baseWorldRotation,
+        float physicalYawDeltaRadians,
+        float physicalPitchDeltaRadians,
+        float physicalRollDeltaRadians,
+        out TrackingQuaternion worldRotation)
+    {
+        worldRotation = default;
+        if (!float.IsFinite(physicalYawDeltaRadians) ||
+            !float.IsFinite(physicalPitchDeltaRadians) ||
+            !float.IsFinite(physicalRollDeltaRadians) ||
+            !TryGetBaseYawPitch(
+                baseWorldRotation,
+                out float baseYaw,
+                out float basePitch))
+        {
+            return false;
+        }
+
+        float finalPitch = Math.Clamp(
+            basePitch + _pitchRadians + physicalPitchDeltaRadians,
+            -MathF.PI * 0.495f,
+            MathF.PI * 0.495f);
+        worldRotation = FromYawPitchRoll(
+            baseYaw + _yawRadians + physicalYawDeltaRadians,
+            finalPitch,
+            physicalRollDeltaRadians);
         return true;
     }
 
@@ -148,6 +161,52 @@ public sealed class VrViewTurnIntegrator
             0f,
             MathF.Cos(halfPitch));
         return Multiply(yawRotation, pitchRotation);
+    }
+
+    private static TrackingQuaternion FromYawPitchRoll(
+        float yaw,
+        float pitch,
+        float roll)
+    {
+        float halfRoll = roll * 0.5f;
+        TrackingQuaternion rollRotation = new(
+            0f,
+            0f,
+            MathF.Sin(halfRoll),
+            MathF.Cos(halfRoll));
+        return Multiply(FromYawPitch(yaw, pitch), rollRotation);
+    }
+
+    private static bool TryGetBaseYawPitch(
+        TrackingQuaternion baseWorldRotation,
+        out float baseYaw,
+        out float basePitch)
+    {
+        baseYaw = 0f;
+        basePitch = 0f;
+        if (!TryNormalize(baseWorldRotation, out TrackingQuaternion normalizedBase))
+        {
+            return false;
+        }
+
+        TrackingVector3 forward = Rotate(
+            normalizedBase,
+            new TrackingVector3(0f, 0f, 1f));
+        float horizontalLength = MathF.Sqrt(
+            (forward.X * forward.X) + (forward.Z * forward.Z));
+        if (horizontalLength > 0.0001f)
+        {
+            baseYaw = MathF.Atan2(forward.X, forward.Z);
+        }
+        else
+        {
+            TrackingVector3 right = Rotate(
+                normalizedBase,
+                new TrackingVector3(1f, 0f, 0f));
+            baseYaw = MathF.Atan2(-right.Z, right.X);
+        }
+        basePitch = MathF.Atan2(-forward.Y, horizontalLength);
+        return true;
     }
 
     private static TrackingQuaternion Multiply(

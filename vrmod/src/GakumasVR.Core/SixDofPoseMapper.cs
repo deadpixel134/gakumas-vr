@@ -40,11 +40,28 @@ public readonly struct TrackingStereoPose
 
 public readonly struct UnityEyePose
 {
-    public UnityEyePose(TrackingVector3 localPosition, TrackingQuaternion localRotation) =>
-        (LocalPosition, LocalRotation) = (localPosition, localRotation);
+    public UnityEyePose(
+        TrackingVector3 localPosition,
+        TrackingQuaternion localRotation,
+        float yawDeltaRadians,
+        float pitchDeltaRadians,
+        float rollDeltaRadians)
+    {
+        LocalPosition = localPosition;
+        LocalRotation = localRotation;
+        YawDeltaRadians = yawDeltaRadians;
+        PitchDeltaRadians = pitchDeltaRadians;
+        RollDeltaRadians = rollDeltaRadians;
+    }
 
     public TrackingVector3 LocalPosition { get; }
     public TrackingQuaternion LocalRotation { get; }
+
+    public float YawDeltaRadians { get; }
+
+    public float PitchDeltaRadians { get; }
+
+    public float RollDeltaRadians { get; }
 }
 
 public readonly struct UnityStereoPose
@@ -60,6 +77,9 @@ public sealed class SixDofPoseMapper
 {
     private TrackingVector3 _originPosition;
     private TrackingQuaternion _originOrientation;
+    private float _originUnityYaw;
+    private float _originUnityPitch;
+    private float _originUnityRoll;
 
     public bool HasOrigin { get; private set; }
 
@@ -89,6 +109,11 @@ public sealed class SixDofPoseMapper
         {
             _originPosition = center;
             _originOrientation = centerOrientation;
+            ToYawPitchRoll(
+                ToUnityRotation(centerOrientation),
+                out _originUnityYaw,
+                out _originUnityPitch,
+                out _originUnityRoll);
             HasOrigin = true;
         }
 
@@ -113,10 +138,30 @@ public sealed class SixDofPoseMapper
             Multiply(inverseOrigin, leftOrientation));
         TrackingQuaternion rightRelative = Normalize(
             Multiply(inverseOrigin, rightOrientation));
+        ToYawPitchRoll(
+            ToUnityRotation(leftOrientation),
+            out float leftYaw,
+            out float leftPitch,
+            out float leftRoll);
+        ToYawPitchRoll(
+            ToUnityRotation(rightOrientation),
+            out float rightYaw,
+            out float rightPitch,
+            out float rightRoll);
 
         mapped = new UnityStereoPose(
-            new UnityEyePose(ToUnityPosition(leftLocal), ToUnityRotation(leftRelative)),
-            new UnityEyePose(ToUnityPosition(rightLocal), ToUnityRotation(rightRelative)));
+            new UnityEyePose(
+                ToUnityPosition(leftLocal),
+                ToUnityRotation(leftRelative),
+                WrapAngle(leftYaw - _originUnityYaw),
+                leftPitch - _originUnityPitch,
+                WrapAngle(leftRoll - _originUnityRoll)),
+            new UnityEyePose(
+                ToUnityPosition(rightLocal),
+                ToUnityRotation(rightRelative),
+                WrapAngle(rightYaw - _originUnityYaw),
+                rightPitch - _originUnityPitch,
+                WrapAngle(rightRoll - _originUnityRoll)));
         return true;
     }
 
@@ -124,6 +169,9 @@ public sealed class SixDofPoseMapper
     {
         _originPosition = default;
         _originOrientation = default;
+        _originUnityYaw = 0f;
+        _originUnityPitch = 0f;
+        _originUnityRoll = 0f;
         HasOrigin = false;
     }
 
@@ -148,6 +196,43 @@ public sealed class SixDofPoseMapper
 
     private static TrackingQuaternion ToUnityRotation(TrackingQuaternion value) =>
         new(-value.X, -value.Y, value.Z, value.W);
+
+    private static void ToYawPitchRoll(
+        TrackingQuaternion rotation,
+        out float yaw,
+        out float pitch,
+        out float roll)
+    {
+        TrackingVector3 forward = Rotate(
+            rotation,
+            new TrackingVector3(0f, 0f, 1f));
+        TrackingVector3 right = Rotate(
+            rotation,
+            new TrackingVector3(1f, 0f, 0f));
+        TrackingVector3 up = Rotate(
+            rotation,
+            new TrackingVector3(0f, 1f, 0f));
+        float horizontalLength = MathF.Sqrt(
+            (forward.X * forward.X) + (forward.Z * forward.Z));
+        yaw = horizontalLength > 0.0001f
+            ? MathF.Atan2(forward.X, forward.Z)
+            : MathF.Atan2(-right.Z, right.X);
+        pitch = MathF.Atan2(-forward.Y, horizontalLength);
+        roll = MathF.Atan2(right.Y, up.Y);
+    }
+
+    private static float WrapAngle(float value)
+    {
+        while (value > MathF.PI)
+        {
+            value -= MathF.PI * 2f;
+        }
+        while (value < -MathF.PI)
+        {
+            value += MathF.PI * 2f;
+        }
+        return value;
+    }
 
     private static TrackingVector3 Rotate(
         TrackingQuaternion rotation,

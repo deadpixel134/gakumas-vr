@@ -24,6 +24,7 @@ var tests = new (string Name, Action Run)[]
     ("6DoF origin preserves configured eye separation", SixDofOriginPreservesEyeSeparation),
     ("6DoF maps physical translation into Unity space", SixDofMapsPhysicalTranslation),
     ("6DoF maps relative head rotation into Unity space", SixDofMapsRelativeRotation),
+    ("6DoF separates physical roll from yaw at a tilted origin", SixDofSeparatesPhysicalRoll),
     ("6DoF reset captures a fresh scene origin", SixDofResetCapturesFreshOrigin),
     ("Locomotion moves in the full 3D view direction", LocomotionMovesInViewDirection),
     ("Locomotion follows upward and downward view pitch", LocomotionFollowsViewPitch),
@@ -255,6 +256,59 @@ static void SixDofResetCapturesFreshOrigin()
     Near(0f, mapped.Left.LocalPosition.Z);
 }
 
+static void SixDofSeparatesPhysicalRoll()
+{
+    var mapper = new SixDofPoseMapper();
+    TrackingQuaternion originUnity = AxisAngle(0f, 0f, 1f, 20f);
+    True(mapper.TryMap(
+        StereoPose(
+            -0.03f,
+            0f,
+            0f,
+            0.03f,
+            0f,
+            0f,
+            UnityToTracking(originUnity)),
+        1f,
+        1f,
+        out _));
+
+    TrackingQuaternion yawWithSameRoll = MultiplyTestQuaternion(
+        AxisAngle(0f, 1f, 0f, 45f),
+        originUnity);
+    True(mapper.TryMap(
+        StereoPose(
+            -0.03f,
+            0f,
+            0f,
+            0.03f,
+            0f,
+            0f,
+            UnityToTracking(yawWithSameRoll)),
+        1f,
+        1f,
+        out UnityStereoPose yawMapped));
+    Near(MathF.PI / 4f, yawMapped.Left.YawDeltaRadians);
+    Near(0f, yawMapped.Left.RollDeltaRadians);
+
+    TrackingQuaternion yawWithAddedRoll = MultiplyTestQuaternion(
+        AxisAngle(0f, 1f, 0f, 45f),
+        AxisAngle(0f, 0f, 1f, 35f));
+    True(mapper.TryMap(
+        StereoPose(
+            -0.03f,
+            0f,
+            0f,
+            0.03f,
+            0f,
+            0f,
+            UnityToTracking(yawWithAddedRoll)),
+        1f,
+        1f,
+        out UnityStereoPose rollMapped));
+    Near(MathF.PI / 12f, rollMapped.Left.RollDeltaRadians);
+}
+
 static void LocomotionMovesInViewDirection()
 {
     var locomotion = new VrLocomotionIntegrator();
@@ -424,6 +478,22 @@ static void WorldViewCompositionRemovesSceneRoll()
         turned,
         new TrackingVector3(1f, 0f, 0f));
     Near(0f, turnedRight.Y);
+
+    True(turn.TryCreateWorldViewRotation(
+        baseRotation,
+        physicalYawDeltaRadians: MathF.PI / 6f,
+        physicalPitchDeltaRadians: 0f,
+        physicalRollDeltaRadians: MathF.PI / 12f,
+        out TrackingQuaternion physicalRollView));
+    TrackingVector3 physicalRight = RotateTestVector(
+        physicalRollView,
+        new TrackingVector3(1f, 0f, 0f));
+    TrackingVector3 physicalUp = RotateTestVector(
+        physicalRollView,
+        new TrackingVector3(0f, 1f, 0f));
+    Near(
+        MathF.PI / 12f,
+        MathF.Atan2(physicalRight.Y, physicalUp.Y));
 }
 
 static void ViewTurnResetClearsRotation()
@@ -469,6 +539,9 @@ static TrackingQuaternion AxisAngle(float x, float y, float z, float degrees)
         z * sine,
         MathF.Cos(halfRadians));
 }
+
+static TrackingQuaternion UnityToTracking(TrackingQuaternion value) =>
+    new(-value.X, -value.Y, value.Z, value.W);
 
 static TrackingQuaternion MultiplyTestQuaternion(
     TrackingQuaternion left,

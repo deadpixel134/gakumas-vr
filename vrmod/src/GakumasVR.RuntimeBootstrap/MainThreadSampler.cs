@@ -2437,19 +2437,27 @@ internal sealed class MainThreadSampler
                 ? UpdateNavigation(
                     now,
                     navigationBaseRotation,
-                    sixDofPose.Left.LocalRotation,
+                    sixDofPose.Left,
                     out locomotionOffset)
                 : new TrackingQuaternion(0f, 0f, 0f, 1f);
-            TrackingQuaternion leftWorldRotation = useSixDof
-                ? MultiplyQuaternion(
-                    navigationWorldRotation,
-                    sixDofPose.Left.LocalRotation)
-                : default;
-            TrackingQuaternion rightWorldRotation = useSixDof
-                ? MultiplyQuaternion(
-                    navigationWorldRotation,
-                    sixDofPose.Right.LocalRotation)
-                : default;
+            TrackingQuaternion leftWorldRotation = default;
+            TrackingQuaternion rightWorldRotation = default;
+            if (useSixDof &&
+                (!_viewTurnIntegrator.TryCreateWorldViewRotation(
+                    navigationBaseRotation,
+                    sixDofPose.Left.YawDeltaRadians,
+                    sixDofPose.Left.PitchDeltaRadians,
+                    sixDofPose.Left.RollDeltaRadians,
+                    out leftWorldRotation) ||
+                !_viewTurnIntegrator.TryCreateWorldViewRotation(
+                    navigationBaseRotation,
+                    sixDofPose.Right.YawDeltaRadians,
+                    sixDofPose.Right.PitchDeltaRadians,
+                    sixDofPose.Right.RollDeltaRadians,
+                    out rightWorldRotation)))
+            {
+                return;
+            }
             TrackingVector3 leftWorldTrackedPosition = useSixDof
                 ? AddTrackingPosition(
                     navigationBasePosition,
@@ -3282,7 +3290,7 @@ internal sealed class MainThreadSampler
     private TrackingQuaternion UpdateNavigation(
         DateTimeOffset now,
         TrackingQuaternion baseWorldRotation,
-        TrackingQuaternion physicalHeadRotation,
+        UnityEyePose physicalHeadPose,
         out TrackingVector3 locomotionOffset)
     {
         long timestamp = Stopwatch.GetTimestamp();
@@ -3321,9 +3329,16 @@ internal sealed class MainThreadSampler
             navigationWorldRotation = new TrackingQuaternion(0f, 0f, 0f, 1f);
             turning = false;
         }
-        TrackingQuaternion currentViewRotation = MultiplyQuaternion(
-            navigationWorldRotation,
-            physicalHeadRotation);
+        if (!_viewTurnIntegrator.TryCreateWorldViewRotation(
+                baseWorldRotation,
+                physicalHeadPose.YawDeltaRadians,
+                physicalHeadPose.PitchDeltaRadians,
+                physicalHeadPose.RollDeltaRadians,
+                out TrackingQuaternion currentViewRotation))
+        {
+            currentViewRotation = navigationWorldRotation;
+            turning = false;
+        }
         bool moving = ((axisX * axisX) + (axisY * axisY)) >
             LocomotionDeadzone * LocomotionDeadzone;
         if (!_locomotionIntegrator.Update(
