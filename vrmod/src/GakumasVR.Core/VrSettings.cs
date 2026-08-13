@@ -19,12 +19,6 @@ public enum PanelToggleBinding
     SecondaryFace
 }
 
-public enum LocomotionInputMode
-{
-    SplitHands,
-    ContextualOffHand
-}
-
 public static class VrVisualEffectModes
 {
     public const string Approved = "vl-bloom-140-diffusion-min-vldof-textureblur-off";
@@ -74,10 +68,11 @@ public sealed class VrTrackingSettings
 
     public bool LocomotionEnabled { get; set; } = true;
 
-    public LocomotionInputMode LocomotionInputMode { get; set; } =
-        LocomotionInputMode.SplitHands;
+    public VrHand LocomotionHand { get; set; } = VrHand.Right;
 
     public float LocomotionSpeed { get; set; } = 1.5f;
+
+    public float ViewTurnSpeed { get; set; } = 90f;
 }
 
 public sealed class VrManualVisualEffectSettings
@@ -138,7 +133,7 @@ public sealed class VrInputSettings
 
     public bool TriggerClickEnabled { get; set; } = true;
 
-    public bool ThumbstickScrollEnabled { get; set; } = true;
+    public bool ThumbstickScrollEnabled { get; set; }
 
     public float ScrollSensitivity { get; set; } = 1f;
 
@@ -234,10 +229,10 @@ public static class VrSettingsValidator
             {
                 LiveSixDofEnabled = tracking.LiveSixDofEnabled,
                 LocomotionEnabled = tracking.LocomotionEnabled,
-                LocomotionInputMode = ValidateEnum(
-                    tracking.LocomotionInputMode,
-                    defaults.Tracking.LocomotionInputMode,
-                    "tracking.locomotionInputMode",
+                LocomotionHand = ValidateEnum(
+                    tracking.LocomotionHand,
+                    defaults.Tracking.LocomotionHand,
+                    "tracking.locomotionHand",
                     issues),
                 LocomotionSpeed = ValidateRange(
                     tracking.LocomotionSpeed,
@@ -245,6 +240,13 @@ public static class VrSettingsValidator
                     5f,
                     defaults.Tracking.LocomotionSpeed,
                     "tracking.locomotionSpeed",
+                    issues),
+                ViewTurnSpeed = ValidateRange(
+                    tracking.ViewTurnSpeed,
+                    15f,
+                    180f,
+                    defaults.Tracking.ViewTurnSpeed,
+                    "tracking.viewTurnSpeed",
                     issues)
             },
             Panel = new VrPanelSettings
@@ -275,7 +277,7 @@ public static class VrSettingsValidator
                 PrimaryClickButton = ValidateEnum(input.PrimaryClickButton, defaults.Input.PrimaryClickButton, "input.primaryClickButton", issues),
                 BackButton = ValidateEnum(input.BackButton, defaults.Input.BackButton, "input.backButton", issues),
                 TriggerClickEnabled = input.TriggerClickEnabled,
-                ThumbstickScrollEnabled = input.ThumbstickScrollEnabled,
+                ThumbstickScrollEnabled = false,
                 ScrollSensitivity = ValidateRange(input.ScrollSensitivity, 0.10f, 5f, defaults.Input.ScrollSensitivity, "input.scrollSensitivity", issues),
                 RequireGameFocus = input.RequireGameFocus
             }

@@ -937,7 +937,10 @@ internal static class OpenXrProbe
                 OpenXrLocomotionStateRegistry.Update(
                     controllerFrame.LocomotionThumbstickActive,
                     controllerFrame.LocomotionThumbstickX,
-                    controllerFrame.LocomotionThumbstickY);
+                    controllerFrame.LocomotionThumbstickY,
+                    controllerFrame.ViewTurnThumbstickActive,
+                    controllerFrame.ViewTurnThumbstickX,
+                    controllerFrame.ViewTurnThumbstickY);
                 bool handPanelInView =
                     controllerFrame.PanelPoseTracked &&
                     currentStereoViewsValid &&

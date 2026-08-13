@@ -27,7 +27,10 @@ internal readonly record struct OpenXrControllerFrame(
     float PointerThumbstickY,
     bool LocomotionThumbstickActive,
     float LocomotionThumbstickX,
-    float LocomotionThumbstickY);
+    float LocomotionThumbstickY,
+    bool ViewTurnThumbstickActive,
+    float ViewTurnThumbstickX,
+    float ViewTurnThumbstickY);
 
 internal sealed class OpenXrControllerActions : IDisposable
 {
@@ -82,8 +85,8 @@ internal sealed class OpenXrControllerActions : IDisposable
     private long _nextTriggerReadFailureLogTimestamp;
     private long _nextPrimaryReadFailureLogTimestamp;
     private long _nextSecondaryReadFailureLogTimestamp;
-    private long _nextThumbstickReadFailureLogTimestamp;
-    private long _nextPanelThumbstickReadFailureLogTimestamp;
+    private long _nextLocomotionThumbstickReadFailureLogTimestamp;
+    private long _nextViewTurnThumbstickReadFailureLogTimestamp;
     private bool _disposed;
 
     private OpenXrControllerActions(
@@ -336,7 +339,7 @@ internal sealed class OpenXrControllerActions : IDisposable
             rightAimSpace = IntPtr.Zero;
             Log(
                 "openxr-controller-actions-ready",
-                $"Quest Touch actions are attached;panelHand={settings.Panel.PanelHand};pointerHand={settings.Panel.PointerHand};toggle={settings.Panel.ToggleBinding};startEnabled={settings.Panel.StartEnabled};locomotionMode={settings.Tracking.LocomotionInputMode}.");
+                $"Quest Touch actions are attached;panelHand={settings.Panel.PanelHand};pointerHand={settings.Panel.PointerHand};toggle={settings.Panel.ToggleBinding};startEnabled={settings.Panel.StartEnabled};locomotionHand={settings.Tracking.LocomotionHand};viewTurnHand={OppositeHand(settings.Tracking.LocomotionHand)}.");
             return result;
         }
         catch (Exception exception)
@@ -399,6 +402,9 @@ internal sealed class OpenXrControllerActions : IDisposable
                 default,
                 0f,
                 false,
+                false,
+                0f,
+                0f,
                 false,
                 0f,
                 0f,
@@ -478,29 +484,24 @@ internal sealed class OpenXrControllerActions : IDisposable
             $"{HandName(_panelSettings.PointerHand)} secondary",
             ref _nextSecondaryReadFailureLogTimestamp,
             out XrActionStateBoolean pointerSecondary);
+        VrHand locomotionHand = _trackingSettings.LocomotionHand;
+        VrHand viewTurnHand = OppositeHand(locomotionHand);
         TryGetVector2f(
             _thumbstickAction,
-            pointerHandPath,
-            $"{HandName(_panelSettings.PointerHand)} off-hand thumbstick",
-            ref _nextThumbstickReadFailureLogTimestamp,
-            out XrActionStateVector2f offHandThumbstick);
+            PathForHand(locomotionHand),
+            $"{HandName(locomotionHand)} locomotion thumbstick",
+            ref _nextLocomotionThumbstickReadFailureLogTimestamp,
+            out XrActionStateVector2f locomotionThumbstick);
         TryGetVector2f(
             _thumbstickAction,
-            panelHandPath,
-            $"{HandName(_panelSettings.PanelHand)} panel-hand thumbstick",
-            ref _nextPanelThumbstickReadFailureLogTimestamp,
-            out XrActionStateVector2f panelHandThumbstick);
-        VrThumbstickRouting routing = VrThumbstickRouter.Route(
-            _trackingSettings.LocomotionInputMode,
-            PanelEnabled);
-        XrActionStateVector2f scrollThumbstick = routing.PanelHandScroll
-            ? panelHandThumbstick
-            : routing.OffHandScroll
-                ? offHandThumbstick
-                : default;
+            PathForHand(viewTurnHand),
+            $"{HandName(viewTurnHand)} view-turn thumbstick",
+            ref _nextViewTurnThumbstickReadFailureLogTimestamp,
+            out XrActionStateVector2f viewTurnThumbstick);
         bool locomotionActive = _trackingSettings.LocomotionEnabled &&
-            routing.OffHandLocomotion &&
-            offHandThumbstick.IsActive != 0;
+            locomotionThumbstick.IsActive != 0;
+        bool viewTurnActive = _trackingSettings.LocomotionEnabled &&
+            viewTurnThumbstick.IsActive != 0;
         bool rawPrimary = pointerPrimary.IsActive != 0 && pointerPrimary.CurrentState != 0;
         bool rawSecondary = pointerSecondary.IsActive != 0 && pointerSecondary.CurrentState != 0;
         bool pointerClick = _inputSettings.PrimaryClickButton == FaceButtonBinding.Primary
@@ -518,11 +519,14 @@ internal sealed class OpenXrControllerActions : IDisposable
             pointerTrigger.IsActive != 0 ? pointerTrigger.CurrentState : 0f,
             pointerClick,
             pointerBack,
-            scrollThumbstick.IsActive != 0 ? scrollThumbstick.CurrentState.X : 0f,
-            scrollThumbstick.IsActive != 0 ? scrollThumbstick.CurrentState.Y : 0f,
+            0f,
+            0f,
             locomotionActive,
-            locomotionActive ? offHandThumbstick.CurrentState.X : 0f,
-            locomotionActive ? offHandThumbstick.CurrentState.Y : 0f);
+            locomotionActive ? locomotionThumbstick.CurrentState.X : 0f,
+            locomotionActive ? locomotionThumbstick.CurrentState.Y : 0f,
+            viewTurnActive,
+            viewTurnActive ? viewTurnThumbstick.CurrentState.X : 0f,
+            viewTurnActive ? viewTurnThumbstick.CurrentState.Y : 0f);
     }
 
     private ulong PathForHand(VrHand hand) =>
@@ -536,6 +540,9 @@ internal sealed class OpenXrControllerActions : IDisposable
 
     private static string HandName(VrHand hand) =>
         hand == VrHand.Left ? "left" : "right";
+
+    private static VrHand OppositeHand(VrHand hand) =>
+        hand == VrHand.Left ? VrHand.Right : VrHand.Left;
 
     public void Dispose()
     {

@@ -34,8 +34,9 @@ internal sealed class MainThreadSampler
     private readonly float _stereoWorldEyeOffsetScale;
     private readonly bool _liveSixDofEnabled;
     private readonly bool _locomotionEnabled;
-    private readonly LocomotionInputMode _locomotionInputMode;
+    private readonly VrHand _locomotionHand;
     private readonly float _locomotionSpeed;
+    private readonly float _viewTurnSpeed;
     private readonly FrameCountDelegate _replacement;
     private readonly DrawFlareDelegate _drawFlareReplacement;
     private readonly VlPostProcessRenderDelegate _vlPostProcessRenderReplacement;
@@ -54,6 +55,7 @@ internal sealed class MainThreadSampler
         timeoutMilliseconds: 2_000);
     private readonly SixDofPoseMapper _sixDofPoseMapper = new();
     private readonly VrLocomotionIntegrator _locomotionIntegrator = new();
+    private readonly VrViewTurnIntegrator _viewTurnIntegrator = new();
     private FrameCountDelegate? _original;
     private IntPtr _dobbyLibrary;
     private long _lastSampleMilliseconds;
@@ -258,6 +260,7 @@ internal sealed class MainThreadSampler
     private bool _stereoGenerationUsesSixDof;
     private long _lastLocomotionUpdateTimestamp;
     private bool _locomotionWasMoving;
+    private bool _viewTurnWasMoving;
     private bool _liveSixDofAnchorCaptured;
     private TrackingVector3 _liveSixDofAnchorPosition;
     private TrackingQuaternion _liveSixDofAnchorRotation;
@@ -290,8 +293,9 @@ internal sealed class MainThreadSampler
         _stereoWorldEyeOffsetScale = settings.Render.WorldEyeOffsetScale;
         _liveSixDofEnabled = settings.Tracking.LiveSixDofEnabled;
         _locomotionEnabled = settings.Tracking.LocomotionEnabled;
-        _locomotionInputMode = settings.Tracking.LocomotionInputMode;
+        _locomotionHand = settings.Tracking.LocomotionHand;
         _locomotionSpeed = settings.Tracking.LocomotionSpeed;
+        _viewTurnSpeed = settings.Tracking.ViewTurnSpeed;
         _replacement = OnFrameCount;
         _drawFlareReplacement = OnDrawFlare;
         _vlPostProcessRenderReplacement = OnVlPostProcessRender;
@@ -2405,12 +2409,28 @@ internal sealed class MainThreadSampler
                     Reason = "The live VR origin was captured once for this stereo generation; subsequent game-camera path and angle changes do not move the VR viewpoint."
                 });
             }
-            TrackingVector3 locomotionOffset = useSixDof
-                ? UpdateLocomotionOffset(now, sixDofPose.Left.LocalRotation)
+            TrackingVector3 locomotionOffset = default;
+            TrackingQuaternion viewTurnRotation = useSixDof
+                ? UpdateNavigation(
+                    now,
+                    sixDofPose.Left.LocalRotation,
+                    out locomotionOffset)
+                : new TrackingQuaternion(0f, 0f, 0f, 1f);
+            TrackingQuaternion leftLocalRotation = useSixDof
+                ? MultiplyQuaternion(
+                    viewTurnRotation,
+                    sixDofPose.Left.LocalRotation)
+                : default;
+            TrackingQuaternion rightLocalRotation = useSixDof
+                ? MultiplyQuaternion(
+                    viewTurnRotation,
+                    sixDofPose.Right.LocalRotation)
                 : default;
             TrackingVector3 leftLocalPosition = useSixDof
                 ? AddTrackingPosition(
-                    sixDofPose.Left.LocalPosition,
+                    RotateTrackingVector(
+                        viewTurnRotation,
+                        sixDofPose.Left.LocalPosition),
                     locomotionOffset)
                 : new TrackingVector3(
                     stereo.Left.PositionX * _stereoWorldEyeOffsetScale,
@@ -2418,7 +2438,9 @@ internal sealed class MainThreadSampler
                     stereo.Left.PositionZ * _stereoWorldEyeOffsetScale);
             TrackingVector3 rightLocalPosition = useSixDof
                 ? AddTrackingPosition(
-                    sixDofPose.Right.LocalPosition,
+                    RotateTrackingVector(
+                        viewTurnRotation,
+                        sixDofPose.Right.LocalPosition),
                     locomotionOffset)
                 : new TrackingVector3(
                     stereo.Right.PositionX * _stereoWorldEyeOffsetScale,
@@ -2516,12 +2538,12 @@ internal sealed class MainThreadSampler
                         coreImage,
                         transformClass,
                         leftTransform,
-                        sixDofPose.Left.LocalRotation);
+                        leftLocalRotation);
                     ApplyAnchoredCameraRotation(
                         coreImage,
                         transformClass,
                         rightTransform,
-                        sixDofPose.Right.LocalRotation);
+                        rightLocalRotation);
                 }
                 else
                 {
@@ -2530,13 +2552,13 @@ internal sealed class MainThreadSampler
                         transformClass,
                         sourceTransform,
                         leftTransform,
-                        sixDofPose.Left.LocalRotation);
+                        leftLocalRotation);
                     ApplyRelativeCameraRotation(
                         coreImage,
                         transformClass,
                         sourceTransform,
                         rightTransform,
-                        sixDofPose.Right.LocalRotation);
+                        rightLocalRotation);
                 }
             }
             _ = InvokeWithObjectArgument(
@@ -3253,9 +3275,10 @@ internal sealed class MainThreadSampler
             eye.OrientationZ,
             eye.OrientationW));
 
-    private TrackingVector3 UpdateLocomotionOffset(
+    private TrackingQuaternion UpdateNavigation(
         DateTimeOffset now,
-        TrackingQuaternion currentHeadRotation)
+        TrackingQuaternion physicalHeadRotation,
+        out TrackingVector3 locomotionOffset)
     {
         long timestamp = Stopwatch.GetTimestamp();
         float deltaSeconds = _lastLocomotionUpdateTimestamp == 0
@@ -3270,12 +3293,30 @@ internal sealed class MainThreadSampler
             : null;
         float axisX = input?.AxisX ?? 0f;
         float axisY = input?.AxisY ?? 0f;
+        float viewTurnAxisX = input?.ViewTurnAxisX ?? 0f;
+        float viewTurnAxisY = input?.ViewTurnAxisY ?? 0f;
+        bool turning = ((viewTurnAxisX * viewTurnAxisX) +
+            (viewTurnAxisY * viewTurnAxisY)) >
+            LocomotionDeadzone * LocomotionDeadzone;
+        if (!_viewTurnIntegrator.Update(
+                viewTurnAxisX,
+                viewTurnAxisY,
+                deltaSeconds,
+                _viewTurnSpeed,
+                LocomotionDeadzone))
+        {
+            turning = false;
+        }
+        TrackingQuaternion viewTurnRotation = _viewTurnIntegrator.Rotation;
+        TrackingQuaternion currentViewRotation = MultiplyQuaternion(
+            viewTurnRotation,
+            physicalHeadRotation);
         bool moving = ((axisX * axisX) + (axisY * axisY)) >
             LocomotionDeadzone * LocomotionDeadzone;
         if (!_locomotionIntegrator.Update(
                 axisX,
                 axisY,
-                currentHeadRotation,
+                currentViewRotation,
                 deltaSeconds,
                 _locomotionSpeed,
                 LocomotionDeadzone))
@@ -3295,25 +3336,49 @@ internal sealed class MainThreadSampler
                 ProcessId = Environment.ProcessId,
                 Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
                 Reason = moving
-                    ? $"The non-panel-hand thumbstick moves relative to the current horizontal HMD view every frame;mode={_locomotionInputMode};speed={_locomotionSpeed:F2}m/s;deadzone={LocomotionDeadzone:F2}."
+                    ? $"The {_locomotionHand}-hand thumbstick moves in the current full 3D view direction every frame;speed={_locomotionSpeed:F2}m/s;deadzone={LocomotionDeadzone:F2}. Looking up or down adds matching vertical movement."
                     : "The locomotion stick returned to its deadzone or became unavailable; the accumulated scene offset is retained."
             });
             _locomotionWasMoving = moving;
         }
 
-        return _locomotionIntegrator.Offset;
+        if (turning != _viewTurnWasMoving)
+        {
+            RuntimeProbe.Append(_logPath, new ProbeEvent
+            {
+                TimestampUtc = now,
+                Event = turning
+                    ? "controller-view-turn-started"
+                    : "controller-view-turn-stopped",
+                BootstrapVersion = RuntimeProbe.BootstrapVersion,
+                ProcessId = Environment.ProcessId,
+                Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                Reason = turning
+                    ? $"The {OppositeHand(_locomotionHand)}-hand thumbstick applies smooth yaw and pitch to the independent VR view;speed={_viewTurnSpeed:F1}deg/s."
+                    : "The view-turn stick returned to its deadzone or became unavailable; the accumulated view rotation is retained."
+            });
+            _viewTurnWasMoving = turning;
+        }
+
+        locomotionOffset = _locomotionIntegrator.Offset;
+        return viewTurnRotation;
     }
 
     private void ResetSixDofNavigationState()
     {
         _sixDofPoseMapper.Reset();
         _locomotionIntegrator.Reset();
+        _viewTurnIntegrator.Reset();
         _lastLocomotionUpdateTimestamp = 0;
         _locomotionWasMoving = false;
+        _viewTurnWasMoving = false;
         _liveSixDofAnchorCaptured = false;
         _liveSixDofAnchorPosition = default;
         _liveSixDofAnchorRotation = default;
     }
+
+    private static VrHand OppositeHand(VrHand hand) =>
+        hand == VrHand.Left ? VrHand.Right : VrHand.Left;
 
     private void CaptureLiveSixDofAnchor(
         IntPtr transformClass,

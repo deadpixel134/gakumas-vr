@@ -21,8 +21,9 @@
   "tracking": {
     "liveSixDofEnabled": false,
     "locomotionEnabled": true,
-    "locomotionInputMode": "splitHands",
-    "locomotionSpeed": 1.5
+    "locomotionHand": "right",
+    "locomotionSpeed": 1.5,
+    "viewTurnSpeed": 90.0
   },
   "panel": {
     "panelHand": "left",
@@ -44,7 +45,7 @@
     "primaryClickButton": "primary",
     "backButton": "secondary",
     "triggerClickEnabled": true,
-    "thumbstickScrollEnabled": true,
+    "thumbstickScrollEnabled": false,
     "scrollSensitivity": 1.0,
     "requireGameFocus": true
   }

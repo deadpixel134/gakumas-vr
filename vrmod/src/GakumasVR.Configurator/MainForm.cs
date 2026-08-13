@@ -44,11 +44,10 @@ internal sealed class MainForm : Form
     private readonly ComboBox _primary = ChoiceCombo();
     private readonly ComboBox _back = ChoiceCombo();
     private readonly CheckBox _trigger = TaggedCheckBox("TriggerEnabled");
-    private readonly CheckBox _scroll = TaggedCheckBox("ScrollEnabled");
-    private readonly NumericUpDown _scrollSensitivity = Number(0.10m, 5.00m, 0.10m, 2);
     private readonly CheckBox _locomotion = TaggedCheckBox("LocomotionEnabled");
-    private readonly ComboBox _locomotionMode = ChoiceCombo();
+    private readonly ComboBox _locomotionHand = ChoiceCombo();
     private readonly NumericUpDown _locomotionSpeed = Number(0.10m, 5.00m, 0.10m, 2);
+    private readonly NumericUpDown _viewTurnSpeed = Number(15m, 180m, 5m, 0);
     private readonly CheckBox _requireFocus = TaggedCheckBox("RequireFocus");
     private readonly ToolStripStatusLabel _status = new();
     private readonly Button _checkUpdates;
@@ -207,11 +206,10 @@ internal sealed class MainForm : Form
         AddRow(grid, "ClickButton", _primary);
         AddRow(grid, "BackButton", _back);
         AddRow(grid, "Trigger", _trigger);
-        AddRow(grid, "Scroll", _scroll);
-        AddRow(grid, "ScrollSensitivity", _scrollSensitivity);
         AddRow(grid, "Locomotion", _locomotion);
-        AddRow(grid, "LocomotionMode", _locomotionMode);
+        AddRow(grid, "LocomotionHand", _locomotionHand);
         AddRow(grid, "LocomotionSpeed", _locomotionSpeed);
+        AddRow(grid, "ViewTurnSpeed", _viewTurnSpeed);
         AddRow(grid, "InputSafety", _requireFocus);
         _inputTab.Controls.Add(grid);
     }
@@ -229,9 +227,7 @@ internal sealed class MainForm : Form
         PanelToggleBinding toggle = Selected(_toggle, PanelToggleBinding.Grip);
         FaceButtonBinding primary = Selected(_primary, FaceButtonBinding.Primary);
         FaceButtonBinding back = Selected(_back, FaceButtonBinding.Secondary);
-        LocomotionInputMode locomotionMode = Selected(
-            _locomotionMode,
-            LocomotionInputMode.SplitHands);
+        VrHand locomotionHand = Selected(_locomotionHand, VrHand.Right);
         string vfx = Selected(_vfx, VrVisualEffectModes.Approved);
 
         Text = UiText.Get("AppTitle");
@@ -242,10 +238,10 @@ internal sealed class MainForm : Form
         Populate(_primary, Enum.GetValues<FaceButtonBinding>(), UiText.Choice, primary);
         Populate(_back, Enum.GetValues<FaceButtonBinding>(), UiText.Choice, back);
         Populate(
-            _locomotionMode,
-            Enum.GetValues<LocomotionInputMode>(),
+            _locomotionHand,
+            Enum.GetValues<VrHand>(),
             UiText.Choice,
-            locomotionMode);
+            locomotionHand);
         Populate(
             _vfx,
             new[]
@@ -438,10 +434,9 @@ internal sealed class MainForm : Form
         {
             LiveSixDofEnabled = _liveSixDof.Checked,
             LocomotionEnabled = _locomotion.Checked,
-            LocomotionInputMode = Selected(
-                _locomotionMode,
-                LocomotionInputMode.SplitHands),
-            LocomotionSpeed = (float)_locomotionSpeed.Value
+            LocomotionHand = Selected(_locomotionHand, VrHand.Right),
+            LocomotionSpeed = (float)_locomotionSpeed.Value,
+            ViewTurnSpeed = (float)_viewTurnSpeed.Value
         },
         Panel = new VrPanelSettings
         {
@@ -465,8 +460,8 @@ internal sealed class MainForm : Form
             PrimaryClickButton = Selected(_primary, FaceButtonBinding.Primary),
             BackButton = Selected(_back, FaceButtonBinding.Secondary),
             TriggerClickEnabled = _trigger.Checked,
-            ThumbstickScrollEnabled = _scroll.Checked,
-            ScrollSensitivity = (float)_scrollSensitivity.Value,
+            ThumbstickScrollEnabled = false,
+            ScrollSensitivity = 1f,
             RequireGameFocus = _requireFocus.Checked
         }
     };
@@ -478,8 +473,9 @@ internal sealed class MainForm : Form
         Set(_worldEyeScale, settings.Render.WorldEyeOffsetScale);
         _liveSixDof.Checked = settings.Tracking.LiveSixDofEnabled;
         _locomotion.Checked = settings.Tracking.LocomotionEnabled;
-        Select(_locomotionMode, settings.Tracking.LocomotionInputMode);
+        Select(_locomotionHand, settings.Tracking.LocomotionHand);
         Set(_locomotionSpeed, settings.Tracking.LocomotionSpeed);
+        Set(_viewTurnSpeed, settings.Tracking.ViewTurnSpeed);
         Select(_vfx, settings.Render.VisualEffectMode);
         VrManualVisualEffectSettings manual = settings.Render.ManualVisualEffects;
         _manualPostProcessing.Checked = manual.PostProcessingEnabled;
@@ -508,8 +504,6 @@ internal sealed class MainForm : Form
         Select(_primary, settings.Input.PrimaryClickButton);
         Select(_back, settings.Input.BackButton);
         _trigger.Checked = settings.Input.TriggerClickEnabled;
-        _scroll.Checked = settings.Input.ThumbstickScrollEnabled;
-        Set(_scrollSensitivity, settings.Input.ScrollSensitivity);
         _requireFocus.Checked = settings.Input.RequireGameFocus;
         UpdateLocomotionControls();
         UpdateEyeScaleWarning();
@@ -566,8 +560,9 @@ internal sealed class MainForm : Form
 
     private void UpdateLocomotionControls()
     {
-        _locomotionMode.Enabled = _locomotion.Checked;
+        _locomotionHand.Enabled = _locomotion.Checked;
         _locomotionSpeed.Enabled = _locomotion.Checked;
+        _viewTurnSpeed.Enabled = _locomotion.Checked;
     }
 
     private void UpdateEyeScaleWarning()

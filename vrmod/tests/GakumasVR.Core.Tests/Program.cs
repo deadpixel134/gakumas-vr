@@ -1,6 +1,5 @@
 using GakumasVR.Core;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 var tests = new (string Name, Action Run)[]
 {
@@ -26,16 +25,17 @@ var tests = new (string Name, Action Run)[]
     ("6DoF maps physical translation into Unity space", SixDofMapsPhysicalTranslation),
     ("6DoF maps relative head rotation into Unity space", SixDofMapsRelativeRotation),
     ("6DoF reset captures a fresh scene origin", SixDofResetCapturesFreshOrigin),
-    ("Locomotion moves in the horizontal view direction", LocomotionMovesInViewDirection),
+    ("Locomotion moves in the full 3D view direction", LocomotionMovesInViewDirection),
+    ("Locomotion follows upward and downward view pitch", LocomotionFollowsViewPitch),
     ("Locomotion applies radial deadzone and frame clamp", LocomotionAppliesDeadzoneAndFrameClamp),
     ("Locomotion reset clears the scene offset", LocomotionResetClearsSceneOffset),
-    ("Split thumbsticks keep scrolling and locomotion separate", SplitThumbsticksKeepRolesSeparate),
-    ("Contextual off-hand thumbstick follows panel state", ContextualThumbstickFollowsPanelState),
+    ("View turn changes movement direction", ViewTurnChangesMovementDirection),
+    ("View turn reset clears artificial rotation", ViewTurnResetClearsRotation),
     ("VR settings preserve approved defaults", VrSettingsPreserveApprovedDefaults),
     ("VR settings allow 2x eye render scale", VrSettingsAllowTwoTimesEyeRenderScale),
     ("VR settings preserve manual VFX controls", VrSettingsPreserveManualVfxControls),
     ("VR settings load legacy JSON without manual VFX", VrSettingsLoadLegacyJsonWithoutManualVfx),
-    ("VR settings load contextual locomotion mode", VrSettingsLoadContextualLocomotionMode),
+    ("VR settings load swapped movement hand", VrSettingsLoadSwappedMovementHand),
     ("VR settings repair invalid roles and ranges", VrSettingsRepairInvalidValues),
     ("VR settings reject unsupported schema", VrSettingsRejectUnsupportedSchema)
 };
@@ -272,6 +272,30 @@ static void LocomotionMovesInViewDirection()
     Near(0.20f, locomotion.Offset.Z);
 }
 
+static void LocomotionFollowsViewPitch()
+{
+    float halfAngle = MathF.PI * 0.25f;
+    TrackingQuaternion lookingUp = new(
+        -MathF.Sin(halfAngle),
+        0f,
+        0f,
+        MathF.Cos(halfAngle));
+    var upward = new VrLocomotionIntegrator();
+    True(upward.Update(0f, 1f, lookingUp, 0.10f, 2f));
+    Near(0.20f, upward.Offset.Y);
+    Near(0f, upward.Offset.Z);
+
+    TrackingQuaternion lookingDown = new(
+        MathF.Sin(halfAngle),
+        0f,
+        0f,
+        MathF.Cos(halfAngle));
+    var downward = new VrLocomotionIntegrator();
+    True(downward.Update(0f, 1f, lookingDown, 0.10f, 2f));
+    Near(-0.20f, downward.Offset.Y);
+    Near(0f, downward.Offset.Z);
+}
+
 static void LocomotionAppliesDeadzoneAndFrameClamp()
 {
     var locomotion = new VrLocomotionIntegrator();
@@ -300,35 +324,28 @@ static void LocomotionResetClearsSceneOffset()
     Near(0f, locomotion.Offset.Z);
 }
 
-static void SplitThumbsticksKeepRolesSeparate()
+static void ViewTurnChangesMovementDirection()
 {
-    VrThumbstickRouting panelOff = VrThumbstickRouter.Route(
-        LocomotionInputMode.SplitHands,
-        panelEnabled: false);
-    VrThumbstickRouting panelOn = VrThumbstickRouter.Route(
-        LocomotionInputMode.SplitHands,
-        panelEnabled: true);
-    True(panelOff.PanelHandScroll);
-    False(panelOff.OffHandScroll);
-    True(panelOff.OffHandLocomotion);
-    Equal(panelOff, panelOn);
+    var turn = new VrViewTurnIntegrator();
+    for (int index = 0; index < 5; index++)
+    {
+        True(turn.Update(1f, 0f, 0.10f, 180f, 0f));
+    }
+    var locomotion = new VrLocomotionIntegrator();
+    True(locomotion.Update(0f, 1f, turn.Rotation, 0.10f, 2f));
+    Near(0.20f, locomotion.Offset.X);
+    Near(0f, locomotion.Offset.Z);
 }
 
-static void ContextualThumbstickFollowsPanelState()
+static void ViewTurnResetClearsRotation()
 {
-    VrThumbstickRouting panelOff = VrThumbstickRouter.Route(
-        LocomotionInputMode.ContextualOffHand,
-        panelEnabled: false);
-    False(panelOff.PanelHandScroll);
-    False(panelOff.OffHandScroll);
-    True(panelOff.OffHandLocomotion);
-
-    VrThumbstickRouting panelOn = VrThumbstickRouter.Route(
-        LocomotionInputMode.ContextualOffHand,
-        panelEnabled: true);
-    False(panelOn.PanelHandScroll);
-    True(panelOn.OffHandScroll);
-    False(panelOn.OffHandLocomotion);
+    var turn = new VrViewTurnIntegrator();
+    True(turn.Update(1f, 1f, 0.10f, 90f, 0f));
+    turn.Reset();
+    Near(0f, turn.Rotation.X);
+    Near(0f, turn.Rotation.Y);
+    Near(0f, turn.Rotation.Z);
+    Near(1f, turn.Rotation.W);
 }
 
 static TrackingStereoPose StereoPose(
@@ -358,8 +375,9 @@ static void VrSettingsPreserveApprovedDefaults()
     Equal(0.65f, result.Settings.Render.EyeRenderScale);
     Equal(false, result.Settings.Tracking.LiveSixDofEnabled);
     Equal(true, result.Settings.Tracking.LocomotionEnabled);
-    Equal(LocomotionInputMode.SplitHands, result.Settings.Tracking.LocomotionInputMode);
+    Equal(VrHand.Right, result.Settings.Tracking.LocomotionHand);
     Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(90f, result.Settings.Tracking.ViewTurnSpeed);
     Equal(VrVisualEffectModes.Approved, result.Settings.Render.VisualEffectMode);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
@@ -428,37 +446,41 @@ static void VrSettingsLoadLegacyJsonWithoutManualVfx()
     Equal(VrVisualEffectModes.Manual, result.Settings.Render.VisualEffectMode);
     Equal(false, result.Settings.Tracking.LiveSixDofEnabled);
     Equal(true, result.Settings.Tracking.LocomotionEnabled);
-    Equal(LocomotionInputMode.SplitHands, result.Settings.Tracking.LocomotionInputMode);
+    Equal(VrHand.Right, result.Settings.Tracking.LocomotionHand);
     Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(90f, result.Settings.Tracking.ViewTurnSpeed);
     Equal(true, result.Settings.Render.ManualVisualEffects.PostProcessingEnabled);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
     Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
 }
 
-static void VrSettingsLoadContextualLocomotionMode()
+static void VrSettingsLoadSwappedMovementHand()
 {
     const string json = """
         {
           "schemaVersion": 1,
           "tracking": {
             "locomotionEnabled": true,
-            "locomotionInputMode": "contextualOffHand",
-            "locomotionSpeed": 2.25
+            "locomotionHand": "left",
+            "locomotionSpeed": 2.25,
+            "viewTurnSpeed": 120.0
           }
         }
         """;
-    JsonSerializerOptions options = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
-    };
-    VrSettings? parsed = JsonSerializer.Deserialize<VrSettings>(json, options);
+    VrSettings? parsed = JsonSerializer.Deserialize<VrSettings>(
+        json,
+        new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        });
 
     VrSettingsValidationResult result = VrSettingsValidator.Validate(parsed);
 
     False(result.UsedFallback);
-    Equal(LocomotionInputMode.ContextualOffHand, result.Settings.Tracking.LocomotionInputMode);
+    Equal(VrHand.Left, result.Settings.Tracking.LocomotionHand);
     Equal(2.25f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(120f, result.Settings.Tracking.ViewTurnSpeed);
 }
 
 static void VrSettingsRepairInvalidValues()
@@ -469,8 +491,9 @@ static void VrSettingsRepairInvalidValues()
     settings.Render.EyeRenderScale = 2.01f;
     settings.Render.ManualVisualEffects.VlBloomIntensityScale = 4f;
     settings.Render.ManualVisualEffects.VlBloomDiffusion = 0;
-    settings.Tracking.LocomotionInputMode = (LocomotionInputMode)99;
+    settings.Tracking.LocomotionHand = (VrHand)99;
     settings.Tracking.LocomotionSpeed = 9f;
+    settings.Tracking.ViewTurnSpeed = 500f;
     settings.Input.BackButton = FaceButtonBinding.Primary;
     VrSettingsValidationResult result = VrSettingsValidator.Validate(settings);
     Equal(true, result.UsedFallback);
@@ -480,8 +503,9 @@ static void VrSettingsRepairInvalidValues()
     Equal(0.75f, result.Settings.Render.EyeRenderScale);
     Equal(1.40f, result.Settings.Render.ManualVisualEffects.VlBloomIntensityScale);
     Equal(1, result.Settings.Render.ManualVisualEffects.VlBloomDiffusion);
-    Equal(LocomotionInputMode.SplitHands, result.Settings.Tracking.LocomotionInputMode);
+    Equal(VrHand.Right, result.Settings.Tracking.LocomotionHand);
     Equal(1.5f, result.Settings.Tracking.LocomotionSpeed);
+    Equal(90f, result.Settings.Tracking.ViewTurnSpeed);
     Equal(FaceButtonBinding.Primary, result.Settings.Input.PrimaryClickButton);
     Equal(FaceButtonBinding.Secondary, result.Settings.Input.BackButton);
 }

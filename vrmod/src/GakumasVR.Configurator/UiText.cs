@@ -79,13 +79,6 @@ internal static class UiText
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     });
 
-    public static string Choice(LocomotionInputMode value) => Get(value switch
-    {
-        LocomotionInputMode.SplitHands => "ChoiceLocomotionSplitHands",
-        LocomotionInputMode.ContextualOffHand => "ChoiceLocomotionContextualOffHand",
-        _ => throw new ArgumentOutOfRangeException(nameof(value))
-    });
-
     public static string VisualEffect(string value) => Get(value switch
     {
         VrVisualEffectModes.Approved => "ChoiceVfxApproved",
@@ -209,9 +202,10 @@ internal static class UiText
         ["ScrollEnabled"] = "스틱 스크롤 사용",
         ["ScrollSensitivity"] = "스크롤 감도",
         ["Locomotion"] = "스틱 이동",
-        ["LocomotionEnabled"] = "6DoF 장면에서 사용",
-        ["LocomotionMode"] = "스틱 역할 방식",
+        ["LocomotionEnabled"] = "3D 이동 및 시야 회전 사용",
+        ["LocomotionHand"] = "이동 손 (반대 손은 시야 회전)",
         ["LocomotionSpeed"] = "이동 속도 (m/s)",
+        ["ViewTurnSpeed"] = "시야 회전 속도 (도/s)",
         ["InputSafety"] = "입력 안전",
         ["RequireFocus"] = "게임이 활성 창일 때만 입력",
         ["Save"] = "저장",
@@ -252,8 +246,6 @@ internal static class UiText
         ["ChoiceGrip"] = "그립",
         ["ChoicePrimaryFace"] = "주 표면 버튼 (A/X)",
         ["ChoiceSecondaryFace"] = "보조 표면 버튼 (B/Y)",
-        ["ChoiceLocomotionSplitHands"] = "분리: 패널 손 스크롤 / 반대 손 이동",
-        ["ChoiceLocomotionContextualOffHand"] = "상황 전환: 반대 손으로 이동 또는 스크롤",
         ["ChoiceVfxApproved"] = "권장 VFX",
         ["ChoiceVfxAllOn"] = "모든 VFX 켜기",
         ["ChoiceVfxAllOff"] = "모든 VFX 끄기",
@@ -311,9 +303,10 @@ internal static class UiText
         ["ScrollEnabled"] = "Enable thumbstick scrolling",
         ["ScrollSensitivity"] = "Scroll sensitivity",
         ["Locomotion"] = "Thumbstick locomotion",
-        ["LocomotionEnabled"] = "Enable in 6DoF scenes",
-        ["LocomotionMode"] = "Thumbstick role mode",
+        ["LocomotionEnabled"] = "Enable 3D movement and view rotation",
+        ["LocomotionHand"] = "Movement hand (other hand turns view)",
         ["LocomotionSpeed"] = "Movement speed (m/s)",
+        ["ViewTurnSpeed"] = "View turn speed (deg/s)",
         ["InputSafety"] = "Input safety",
         ["RequireFocus"] = "Inject input only while the game is focused",
         ["Save"] = "Save",
@@ -354,8 +347,6 @@ internal static class UiText
         ["ChoiceGrip"] = "Grip",
         ["ChoicePrimaryFace"] = "Primary face button (A/X)",
         ["ChoiceSecondaryFace"] = "Secondary face button (B/Y)",
-        ["ChoiceLocomotionSplitHands"] = "Split: panel hand scrolls / other hand moves",
-        ["ChoiceLocomotionContextualOffHand"] = "Contextual: other hand moves or scrolls",
         ["ChoiceVfxApproved"] = "Recommended VFX",
         ["ChoiceVfxAllOn"] = "All VFX on",
         ["ChoiceVfxAllOff"] = "All VFX off",
@@ -413,9 +404,10 @@ internal static class UiText
         ["ScrollEnabled"] = "スティックスクロールを使用",
         ["ScrollSensitivity"] = "スクロール感度",
         ["Locomotion"] = "スティック移動",
-        ["LocomotionEnabled"] = "6DoFシーンで使用",
-        ["LocomotionMode"] = "スティック役割方式",
+        ["LocomotionEnabled"] = "3D移動と視点回転を使用",
+        ["LocomotionHand"] = "移動側（反対側は視点回転）",
         ["LocomotionSpeed"] = "移動速度 (m/s)",
+        ["ViewTurnSpeed"] = "視点回転速度 (度/s)",
         ["InputSafety"] = "入力の安全設定",
         ["RequireFocus"] = "ゲームがアクティブな時のみ入力",
         ["Save"] = "保存",
@@ -456,8 +448,6 @@ internal static class UiText
         ["ChoiceGrip"] = "グリップ",
         ["ChoicePrimaryFace"] = "メインフェイスボタン (A/X)",
         ["ChoiceSecondaryFace"] = "サブフェイスボタン (B/Y)",
-        ["ChoiceLocomotionSplitHands"] = "分離：パネル側でスクロール／反対側で移動",
-        ["ChoiceLocomotionContextualOffHand"] = "状況切替：反対側で移動またはスクロール",
         ["ChoiceVfxApproved"] = "推奨VFX",
         ["ChoiceVfxAllOn"] = "すべてのVFXをオン",
         ["ChoiceVfxAllOff"] = "すべてのVFXをオフ",

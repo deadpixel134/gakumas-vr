@@ -2,8 +2,6 @@ namespace GakumasVR.Core;
 
 public sealed class VrLocomotionIntegrator
 {
-    private const float MinimumForwardLengthSquared = 0.000001f;
-
     public TrackingVector3 Offset { get; private set; }
 
     public bool Update(
@@ -37,22 +35,9 @@ public sealed class VrLocomotionIntegrator
         TrackingVector3 forward = Rotate(
             rotation,
             new TrackingVector3(0f, 0f, 1f));
-        float forwardLengthSquared =
-            (forward.X * forward.X) + (forward.Z * forward.Z);
-        if (forwardLengthSquared < MinimumForwardLengthSquared)
-        {
-            forward = new TrackingVector3(0f, 0f, 1f);
-        }
-        else
-        {
-            float inverseLength = 1f / MathF.Sqrt(forwardLengthSquared);
-            forward = new TrackingVector3(
-                forward.X * inverseLength,
-                0f,
-                forward.Z * inverseLength);
-        }
-
-        TrackingVector3 right = new(forward.Z, 0f, -forward.X);
+        TrackingVector3 right = Rotate(
+            rotation,
+            new TrackingVector3(1f, 0f, 0f));
         float distance = scaledMagnitude * speedMetersPerSecond *
             MathF.Min(deltaSeconds, 0.10f);
         Offset = Add(
