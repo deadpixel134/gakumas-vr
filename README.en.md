@@ -28,7 +28,7 @@ The current public build is the **v0.175.6 stable release**. The core 6DoF contr
 ## Important limitations
 
 - This stable release targets Windows 11 x64, the DMM edition, and Unity 6000.0.77f1.
-- The release ZIP includes the required Dobby binary. Before touching the game directory, the v0.174.0 installer preflights every payload hash, required clean-install component, and preservation policy.
+- The release ZIP includes the required Dobby binary. Before touching the game directory, the v0.175.6 installer preflights every payload hash, required clean-install component, and preservation policy.
 - If something fails, close the game and use the installer to uninstall or roll back. Before attaching logs to an issue, check them for account identifiers or authentication data.
 
 This repository does not contain game files, Localify assets, user settings, logs, rollback data, or build outputs. Project source is released under the [MIT License](LICENSE); third-party components retain their own licenses. See [Credits and third-party licenses](CREDITS.md).
