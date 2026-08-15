@@ -2,6 +2,17 @@
 
 코드 변경과 실기 결과를 분리해 기록한다. 작업 문서는 마일스톤 완료 시점 또는 사용자의 명시적 문서 요청에서 함께 갱신한다.
 
+## v0.175.0~v0.175.5 — 2026-08-15
+
+상태: 코어 43/43·관리 7/7·Release 빌드·199개 manifest·clean install·Localify 공존·제거·실제 설치 해시 확인 완료, 사용자 GUI 재확인 및 VR 실기 전
+
+- live와 승인된 non-live 몰입형 장면에 각각 독립된 `spatial` 프로필을 추가했다. 각 프로필은 캐릭터/월드 지각 크기(10~400%, GUI 5% 단위), 눈 간격·머리 이동·스틱 이동의 자동/수동 배율을 가진다.
+- 자동 배율은 `1 / perceivedCharacterScale`이다. 수동 배율은 각 항목마다 0.00~4.00을 독립 적용한다. 전역 `render.worldEyeOffsetScale`은 물리 IPD 기준값으로 그대로 유지하며 새 프로필은 여기에 곱한다.
+- stereo source 판정 때 live/non-live 종류를 명시적으로 고정해 6DoF pose, 3DoF fallback, locomotion에 같은 프로필을 적용한다. 원본 게임 Transform·원본 카메라·평면 패널 경로는 변경하지 않는다.
+- 실패한 실험 설정 `render.worldScale`은 런타임이 읽지 않는다. 이전 사용자 설정에 남아 있어도 무시하며, 설정 프로그램 저장은 새 `spatial` 구조만 기록한다.
+- 설정 프로그램에 한국어·영어·일본어 공간/크기 탭을 추가하고, 표준 탭 grid를 상단 자동 크기·스크롤 방식으로 바꿨다. v0.175.5 창은 최소 900×760, 기본 client 1080×900이다. 실제 GUI 배치와 VR 동작은 사용자 재확인이 남아 있다.
+- v0.175.5 런타임/설치 SHA-256은 `AA13B13F4BFB5A3A988D5B801D088F4FF8C28ED1BD77A40BD373AB0CD5B06E3B`, 배포 ZIP SHA-256은 `A9E1BBFC2129A05807270F0B4035369576D4BDB595FBC0AF7B99F3D09B4ABDD2`다. 설치 전 상태는 `rollback/product-install-0.175.5-20260815-160227/`에 보관했다.
+
 ## v0.174.0 — 2026-08-13
 
 상태: 코어 39/39·관리 7/7·Release 빌드·199개 manifest·clean install·Localify 공존·실제 설치 성공, 사용자 VR 실기 전

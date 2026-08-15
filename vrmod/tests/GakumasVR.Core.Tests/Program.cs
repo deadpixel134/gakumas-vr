@@ -41,7 +41,11 @@ var tests = new (string Name, Action Run)[]
     ("VR settings load legacy JSON without manual VFX", VrSettingsLoadLegacyJsonWithoutManualVfx),
     ("VR settings load swapped movement hand", VrSettingsLoadSwappedMovementHand),
     ("VR settings repair invalid roles and ranges", VrSettingsRepairInvalidValues),
-    ("VR settings reject unsupported schema", VrSettingsRejectUnsupportedSchema)
+    ("VR settings reject unsupported schema", VrSettingsRejectUnsupportedSchema),
+    ("Spatial defaults preserve baseline", SpatialDefaultsPreserveBaseline),
+    ("Spatial auto inverts character size", SpatialAutoInvertsCharacterSize),
+    ("Spatial manual values override independently", SpatialManualOverridesIndependently),
+    ("Spatial validation repairs invalid values", SpatialValidationRepairsInvalidValues)
 };
 
 var failed = 0;
@@ -61,6 +65,48 @@ foreach (var test in tests)
 
 Console.WriteLine($"Executed {tests.Length} tests; failures: {failed}");
 return failed == 0 ? 0 : 1;
+
+static void SpatialDefaultsPreserveBaseline()
+{
+    SpatialScaleMultipliers result = SpatialScaleResolver.Resolve(VrSettings.CreateApprovedDefaults().Spatial.Live);
+    Equal(1f, result.EyeOffsetMultiplier);
+    Equal(1f, result.HeadTranslationMultiplier);
+    Equal(1f, result.LocomotionMultiplier);
+}
+
+static void SpatialAutoInvertsCharacterSize()
+{
+    SpatialScaleMultipliers result = SpatialScaleResolver.Resolve(new VrSpatialScaleProfile { PerceivedCharacterScale = 1.5f });
+    Near(2f / 3f, result.EyeOffsetMultiplier);
+    Near(2f / 3f, result.HeadTranslationMultiplier);
+    Near(2f / 3f, result.LocomotionMultiplier);
+}
+
+static void SpatialManualOverridesIndependently()
+{
+    SpatialScaleMultipliers result = SpatialScaleResolver.Resolve(new VrSpatialScaleProfile
+    {
+        PerceivedCharacterScale = 2f,
+        EyeOffsetMode = SpatialScaleMode.Manual,
+        EyeOffsetMultiplier = 1.25f,
+        LocomotionMode = SpatialScaleMode.Manual,
+        LocomotionMultiplier = 0.5f
+    });
+    Equal(1.25f, result.EyeOffsetMultiplier);
+    Equal(0.5f, result.HeadTranslationMultiplier);
+    Equal(0.5f, result.LocomotionMultiplier);
+}
+
+static void SpatialValidationRepairsInvalidValues()
+{
+    VrSettings settings = VrSettings.CreateApprovedDefaults();
+    settings.Spatial.Live.PerceivedCharacterScale = 5f;
+    settings.Spatial.NonLive.EyeOffsetMultiplier = float.NaN;
+    VrSettingsValidationResult result = VrSettingsValidator.Validate(settings);
+    True(result.UsedFallback);
+    Equal(1f, result.Settings.Spatial.Live.PerceivedCharacterScale);
+    Equal(1f, result.Settings.Spatial.NonLive.EyeOffsetMultiplier);
+}
 
 static RenderObservation StableObservation()
 {

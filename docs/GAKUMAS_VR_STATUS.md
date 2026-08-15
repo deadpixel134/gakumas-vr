@@ -1,12 +1,12 @@
 # 학원 아이돌마스터 VR 모드 — 현재 상태와 인수인계
 
-최종 갱신: 2026-08-13
-현재 소스 버전: v0.174.0 (`cf213ef`)
-현재 설치 버전: v0.174.0
+최종 갱신: 2026-08-15
+현재 소스 버전: v0.175.5 (로컬 작업 후보; 정식 tag/release는 v0.174.0 유지)
+현재 설치 버전: v0.175.5
 실기 기준 버전: v0.173.0(6DoF 이동·월드축 회전·roll 분리), v0.154.0(M6 표시·입력), v0.143.0(M5 topology), v0.141.0(M4 성능), v0.131.0(최종 시각), v0.90.0(UI 회귀)
-테스트 상태: v0.174 코어 39/39·관리 7/7·Release 빌드·199개 패키지 manifest·클린 설치·Localify 공존·실제 설치 해시 일치, v0.174 사용자 VR 실기 전; v0.173 사용자 VR 실기 성공 및 “완벽” 판정
+테스트 상태: v0.175.5 코어 43/43·관리 7/7·Release 빌드·199개 패키지 manifest·클린 설치·Localify 공존/제거·실제 설치 해시 일치. 공간/크기 GUI 재확인과 사용자 VR 실기는 미수행; v0.173 사용자 VR 실기 성공 및 “완벽” 판정
 현재 마일스톤: **M7 달성 — 2026-08-13**, M8 런타임 호환성·유지보수 진행
-현재 변경: live 독립 6DoF 기본 ON, 기본 왼손 월드축 30° 스냅 회전, 오른손 완전 3D 시야 기준 이동 속도 1.95m/s, 실제 HMD roll 변화량만 보존
+현재 변경: live/non-live별 캐릭터/월드 지각 크기와 자동·수동 눈 간격/머리 이동/스틱 이동 배율 후보를 추가했다. 기존 live 독립 6DoF, 기본 왼손 월드축 30° 스냅, 오른손 완전 3D 시야 기준 이동 1.95m/s, physical HMD roll 보존은 유지한다.
 
 이 문서는 다음 작업자가 가장 먼저 읽어야 하는 현재 상태의 기준 문서다. 목표 구조는 `GAKUMAS_VR_DESIGN.md`, 변경 내역은 `../vrmod/CHANGELOG.md`를 참고한다.
 
@@ -28,12 +28,19 @@
 
 ## 2. 현재 설치 상태
 
-- 설치 런타임: `vrmod/runtime/GakumasVR.RuntimeBootstrap.dll` v0.174.0
-- v0.174 빌드/패키지/설치 SHA-256: `4D93D785B5B0E4318ACB8EADA50D61A1D2D77B9463B64C0FACFF3FC9D68B6E15`
-- 배포 ZIP SHA-256: `5064E59894BBF46996436AEE9DDF222201E66317A808166CA527A41B00677CCD`
-- 현재 중첩 롤백: `vrmod/rollback/product-install-0.174.0-20260813-224142/`; v0.173과 이전 제품 설치본도 버전별 보관
+- 설치 런타임: `vrmod/runtime/GakumasVR.RuntimeBootstrap.dll` v0.175.5
+- v0.175.5 빌드/패키지/설치 SHA-256: `AA13B13F4BFB5A3A988D5B801D088F4FF8C28ED1BD77A40BD373AB0CD5B06E3B`
+- 배포 ZIP SHA-256: `A9E1BBFC2129A05807270F0B4035369576D4BDB595FBC0AF7B99F3D09B4ABDD2`
+- 현재 중첩 롤백: `vrmod/rollback/product-install-0.175.5-20260815-160227/`; v0.174, v0.173과 이전 제품 설치본도 버전별 보관
 - 설치기: 배포 루트 `GakumasVR.Installer.exe`, PowerShell 인터페이스 `vrmod/installer/Install-GakumasVR.ps1`
 - 설치기는 전체 payload를 쓰기 전에 검증하고 `gakumas.exe` 실행 중 교체를 거부한다. 제거는 manifest가 소유한 동일 해시 파일만 대상으로 하며 사용자 설정·Localify·수정된 파일을 보존한다.
+
+### v0.175.5 공간/크기 후보
+
+- `spatial.live`와 `spatial.nonLive`는 각각 캐릭터/월드 지각 크기와 눈 간격·머리 이동·스틱 이동 보정 프로필을 가진다. 지원 몰입형 장면에만 적용되며 평면 정면/손 패널에는 적용하지 않는다.
+- 기본 100%와 자동 모드는 v0.174의 배율과 같아야 한다. 자동 보정은 크기의 역수이며, 수동 모드는 각 항목을 독립 조절한다. 전역 eye offset 기준값은 기존 `render.worldEyeOffsetScale`이다.
+- 이전 실패 실험의 `render.worldScale`은 무시된다. 기존 사용자 `settings.json`을 설치기가 덮어쓰지 않으므로, 남아 있는 legacy 항목은 안전하지만 새 공간 프로필을 쓰려면 설정 프로그램에서 저장해야 한다.
+- 설정 GUI의 공간/크기 탭과 표준 탭의 행 배치는 소스에서 수정·패키지화했으나, 실제 화면 배치와 live/non-live VR 효과는 아직 사용자 실기로 확인하지 않았다. 따라서 M8 및 기능 검증 완료로 판정하지 않는다.
 
 ### v0.173 승인 조작 기준
 

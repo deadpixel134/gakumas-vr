@@ -1,6 +1,6 @@
 # 학원 아이돌마스터 VR 모드 기술 설계
 
-상태: 구현 설계 — v0.173 M7 사용자 실기 기준을 유지하고 v0.174에서 live 6DoF·회전·이동 기본값 조정
+상태: 구현 설계 — v0.173 M7 사용자 실기 기준을 유지한다. v0.175.5 로컬 후보는 장면별 캐릭터/월드 지각 크기와 이동 보정을 추가했으며 사용자 GUI·VR 실기 전이다.
 
 현재 설치/검증/결함 상태는 [`GAKUMAS_VR_STATUS.md`](GAKUMAS_VR_STATUS.md), 단계별 완료 조건과 알림 규칙은 [`VR_MILESTONES.md`](VR_MILESTONES.md)를 기준으로 한다. 이 문서는 목표 구조와 확정된 기술 결정을 설명한다. 작업 문서는 마일스톤 완료 시점 또는 사용자의 명시적 문서 요청에서 동기화한다.
 
@@ -423,9 +423,12 @@ gameY = (1 - contentV) * gameHeight
 
 - GUI는 게임 프로세스에 주입하지 않고 종료 상태에서 버전이 있는 설정 파일을 편집한다.
 - 런타임은 시작 시 설정 스키마와 범위를 검증하고 잘못된 값은 안전 기본값으로 대체한다.
-- 현재 항목은 world eye offset scale, eye render scale, 패널 손/포인터 손, 버튼 매핑, 패널 위치·크기·회전과 viewer-facing ON/OFF, 자동/수동 후처리, live 6DoF, 이동 손·속도, 스냅/부드러운 회전과 스냅 각도다.
+- 현재 항목은 world eye offset scale, eye render scale, 패널 손/포인터 손, 버튼 매핑, 패널 위치·크기·회전과 viewer-facing ON/OFF, 자동/수동 후처리, live 6DoF, 이동 손·속도, 스냅/부드러운 회전과 스냅 각도, live/non-live 공간·크기 프로필이다.
 - legacy `render-resolution-scale.txt`는 JSON `render.eyeRenderScale`로 이관한다. 기본값은 `0.65`, 허용 범위 `0.50~2.00`, 안전 기본값 `0.75`이며 1.00 초과에서 GUI 경고를 표시한다.
 - world eye offset은 실측 물리 IPD에 곱하는 비율로 표시하며 현재 기본 후보는 27.5%다.
+- `spatial.live`와 `spatial.nonLive`는 지원되는 몰입형 source가 새 stereo generation을 시작할 때 선택한다. 캐릭터/월드 지각 크기는 10~400%(기본 100%)이며, 자동 눈 간격·머리 이동·스틱 이동 배율은 크기의 역수다. 각 배율은 수동 0.00~4.00으로 독립 override할 수 있다.
+- 유효 eye offset은 전역 `render.worldEyeOffsetScale × profile eye multiplier`이고, 머리 이동과 locomotion은 기존 각 배율·속도에 해당 profile multiplier를 곱한다. 이 값은 pose mapper에 직접 전달하며 게임 Transform, 원본 카메라, UI와 평면 패널은 바꾸지 않는다.
+- legacy `render.worldScale`은 이전 실패 실험값이다. 역직렬화되어 남아도 런타임은 읽지 않으며 GUI 저장도 새 `spatial` 구조만 기록한다.
 - 설정 저장은 임시 파일 작성 후 교체하는 원자적 방식으로 하고 기본값 복원, 내보내기와 가져오기를 지원한다.
 - Localify 설정 파일과 namespace를 공유하거나 수정하지 않는다.
 
@@ -488,6 +491,10 @@ VR 실패는 게임 종료 사유가 되어서는 안 된다.
 ```text
 render.eyeRenderScale = 0.65                 # 0.50~2.00, invalid fallback 0.75
 render.worldEyeOffsetScale = 0.275
+spatial.live.perceivedCharacterScale = 1.00 # 0.10~4.00
+spatial.live.{eyeOffset,headTranslation,locomotion}Mode = auto
+spatial.live.{eyeOffset,headTranslation,locomotion}Multiplier = 1.00
+spatial.nonLive = spatial.live와 같은 구조의 독립 프로필
 tracking.liveSixDofEnabled = true
 tracking.locomotionEnabled = true
 tracking.locomotionHand = right
