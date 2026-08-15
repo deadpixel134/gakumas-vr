@@ -7,7 +7,7 @@ ArcaLive virtual reality channel: [가상현실 채널](https://arca.live/b/vrsh
 
 Gakumas VR is an unofficial Meta Quest/OpenXR VR mod for the DMM version of Gakuen Idolmaster. Supported 3D scenes are presented in stereo VR, while other content appears on aspect-correct flat panels that can be controlled with VR controllers.
 
-The current public build is the **v0.175.6 stable release**. The core 6DoF controls were hardware-validated through v0.173 on Meta Quest 2 with Virtual Desktop OpenXR; v0.175.6 retains that behavior while updating the spatial/scale profiles, default GUI flow, and package-validation baseline for the current public release. SteamVR OpenXR and Meta Quest Link are preliminary targets and have not yet been hardware-tested by this project.
+This project is playable via VDXR (Virtual Desktop), and this path has also been hardware-tested. The current public build is the **v0.175.6 stable release**. The core 6DoF controls were hardware-validated through v0.173 on Meta Quest 2 with Virtual Desktop OpenXR; v0.175.6 retains that behavior while updating the spatial/scale profiles, default GUI flow, and package-validation baseline for the current public release. SteamVR OpenXR and Meta Quest Link are preliminary targets and have not yet been hardware-tested by this project.
 
 ## Documentation
 
