@@ -19,7 +19,7 @@ internal sealed class UpdateService : IDisposable
 
     public UpdateService()
     {
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("GakumasVR-Configurator/0.174.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("GakumasVR-Configurator/0.175.5");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
     }
 

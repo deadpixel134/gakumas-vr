@@ -17,6 +17,20 @@ internal sealed class MainForm : Form
         Margin = new Padding(3, 2, 3, 6)
     };
     private readonly NumericUpDown _worldEyeScale = Number(0m, 0.50m, 0.005m, 3);
+    private readonly NumericUpDown _liveCharacterScale = Number(10m, 400m, 5m, 0);
+    private readonly NumericUpDown _nonLiveCharacterScale = Number(10m, 400m, 5m, 0);
+    private readonly CheckBox _liveEyeAuto = TaggedCheckBox("SpatialAutoEye");
+    private readonly CheckBox _liveHeadAuto = TaggedCheckBox("SpatialAutoHead");
+    private readonly CheckBox _liveLocomotionAuto = TaggedCheckBox("SpatialAutoLocomotion");
+    private readonly CheckBox _nonLiveEyeAuto = TaggedCheckBox("SpatialAutoEye");
+    private readonly CheckBox _nonLiveHeadAuto = TaggedCheckBox("SpatialAutoHead");
+    private readonly CheckBox _nonLiveLocomotionAuto = TaggedCheckBox("SpatialAutoLocomotion");
+    private readonly NumericUpDown _liveEyeMultiplier = Number(0m, 4m, 0.05m, 2);
+    private readonly NumericUpDown _liveHeadMultiplier = Number(0m, 4m, 0.05m, 2);
+    private readonly NumericUpDown _liveLocomotionMultiplier = Number(0m, 4m, 0.05m, 2);
+    private readonly NumericUpDown _nonLiveEyeMultiplier = Number(0m, 4m, 0.05m, 2);
+    private readonly NumericUpDown _nonLiveHeadMultiplier = Number(0m, 4m, 0.05m, 2);
+    private readonly NumericUpDown _nonLiveLocomotionMultiplier = Number(0m, 4m, 0.05m, 2);
     private readonly CheckBox _liveSixDof = TaggedCheckBox("LiveSixDofEnabled");
     private readonly ComboBox _vfx = ChoiceCombo();
     private readonly CheckBox _manualPostProcessing = TaggedCheckBox("EffectEnabled");
@@ -53,17 +67,18 @@ internal sealed class MainForm : Form
     private readonly CheckBox _requireFocus = TaggedCheckBox("RequireFocus");
     private readonly ToolStripStatusLabel _status = new();
     private readonly Button _checkUpdates;
-    private readonly TabPage _renderTab = new() { Tag = "TabRender" };
-    private readonly TabPage _panelTab = new() { Tag = "TabPanel" };
-    private readonly TabPage _inputTab = new() { Tag = "TabInput" };
+    private readonly TabPage _renderTab = new() { Tag = "TabRender", AutoScroll = true };
+    private readonly TabPage _spatialTab = new() { Tag = "TabSpatial", AutoScroll = true };
+    private readonly TabPage _panelTab = new() { Tag = "TabPanel", AutoScroll = true };
+    private readonly TabPage _inputTab = new() { Tag = "TabInput", AutoScroll = true };
 
     public MainForm(StartupResult startup)
     {
         _startup = startup;
         _checkUpdates = TaggedButton("CheckUpdates", CheckUpdates);
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(840, 740);
-        ClientSize = new Size(980, 840);
+        MinimumSize = new Size(900, 760);
+        ClientSize = new Size(1080, 900);
         AutoScaleMode = AutoScaleMode.Dpi;
 
         TableLayoutPanel root = new()
@@ -90,9 +105,11 @@ internal sealed class MainForm : Form
 
         TabControl tabs = new() { Dock = DockStyle.Fill };
         BuildRenderTab();
+        BuildSpatialTab();
         BuildPanelTab();
         BuildInputTab();
         tabs.TabPages.Add(_renderTab);
+        tabs.TabPages.Add(_spatialTab);
         tabs.TabPages.Add(_panelTab);
         tabs.TabPages.Add(_inputTab);
         root.Controls.Add(tabs, 0, 1);
@@ -149,6 +166,12 @@ internal sealed class MainForm : Form
         _manualVlBloom.CheckedChanged += (_, _) => UpdateManualVfxControls();
         _locomotion.CheckedChanged += (_, _) => UpdateLocomotionControls();
         _viewTurnMode.SelectedIndexChanged += (_, _) => UpdateLocomotionControls();
+        _liveEyeAuto.CheckedChanged += (_, _) => UpdateSpatialControls();
+        _liveHeadAuto.CheckedChanged += (_, _) => UpdateSpatialControls();
+        _liveLocomotionAuto.CheckedChanged += (_, _) => UpdateSpatialControls();
+        _nonLiveEyeAuto.CheckedChanged += (_, _) => UpdateSpatialControls();
+        _nonLiveHeadAuto.CheckedChanged += (_, _) => UpdateSpatialControls();
+        _nonLiveLocomotionAuto.CheckedChanged += (_, _) => UpdateSpatialControls();
         ApplyLanguage(languageChanged: false);
         Load += (_, _) => Run("StatusLoaded", LoadSettings);
         Shown += async (_, _) => await OnShownAsync();
@@ -201,6 +224,99 @@ internal sealed class MainForm : Form
         AddRow(grid, "VisibilityHysteresis", _hysteresis);
         AddRow(grid, "ToggleButton", _toggle);
         _panelTab.Controls.Add(grid);
+    }
+
+    private void BuildSpatialTab()
+    {
+        FlowLayoutPanel root = new()
+        {
+            Dock = DockStyle.Fill,
+            AutoScroll = true,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false
+        };
+        root.Controls.Add(BuildSpatialProfile("SpatialLive", _liveCharacterScale,
+            _liveEyeAuto, _liveEyeMultiplier, _liveHeadAuto, _liveHeadMultiplier,
+            _liveLocomotionAuto, _liveLocomotionMultiplier));
+        root.Controls.Add(BuildSpatialProfile("SpatialNonLive", _nonLiveCharacterScale,
+            _nonLiveEyeAuto, _nonLiveEyeMultiplier, _nonLiveHeadAuto, _nonLiveHeadMultiplier,
+            _nonLiveLocomotionAuto, _nonLiveLocomotionMultiplier));
+        root.Controls.Add(new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(860, 0),
+            Tag = "SpatialDescription"
+        });
+        _spatialTab.Controls.Add(root);
+    }
+
+    private static GroupBox BuildSpatialProfile(
+        string title,
+        NumericUpDown characterScale,
+        CheckBox eyeAuto,
+        NumericUpDown eyeMultiplier,
+        CheckBox headAuto,
+        NumericUpDown headMultiplier,
+        CheckBox locomotionAuto,
+        NumericUpDown locomotionMultiplier)
+    {
+        characterScale.Width = 260;
+        eyeMultiplier.Width = 260;
+        headMultiplier.Width = 260;
+        locomotionMultiplier.Width = 260;
+        TableLayoutPanel grid = new()
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 3,
+            RowCount = 4,
+            Padding = new Padding(16, 12, 16, 12)
+        };
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        for (int row = 0; row < 4; row++)
+        {
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+        }
+        AddSpatialScaleRow(grid, 0, "SpatialCharacterWorldSize", characterScale);
+        AddSpatialControlRow(grid, 1, "SpatialEyeOffset", eyeAuto, eyeMultiplier);
+        AddSpatialControlRow(grid, 2, "SpatialHeadTranslation", headAuto, headMultiplier);
+        AddSpatialControlRow(grid, 3, "SpatialLocomotion", locomotionAuto, locomotionMultiplier);
+        grid.AutoSize = false;
+        grid.Dock = DockStyle.Fill;
+        return new GroupBox
+        {
+            Tag = title,
+            AutoSize = false,
+            Size = new Size(900, 280),
+            Padding = new Padding(8),
+            Margin = new Padding(12, 12, 12, 20),
+            Controls = { grid }
+        };
+    }
+
+    private static void AddSpatialScaleRow(TableLayoutPanel grid, int row, string labelKey, Control control)
+    {
+        Label label = TaggedLabel(labelKey);
+        label.Margin = new Padding(0);
+        grid.Controls.Add(label, 0, row);
+        control.Anchor = AnchorStyles.Left;
+        control.Margin = new Padding(0);
+        grid.SetColumnSpan(control, 2);
+        grid.Controls.Add(control, 1, row);
+    }
+
+    private static void AddSpatialControlRow(TableLayoutPanel grid, int row, string labelKey, CheckBox automatic, NumericUpDown multiplier)
+    {
+        Label label = TaggedLabel(labelKey);
+        label.Margin = new Padding(0);
+        grid.Controls.Add(label, 0, row);
+        automatic.Anchor = AnchorStyles.Left;
+        automatic.Margin = new Padding(0);
+        grid.Controls.Add(automatic, 1, row);
+        multiplier.Anchor = AnchorStyles.Left;
+        multiplier.Margin = new Padding(0);
+        grid.Controls.Add(multiplier, 2, row);
     }
 
     private void BuildInputTab()
@@ -457,6 +573,13 @@ internal sealed class MainForm : Form
             ViewTurnSpeed = (float)_viewTurnSpeed.Value,
             ViewSnapAngleDegrees = Selected(_viewSnapAngle, 30)
         },
+        Spatial = new VrSpatialSettings
+        {
+            Live = ReadSpatialProfile(_liveCharacterScale, _liveEyeAuto, _liveEyeMultiplier,
+                _liveHeadAuto, _liveHeadMultiplier, _liveLocomotionAuto, _liveLocomotionMultiplier),
+            NonLive = ReadSpatialProfile(_nonLiveCharacterScale, _nonLiveEyeAuto, _nonLiveEyeMultiplier,
+                _nonLiveHeadAuto, _nonLiveHeadMultiplier, _nonLiveLocomotionAuto, _nonLiveLocomotionMultiplier)
+        },
         Panel = new VrPanelSettings
         {
             PanelHand = Selected(_panelHand, VrHand.Left),
@@ -490,6 +613,10 @@ internal sealed class MainForm : Form
         _runtimeEnabled.Checked = settings.Runtime.Enabled;
         Set(_eyeScale, settings.Render.EyeRenderScale);
         Set(_worldEyeScale, settings.Render.WorldEyeOffsetScale);
+        ApplySpatialProfile(settings.Spatial.Live, _liveCharacterScale, _liveEyeAuto, _liveEyeMultiplier,
+            _liveHeadAuto, _liveHeadMultiplier, _liveLocomotionAuto, _liveLocomotionMultiplier);
+        ApplySpatialProfile(settings.Spatial.NonLive, _nonLiveCharacterScale, _nonLiveEyeAuto, _nonLiveEyeMultiplier,
+            _nonLiveHeadAuto, _nonLiveHeadMultiplier, _nonLiveLocomotionAuto, _nonLiveLocomotionMultiplier);
         _liveSixDof.Checked = settings.Tracking.LiveSixDofEnabled;
         _locomotion.Checked = settings.Tracking.LocomotionEnabled;
         Select(_locomotionHand, settings.Tracking.LocomotionHand);
@@ -527,6 +654,7 @@ internal sealed class MainForm : Form
         _trigger.Checked = settings.Input.TriggerClickEnabled;
         _requireFocus.Checked = settings.Input.RequireGameFocus;
         UpdateLocomotionControls();
+        UpdateSpatialControls();
         UpdateEyeScaleWarning();
     }
 
@@ -590,6 +718,44 @@ internal sealed class MainForm : Form
         _viewSnapAngle.Enabled = _locomotion.Checked && !smooth;
     }
 
+    private void UpdateSpatialControls()
+    {
+        _liveEyeMultiplier.Enabled = !_liveEyeAuto.Checked;
+        _liveHeadMultiplier.Enabled = !_liveHeadAuto.Checked;
+        _liveLocomotionMultiplier.Enabled = !_liveLocomotionAuto.Checked;
+        _nonLiveEyeMultiplier.Enabled = !_nonLiveEyeAuto.Checked;
+        _nonLiveHeadMultiplier.Enabled = !_nonLiveHeadAuto.Checked;
+        _nonLiveLocomotionMultiplier.Enabled = !_nonLiveLocomotionAuto.Checked;
+    }
+
+    private static VrSpatialScaleProfile ReadSpatialProfile(
+        NumericUpDown characterScale, CheckBox eyeAuto, NumericUpDown eye,
+        CheckBox headAuto, NumericUpDown head, CheckBox locomotionAuto, NumericUpDown locomotion) =>
+        new()
+        {
+            PerceivedCharacterScale = (float)(characterScale.Value / 100m),
+            EyeOffsetMode = eyeAuto.Checked ? SpatialScaleMode.Auto : SpatialScaleMode.Manual,
+            EyeOffsetMultiplier = (float)eye.Value,
+            HeadTranslationMode = headAuto.Checked ? SpatialScaleMode.Auto : SpatialScaleMode.Manual,
+            HeadTranslationMultiplier = (float)head.Value,
+            LocomotionMode = locomotionAuto.Checked ? SpatialScaleMode.Auto : SpatialScaleMode.Manual,
+            LocomotionMultiplier = (float)locomotion.Value
+        };
+
+    private static void ApplySpatialProfile(
+        VrSpatialScaleProfile profile,
+        NumericUpDown characterScale, CheckBox eyeAuto, NumericUpDown eye,
+        CheckBox headAuto, NumericUpDown head, CheckBox locomotionAuto, NumericUpDown locomotion)
+    {
+        Set(characterScale, profile.PerceivedCharacterScale * 100f);
+        eyeAuto.Checked = profile.EyeOffsetMode == SpatialScaleMode.Auto;
+        Set(eye, profile.EyeOffsetMultiplier);
+        headAuto.Checked = profile.HeadTranslationMode == SpatialScaleMode.Auto;
+        Set(head, profile.HeadTranslationMultiplier);
+        locomotionAuto.Checked = profile.LocomotionMode == SpatialScaleMode.Auto;
+        Set(locomotion, profile.LocomotionMultiplier);
+    }
+
     private void UpdateEyeScaleWarning()
     {
         decimal scale = _eyeScale.Value;
@@ -626,8 +792,10 @@ internal sealed class MainForm : Form
     {
         TableLayoutPanel grid = new()
         {
-            Dock = DockStyle.Fill,
-            AutoScroll = true,
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            GrowStyle = TableLayoutPanelGrowStyle.AddRows,
             ColumnCount = 2,
             Padding = new Padding(16)
         };
@@ -643,6 +811,15 @@ internal sealed class MainForm : Form
         grid.Controls.Add(TaggedLabel(labelKey), 0, row);
         control.Margin = new Padding(3, 4, 3, 4);
         control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        grid.Controls.Add(control, 1, row);
+    }
+
+    private static void AddRowLiteral(TableLayoutPanel grid, string label, Control control)
+    {
+        int row = grid.RowCount++;
+        grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        grid.Controls.Add(new Label { Text = label, AutoSize = true, Margin = new Padding(3, 8, 12, 8) }, 0, row);
+        control.Margin = new Padding(3, 4, 3, 4);
         grid.Controls.Add(control, 1, row);
     }
 

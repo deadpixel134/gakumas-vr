@@ -27,6 +27,26 @@
     "viewTurnSpeed": 90.0,
     "viewSnapAngleDegrees": 30
   },
+  "spatial": {
+    "live": {
+      "perceivedCharacterScale": 1.0,
+      "eyeOffsetMode": "auto",
+      "eyeOffsetMultiplier": 1.0,
+      "headTranslationMode": "auto",
+      "headTranslationMultiplier": 1.0,
+      "locomotionMode": "auto",
+      "locomotionMultiplier": 1.0
+    },
+    "nonLive": {
+      "perceivedCharacterScale": 1.0,
+      "eyeOffsetMode": "auto",
+      "eyeOffsetMultiplier": 1.0,
+      "headTranslationMode": "auto",
+      "headTranslationMultiplier": 1.0,
+      "locomotionMode": "auto",
+      "locomotionMultiplier": 1.0
+    }
+  },
   "panel": {
     "panelHand": "left",
     "pointerHand": "right",

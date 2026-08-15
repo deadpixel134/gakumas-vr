@@ -1,21 +1,21 @@
 # Gakumas VR 세션 인수인계
 
-최종 갱신: 2026-08-13
-코드/설치/배포 기준: `GakumasVR.RuntimeBootstrap` v0.174.0
+최종 갱신: 2026-08-15
+코드/설치 기준: `GakumasVR.RuntimeBootstrap` v0.175.5 로컬 후보 (정식 배포 기준 v0.174.0)
 마일스톤: **M7 달성**, M8 런타임 호환성·유지보수 진행
 
 이 문서는 새 개발 세션이 현재 사실과 안전 경계를 빠르게 복구하기 위한 기준이다. 현재 판정은 [`GAKUMAS_VR_STATUS.md`](GAKUMAS_VR_STATUS.md), 구조는 [`GAKUMAS_VR_DESIGN.md`](GAKUMAS_VR_DESIGN.md), 세부 조작 수학과 타 게임 이식 계약은 [`ko/VR_INTERACTION_SPEC.md`](ko/VR_INTERACTION_SPEC.md), 버전 이력은 [`../vrmod/CHANGELOG.md`](../vrmod/CHANGELOG.md)를 따른다.
 
 ## 0. 먼저 읽을 결론
 
-- v0.174는 코어 39/39, 관리 7/7, Release 빌드, 199개 패키지 manifest, 네이티브 의존성, clean install, Localify 공존·제거와 실제 설치 검사를 통과했다.
-- 런타임 빌드·패키지·설치 SHA-256은 `4D93D785B5B0E4318ACB8EADA50D61A1D2D77B9463B64C0FACFF3FC9D68B6E15`다.
-- `vrmod/dist/GakumasVR-v0.174.0.zip` SHA-256은 `5064E59894BBF46996436AEE9DDF222201E66317A808166CA527A41B00677CCD`다.
+- v0.175.5 로컬 후보는 코어 43/43, 관리 7/7, Release 빌드, 199개 패키지 manifest, 네이티브 의존성, clean install, Localify 공존·제거와 실제 설치 검사를 통과했다.
+- 런타임 빌드·패키지·설치 SHA-256은 `AA13B13F4BFB5A3A988D5B801D088F4FF8C28ED1BD77A40BD373AB0CD5B06E3B`다.
+- `vrmod/dist/GakumasVR-v0.175.5.zip` SHA-256은 `A9E1BBFC2129A05807270F0B4035369576D4BDB595FBC0AF7B99F3D09B4ABDD2`다.
 - 사용자는 v0.173 VR 실기 결과를 “완벽했다”고 최종 승인했다. 이 승인으로 M7을 2026-08-13 달성했다.
 - 기본 조작은 왼손 스틱 world-axis 시야 회전, 오른손 스틱 final-view 완전 3D 이동이다. 이동 손 설정을 바꾸면 역할이 교환된다.
 - v0.174 기본 회전은 30° 스냅이며 15°/30°/45°/60°와 smooth를 선택할 수 있다. 기본 이동 속도는 1.95m/s다. 스틱 회전은 roll을 만들지 않고 실제 HMD roll 변화만 보존한다.
 - 비-live 3D와 live 독립 6DoF가 기본 적용된다. live 6DoF는 연출 카메라와 독립된 진입 anchor를 쓰며 설정에서 끌 수 있다.
-- v0.174 자동·설치 검증은 완료됐으나 별도 사용자 VR 실기는 아직 없다. 조작 수학과 roll 격리의 사용자 실기 기준은 v0.173이다.
+- v0.175.5 자동·설치 검증은 완료됐으나 공간/크기 GUI 재확인과 별도 사용자 VR 실기는 아직 없다. 조작 수학과 roll 격리의 사용자 실기 기준은 v0.173이다.
 - 직접 터치와 live 좌상단 시계 회귀는 사용자 결정으로 생략했다. 구현·검증 완료로 오해하지 말고 다시 요청받기 전에는 완료 조건으로 요구하지 않는다.
 - 지속 시간·반복 횟수·장시간 자원 수명 검사는 사용자 결정으로 비차단·미검증이다. 실제 관측되는 크래시와 회귀는 계속 결함이다.
 - SteamVR OpenXR와 Meta Quest Link/Air Link는 예비 지원이며 이 프로젝트에서 아직 실기하지 않았다. 현재 검증 경로는 Meta Quest 2 + Virtual Desktop OpenXR다.
@@ -25,16 +25,23 @@
 | 항목 | 현재 값 |
 |---|---|
 | 저장소 | `https://github.com/deadpixel134/gakumas-vr` |
-| 런타임 소스 기준 커밋 | `cf213ef` — v0.174 기본 프로필과 버전 |
-| 구현 브랜치 | `feature/6dof`에서 개발 후 `main`에 반영 |
-| 정식 기준 | tag `v0.174.0`, stable Release, pre-release 아님 |
+| 런타임 소스 기준 커밋 | `cf213ef`는 v0.174 정식 기준. v0.175.5는 이 작업 트리의 로컬 후보이며 새 tag/release/공개 커밋은 아직 없음 |
+| 구현 브랜치 | `feature/6dof`에서 개발 후 `main`에 반영; 현재 작업 트리 변경은 별도 확인 필요 |
+| 정식 기준 | tag `v0.174.0`, stable Release, pre-release 아님. v0.175.5 ZIP은 로컬 검증 산출물 |
 | 런타임 DLL | `vrmod/runtime/GakumasVR.RuntimeBootstrap.dll` |
-| 배포 ZIP | `vrmod/dist/GakumasVR-v0.174.0.zip` |
-| ZIP 해시 파일 | `vrmod/dist/GakumasVR-v0.174.0.zip.sha256` |
-| 현재 rollback | `vrmod/rollback/product-install-0.174.0-20260813-224142/` |
+| 배포 ZIP | `vrmod/dist/GakumasVR-v0.175.5.zip` |
+| ZIP 해시 파일 | `vrmod/dist/GakumasVR-v0.175.5.zip.sha256` |
+| 현재 rollback | `vrmod/rollback/product-install-0.175.5-20260815-160227/` |
 | 사용자 로컬 변경 | `vrmod/config/settings.json`, `settings.json.bak` — 커밋 금지 |
 
 배포 ZIP은 Git에 커밋하지 않고 Release asset으로만 게시한다. 런타임 구현 기준은 `cf213ef`, 문서를 포함한 공개 소스 기준은 `v0.174.0` tag로 찾는다.
+
+## 1.1 v0.175.5 공간/크기 인수인계
+
+- `spatial.live`/`spatial.nonLive`은 새 stereo generation에서 명시적 source 종류에 따라 고정된다. 기본 100% 자동은 v0.174 동작과 같고, 자동 배율은 크기의 역수다.
+- 각 프로필은 눈 간격·머리 이동·스틱 이동을 0.00~4.00 수동 multiplier로 독립 override할 수 있다. 전역 물리 IPD 기준 `render.worldEyeOffsetScale`은 그대로 유지한다.
+- 기존 사용자 `settings.json`은 보존했다. 여기의 legacy `render.worldScale`은 런타임에서 무시된다. `spatial`이 없는 설정은 기본 100% 자동으로 해석되며, 설정 프로그램에서 저장하면 새 구조가 기록된다.
+- 다음 사용자 검증은 설정 GUI의 공간/크기 탭 행 배치, 100% 자동 회귀, live/non-live 서로 다른 프로필, 세 수동 override, 평면 패널/UI 입력/장면 전환/VR 폴백이다. 이 항목들은 아직 완료로 기록하지 않는다.
 
 ## 2. 안전·공존 불변식
 

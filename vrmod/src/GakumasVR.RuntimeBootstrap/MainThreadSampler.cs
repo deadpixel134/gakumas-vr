@@ -6,6 +6,12 @@ namespace Doorstop;
 
 internal sealed class MainThreadSampler
 {
+    private enum StereoSpatialProfileKind
+    {
+        Live,
+        NonLive
+    }
+
     private const bool EnableUiObjectEnumeration = true;
     private const bool EnableUiCaptureSubmission = false;
     private const bool EnableUiElementReplay = false;
@@ -32,6 +38,8 @@ internal sealed class MainThreadSampler
     private readonly VrManualVisualEffectSettings _manualVisualEffects;
     private readonly float _stereoRenderResolutionScale;
     private readonly float _stereoWorldEyeOffsetScale;
+    private readonly VrSpatialScaleProfile _liveSpatialProfile;
+    private readonly VrSpatialScaleProfile _nonLiveSpatialProfile;
     private readonly bool _liveSixDofEnabled;
     private readonly bool _locomotionEnabled;
     private readonly VrHand _locomotionHand;
@@ -260,6 +268,8 @@ internal sealed class MainThreadSampler
     private IntPtr _stereoPumpCoreImage;
     private bool _stereoPumpEligible;
     private bool _stereoGenerationUsesSixDof;
+    private StereoSpatialProfileKind _stereoSpatialProfileKind;
+    private SpatialScaleMultipliers _stereoSpatialMultipliers;
     private long _lastLocomotionUpdateTimestamp;
     private bool _locomotionWasMoving;
     private bool _viewTurnWasMoving;
@@ -293,6 +303,10 @@ internal sealed class MainThreadSampler
         _manualVisualEffects = settings.Render.ManualVisualEffects;
         _stereoRenderResolutionScale = settings.Render.EyeRenderScale;
         _stereoWorldEyeOffsetScale = settings.Render.WorldEyeOffsetScale;
+        _liveSpatialProfile = settings.Spatial.Live;
+        _nonLiveSpatialProfile = settings.Spatial.NonLive;
+        _stereoSpatialProfileKind = StereoSpatialProfileKind.Live;
+        _stereoSpatialMultipliers = SpatialScaleResolver.Resolve(_liveSpatialProfile);
         _liveSixDofEnabled = settings.Tracking.LiveSixDofEnabled;
         _locomotionEnabled = settings.Tracking.LocomotionEnabled;
         _locomotionHand = settings.Tracking.LocomotionHand;
@@ -749,6 +763,13 @@ internal sealed class MainThreadSampler
             }
             _stereoPumpEligible = stereoPumpEligible;
             _stereoGenerationUsesSixDof = stereoPumpEligible && sixDofEligible;
+            _stereoSpatialProfileKind = nonLiveStereoEligible
+                ? StereoSpatialProfileKind.NonLive
+                : StereoSpatialProfileKind.Live;
+            _stereoSpatialMultipliers = SpatialScaleResolver.Resolve(
+                _stereoSpatialProfileKind == StereoSpatialProfileKind.NonLive
+                    ? _nonLiveSpatialProfile
+                    : _liveSpatialProfile);
             _stereoPumpSourceCamera = stereoPumpEligible
                 ? _lastLiveCamera
                 : IntPtr.Zero;
@@ -776,6 +797,19 @@ internal sealed class MainThreadSampler
                         : $"A valid source camera is bound in a concrete env_3d_live scene; stereo production may start or resume. sourceChanged={stereoSourceChanged}."
                     : "Stereo is paused and old eye/UI textures were cleared until an approved world-presenting surface and source camera are available."
             });
+            if (stereoPumpEligible)
+            {
+                RuntimeProbe.Append(_logPath, new ProbeEvent
+                {
+                    TimestampUtc = now,
+                    Event = "spatial-scale-profile-selected",
+                    BootstrapVersion = RuntimeProbe.BootstrapVersion,
+                    ProcessId = Environment.ProcessId,
+                    Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                    Scene = scene,
+                    Reason = $"profile={_stereoSpatialProfileKind};eye={_stereoSpatialMultipliers.EyeOffsetMultiplier:F3};head={_stereoSpatialMultipliers.HeadTranslationMultiplier:F3};locomotion={_stereoSpatialMultipliers.LocomotionMultiplier:F3}."
+                });
+            }
         }
 
         long captureNow = Environment.TickCount64;
@@ -2379,8 +2413,10 @@ internal sealed class MainThreadSampler
             bool positionTracked = (stereo.ViewStateFlags & 8UL) != 0UL;
             if (useSixDof && !_sixDofPoseMapper.TryMap(
                     ToTrackingStereoPose(stereo),
-                    positionTracked ? SixDofHeadTranslationScale : 0f,
-                    _stereoWorldEyeOffsetScale,
+                    positionTracked
+                        ? SixDofHeadTranslationScale * _stereoSpatialMultipliers.HeadTranslationMultiplier
+                        : 0f,
+                    _stereoWorldEyeOffsetScale * _stereoSpatialMultipliers.EyeOffsetMultiplier,
                     out sixDofPose))
             {
                 return;
@@ -2458,6 +2494,8 @@ internal sealed class MainThreadSampler
             {
                 return;
             }
+            float effectiveEyeOffsetScale =
+                _stereoWorldEyeOffsetScale * _stereoSpatialMultipliers.EyeOffsetMultiplier;
             TrackingVector3 leftWorldTrackedPosition = useSixDof
                 ? AddTrackingPosition(
                     navigationBasePosition,
@@ -2467,9 +2505,9 @@ internal sealed class MainThreadSampler
                             sixDofPose.Left.LocalPosition),
                         locomotionOffset))
                 : new TrackingVector3(
-                    stereo.Left.PositionX * _stereoWorldEyeOffsetScale,
-                    stereo.Left.PositionY * _stereoWorldEyeOffsetScale,
-                    stereo.Left.PositionZ * _stereoWorldEyeOffsetScale);
+                    stereo.Left.PositionX * effectiveEyeOffsetScale,
+                    stereo.Left.PositionY * effectiveEyeOffsetScale,
+                    stereo.Left.PositionZ * effectiveEyeOffsetScale);
             TrackingVector3 rightWorldTrackedPosition = useSixDof
                 ? AddTrackingPosition(
                     navigationBasePosition,
@@ -2479,9 +2517,9 @@ internal sealed class MainThreadSampler
                             sixDofPose.Right.LocalPosition),
                         locomotionOffset))
                 : new TrackingVector3(
-                    stereo.Right.PositionX * _stereoWorldEyeOffsetScale,
-                    stereo.Right.PositionY * _stereoWorldEyeOffsetScale,
-                    stereo.Right.PositionZ * _stereoWorldEyeOffsetScale);
+                    stereo.Right.PositionX * effectiveEyeOffsetScale,
+                    stereo.Right.PositionY * effectiveEyeOffsetScale,
+                    stereo.Right.PositionZ * effectiveEyeOffsetScale);
             IntPtr leftWorldPosition = useSixDof
                 ? BoxVector3(
                     coreImage,
@@ -2914,6 +2952,8 @@ internal sealed class MainThreadSampler
                 _lastLiveCamera);
             IntPtr transformClass = FindClass(coreImage, "UnityEngine", "Transform");
             IntPtr cameraClass = FindClass(coreImage, "UnityEngine", "Camera");
+            float effectiveEyeOffsetScale =
+                _stereoWorldEyeOffsetScale * _stereoSpatialMultipliers.EyeOffsetMultiplier;
             IntPtr leftWorldPosition = InvokeWithObjectArgument(
                 FindMethodBySignature(
                     transformClass,
@@ -2922,9 +2962,9 @@ internal sealed class MainThreadSampler
                 sourceTransform,
                 BoxVector3(
                     coreImage,
-                    stereo.Left.PositionX * _stereoWorldEyeOffsetScale,
-                    stereo.Left.PositionY * _stereoWorldEyeOffsetScale,
-                    stereo.Left.PositionZ * _stereoWorldEyeOffsetScale));
+                    stereo.Left.PositionX * effectiveEyeOffsetScale,
+                    stereo.Left.PositionY * effectiveEyeOffsetScale,
+                    stereo.Left.PositionZ * effectiveEyeOffsetScale));
             IntPtr rightWorldPosition = InvokeWithObjectArgument(
                 FindMethodBySignature(
                     transformClass,
@@ -2933,9 +2973,9 @@ internal sealed class MainThreadSampler
                 sourceTransform,
                 BoxVector3(
                     coreImage,
-                    stereo.Right.PositionX * _stereoWorldEyeOffsetScale,
-                    stereo.Right.PositionY * _stereoWorldEyeOffsetScale,
-                    stereo.Right.PositionZ * _stereoWorldEyeOffsetScale));
+                    stereo.Right.PositionX * effectiveEyeOffsetScale,
+                    stereo.Right.PositionY * effectiveEyeOffsetScale,
+                    stereo.Right.PositionZ * effectiveEyeOffsetScale));
             float nearClip = InvokeInstanceFloat(
                 coreImage,
                 "UnityEngine",
@@ -3341,12 +3381,14 @@ internal sealed class MainThreadSampler
         }
         bool moving = ((axisX * axisX) + (axisY * axisY)) >
             LocomotionDeadzone * LocomotionDeadzone;
+        float effectiveLocomotionSpeed =
+            _locomotionSpeed * _stereoSpatialMultipliers.LocomotionMultiplier;
         if (!_locomotionIntegrator.Update(
                 axisX,
                 axisY,
                 currentViewRotation,
                 deltaSeconds,
-                _locomotionSpeed,
+                effectiveLocomotionSpeed,
                 LocomotionDeadzone))
         {
             moving = false;
@@ -3364,7 +3406,7 @@ internal sealed class MainThreadSampler
                 ProcessId = Environment.ProcessId,
                 Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
                 Reason = moving
-                    ? $"The {_locomotionHand}-hand thumbstick moves in the current full 3D view direction every frame;speed={_locomotionSpeed:F2}m/s;deadzone={LocomotionDeadzone:F2}. Looking up or down adds matching vertical movement."
+                    ? $"The {_locomotionHand}-hand thumbstick moves in the current full 3D view direction every frame;base-speed={_locomotionSpeed:F2}m/s;spatial-multiplier={_stereoSpatialMultipliers.LocomotionMultiplier:F3};effective-speed={effectiveLocomotionSpeed:F2}m/s;deadzone={LocomotionDeadzone:F2}. Looking up or down adds matching vertical movement."
                     : "The locomotion stick returned to its deadzone or became unavailable; the accumulated scene offset is retained."
             });
             _locomotionWasMoving = moving;

@@ -25,6 +25,12 @@ public enum PanelToggleBinding
     SecondaryFace
 }
 
+public enum SpatialScaleMode
+{
+    Auto,
+    Manual
+}
+
 public static class VrVisualEffectModes
 {
     public const string Approved = "vl-bloom-140-diffusion-min-vldof-textureblur-off";
@@ -44,6 +50,8 @@ public sealed class VrSettings
     public VrRenderSettings Render { get; set; } = new();
 
     public VrTrackingSettings Tracking { get; set; } = new();
+
+    public VrSpatialSettings Spatial { get; set; } = new();
 
     public VrPanelSettings Panel { get; set; } = new();
 
@@ -83,6 +91,30 @@ public sealed class VrTrackingSettings
     public float ViewTurnSpeed { get; set; } = 90f;
 
     public int ViewSnapAngleDegrees { get; set; } = 30;
+}
+
+public sealed class VrSpatialSettings
+{
+    public VrSpatialScaleProfile Live { get; set; } = new();
+
+    public VrSpatialScaleProfile NonLive { get; set; } = new();
+}
+
+public sealed class VrSpatialScaleProfile
+{
+    public float PerceivedCharacterScale { get; set; } = 1f;
+
+    public SpatialScaleMode EyeOffsetMode { get; set; } = SpatialScaleMode.Auto;
+
+    public float EyeOffsetMultiplier { get; set; } = 1f;
+
+    public SpatialScaleMode HeadTranslationMode { get; set; } = SpatialScaleMode.Auto;
+
+    public float HeadTranslationMultiplier { get; set; } = 1f;
+
+    public SpatialScaleMode LocomotionMode { get; set; } = SpatialScaleMode.Auto;
+
+    public float LocomotionMultiplier { get; set; } = 1f;
 }
 
 public sealed class VrManualVisualEffectSettings
@@ -182,6 +214,7 @@ public static class VrSettingsValidator
         VrRuntimeSettings runtime = source.Runtime ?? defaults.Runtime;
         VrRenderSettings render = source.Render ?? defaults.Render;
         VrTrackingSettings tracking = source.Tracking ?? defaults.Tracking;
+        VrSpatialSettings spatial = source.Spatial ?? defaults.Spatial;
         VrManualVisualEffectSettings manualVisualEffects =
             render.ManualVisualEffects ?? defaults.Render.ManualVisualEffects;
         VrPanelSettings panel = source.Panel ?? defaults.Panel;
@@ -268,6 +301,19 @@ public static class VrSettingsValidator
                     defaults.Tracking.ViewSnapAngleDegrees,
                     issues)
             },
+            Spatial = new VrSpatialSettings
+            {
+                Live = ValidateSpatialProfile(
+                    spatial.Live,
+                    defaults.Spatial.Live,
+                    "spatial.live",
+                    issues),
+                NonLive = ValidateSpatialProfile(
+                    spatial.NonLive,
+                    defaults.Spatial.NonLive,
+                    "spatial.nonLive",
+                    issues)
+            },
             Panel = new VrPanelSettings
             {
                 PanelHand = ValidateEnum(panel.PanelHand, defaults.Panel.PanelHand, "panel.panelHand", issues),
@@ -322,6 +368,61 @@ public static class VrSettingsValidator
 
     private static VrSettingsValidationResult Result(VrSettings settings, List<string> issues) =>
         new() { Settings = settings, Issues = issues };
+
+    private static VrSpatialScaleProfile ValidateSpatialProfile(
+        VrSpatialScaleProfile? source,
+        VrSpatialScaleProfile defaults,
+        string prefix,
+        List<string> issues)
+    {
+        source ??= defaults;
+        return new VrSpatialScaleProfile
+        {
+            PerceivedCharacterScale = ValidateRange(
+                source.PerceivedCharacterScale,
+                0.10f,
+                4f,
+                defaults.PerceivedCharacterScale,
+                $"{prefix}.perceivedCharacterScale",
+                issues),
+            EyeOffsetMode = ValidateEnum(
+                source.EyeOffsetMode,
+                defaults.EyeOffsetMode,
+                $"{prefix}.eyeOffsetMode",
+                issues),
+            EyeOffsetMultiplier = ValidateRange(
+                source.EyeOffsetMultiplier,
+                0f,
+                4f,
+                defaults.EyeOffsetMultiplier,
+                $"{prefix}.eyeOffsetMultiplier",
+                issues),
+            HeadTranslationMode = ValidateEnum(
+                source.HeadTranslationMode,
+                defaults.HeadTranslationMode,
+                $"{prefix}.headTranslationMode",
+                issues),
+            HeadTranslationMultiplier = ValidateRange(
+                source.HeadTranslationMultiplier,
+                0f,
+                4f,
+                defaults.HeadTranslationMultiplier,
+                $"{prefix}.headTranslationMultiplier",
+                issues),
+            LocomotionMode = ValidateEnum(
+                source.LocomotionMode,
+                defaults.LocomotionMode,
+                $"{prefix}.locomotionMode",
+                issues),
+            LocomotionMultiplier = ValidateRange(
+                source.LocomotionMultiplier,
+                0f,
+                4f,
+                defaults.LocomotionMultiplier,
+                $"{prefix}.locomotionMultiplier",
+                issues)
+        };
+    }
 
     private static float ValidateRange(
         float value,
