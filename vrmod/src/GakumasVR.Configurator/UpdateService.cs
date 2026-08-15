@@ -104,27 +104,18 @@ internal sealed class UpdateService : IDisposable
                     update.ArchiveName);
             }
 
-            string actualHash = ReleaseUpdatePolicy.FileSha256(archivePath);
-            if (!string.Equals(expectedHash, actualHash, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidDataException("The downloaded update SHA-256 does not match.");
-            }
-
             progress?.Report(UiText.Get("UpdateVerifying"));
             string packageRoot = Path.Combine(stagingRoot, "package");
-            ZipFile.ExtractToDirectory(archivePath, packageRoot);
+            await Task.Run(
+                () => VerifyAndExtractPackage(
+                    archivePath,
+                    expectedHash,
+                    packageRoot,
+                    gameRoot,
+                    update.Version,
+                    cancellationToken),
+                cancellationToken);
             string installer = Path.Combine(packageRoot, "GakumasVR.Installer.exe");
-            if (!File.Exists(installer))
-            {
-                throw new FileNotFoundException("The update installer is missing.", installer);
-            }
-
-            InstallationStatus status = new InstallationEngine().Inspect(gameRoot, packageRoot);
-            if (!status.IsGameRoot || !status.PackageAvailable ||
-                !string.Equals(status.PackageVersion, update.Version, StringComparison.Ordinal))
-            {
-                throw new InvalidDataException("The downloaded package manifest is invalid.");
-            }
             return new StagedUpdate(update.Version, stagingRoot, packageRoot, installer);
         }
         catch
@@ -194,6 +185,38 @@ internal sealed class UpdateService : IDisposable
         }
         await destinationStream.FlushAsync(cancellationToken);
         destinationStream.Flush(flushToDisk: true);
+    }
+
+    private static void VerifyAndExtractPackage(
+        string archivePath,
+        string expectedHash,
+        string packageRoot,
+        string gameRoot,
+        string version,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string actualHash = ReleaseUpdatePolicy.FileSha256(archivePath);
+        if (!string.Equals(expectedHash, actualHash, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException("The downloaded update SHA-256 does not match.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        ZipFile.ExtractToDirectory(archivePath, packageRoot);
+        string installer = Path.Combine(packageRoot, "GakumasVR.Installer.exe");
+        if (!File.Exists(installer))
+        {
+            throw new FileNotFoundException("The update installer is missing.", installer);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        InstallationStatus status = new InstallationEngine().Inspect(gameRoot, packageRoot);
+        if (!status.IsGameRoot || !status.PackageAvailable ||
+            !string.Equals(status.PackageVersion, version, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException("The downloaded package manifest is invalid.");
+        }
     }
 
     private static void TryDeleteContainedUpdate(string path, string updatesRoot)
