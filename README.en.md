@@ -33,4 +33,9 @@ The current public build is the **v0.175.6 stable release**. The core 6DoF contr
 
 This repository does not contain game files, Localify assets, user settings, logs, rollback data, or build outputs. Project source is released under the [MIT License](LICENSE); third-party components retain their own licenses. See [Credits and third-party licenses](CREDITS.md).
 
+## Creator
+
+- X: [@TBluebox12](https://x.com/TBluebox12)
+- ArcaLive VR channel: [가상현실 채널](https://arca.live/b/vrshits)
+
 > Gakumas VR is an unofficial fan project and is not affiliated with the game's developer or publisher. The game, trademarks, and related works belong to their respective owners. A legitimate game installation is required.
