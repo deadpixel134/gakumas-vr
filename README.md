@@ -3,7 +3,7 @@
 # Gakumas VR
 
 제작자: [@TBluebox12](https://x.com/TBluebox12)  
-아카라이브 가상현실 채널: [가상현실 채널](https://arca.live/b/vrshits)
+아카라이브 가상현실 채널: [가상현실 채널](https://arca.live/b/vrshits)  
 후원: [buymeacoffee.com/vrshits](https://buymeacoffee.com/vrshits)
 
 학원 아이돌마스터 DMM판을 위한 비공식 Meta Quest/OpenXR VR 모드입니다. 3D 장면은 양안 VR로, 그 밖의 화면은 비율을 보존한 평면 패널로 표시하며 VR 컨트롤러로 게임 UI를 조작할 수 있습니다.

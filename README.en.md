@@ -3,7 +3,7 @@
 # Gakumas VR
 
 Creator: [@TBluebox12](https://x.com/TBluebox12)  
-ArcaLive virtual reality channel: [가상현실 채널](https://arca.live/b/vrshits)
+ArcaLive virtual reality channel: [가상현실 채널](https://arca.live/b/vrshits)  
 Support: [buymeacoffee.com/vrshits](https://buymeacoffee.com/vrshits)
 
 Gakumas VR is an unofficial Meta Quest/OpenXR VR mod for the DMM version of Gakuen Idolmaster. Supported 3D scenes are presented in stereo VR, while other content appears on aspect-correct flat panels that can be controlled with VR controllers.

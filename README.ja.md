@@ -3,7 +3,7 @@
 # Gakumas VR
 
 制作者: [@TBluebox12](https://x.com/TBluebox12)  
-アカライブ 仮想現実チャンネル: [가상현実チャンネル](https://arca.live/b/vrshits)
+アカライブ 仮想現実チャンネル: [가상현実チャンネル](https://arca.live/b/vrshits)  
 支援: [buymeacoffee.com/vrshits](https://buymeacoffee.com/vrshits)
 
 Gakumas VRは、学園アイドルマスターDMM版向けの非公式Meta Quest／OpenXR VR Modです。対応する3Dシーンを両眼VRで表示し、それ以外の画面はアスペクト比を維持した平面パネルとして表示して、VRコントローラーで操作できます。
