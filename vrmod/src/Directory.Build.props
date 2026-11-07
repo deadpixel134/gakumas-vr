@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup Condition="'$(GakumasPublicBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);GAKUMAS_PUBLIC</DefineConstants>
+  </PropertyGroup>
+</Project>

@@ -86,7 +86,7 @@ internal sealed class OpenXrProbeResult
 }
 
 [SupportedOSPlatform("windows")]
-internal static class OpenXrProbe
+internal static partial class OpenXrProbe
 {
     // The game's already-composited swap-chain frame is the reliable UI fallback.
     // It includes Localify text and exactly follows the game's UI visibility state.
@@ -536,10 +536,12 @@ internal static class OpenXrProbe
             PoseInReferenceSpace = IdentityPose()
         };
         Check(createReferenceSpace(session, ref spaceInfo, out IntPtr localSpace), "create OpenXR view space");
+        const int xrReferenceSpaceLocal = 2;
+        const int xrTypeEventDataReferenceSpaceChangePending = 40;
         XrReferenceSpaceCreateInfo worldSpaceInfo = new()
         {
             Type = 37,
-            ReferenceSpaceType = 2,
+            ReferenceSpaceType = xrReferenceSpaceLocal,
             PoseInReferenceSpace = IdentityPose()
         };
         int worldSpaceResult = createReferenceSpace(
@@ -571,6 +573,7 @@ internal static class OpenXrProbe
         IntPtr gpuCompletionQuery = IntPtr.Zero;
         OpenXrControllerActions? controllerActions = null;
         VrPointerInput? pointerInput = null;
+        SettingsOverlay? settingsOverlay = null;
         PanelSwapchainResources? panel = null;
         PanelSwapchainResources? cursorPanel = null;
         PanelSwapchainResources? uiPanel = null;
@@ -616,6 +619,8 @@ internal static class OpenXrProbe
                 destroySwapchain,
                 handAttached: controllerActions is not null);
             pointerInput = new VrPointerInput(VrSettingsRuntime.Current.Input);
+            settingsOverlay = new SettingsOverlay(session, localSpace, gameBackBufferDescription,
+                enumerateFormats, createSwapchain, enumerateImages, destroySwapchain);
             try
             {
                 cursorPanel = CreateCursorSwapchainResources(
@@ -657,7 +662,7 @@ internal static class OpenXrProbe
                 Marshal.SizeOf<XrCompositionLayerProjection>());
             stereoProjectionViewsPointer = Marshal.AllocHGlobal(
                 2 * Marshal.SizeOf<XrCompositionLayerProjectionView>());
-            layerPointers = Marshal.AllocHGlobal(4 * IntPtr.Size);
+            layerPointers = Marshal.AllocHGlobal(6 * IntPtr.Size);
             Marshal.WriteIntPtr(layerPointers, projectionLayerPointer);
             Marshal.WriteIntPtr(layerPointers, IntPtr.Size, uiLayerPointer);
             int stereoViewSize = Marshal.SizeOf<XrView>();
@@ -710,6 +715,7 @@ internal static class OpenXrProbe
             int frameResult = XrSuccess;
             bool sessionEnded = false;
             bool runtimeExitObserved = false;
+            long localSpaceChangeTime = 0;
             for (; !runtimeExitObserved; frames++)
             {
                 while (true)
@@ -722,6 +728,14 @@ internal static class OpenXrProbe
                     }
 
                     Check(pollResult, "poll active OpenXR session event");
+                    if (eventData.Type == xrTypeEventDataReferenceSpaceChangePending &&
+                        BitConverter.ToInt32(eventData.Varying, IntPtr.Size) == xrReferenceSpaceLocal)
+                    {
+                        // On x64 the event payload starts with session, then the space type and aligned XrTime.
+                        localSpaceChangeTime = Math.Max(localSpaceChangeTime, BitConverter.ToInt64(eventData.Varying, 2 * sizeof(long)));
+                        OpenXrLocomotionStateRegistry.CancelWorldGrip();
+                        OpenXrStereoStateRegistry.ClearContactHands();
+                    }
                     if (eventData.Type != 18)
                     {
                         continue;
@@ -846,6 +860,12 @@ internal static class OpenXrProbe
                     stereoViewFailureLogged = true;
                 }
 
+                bool worldPositionTracked = false;
+                VrTrackingSettings tracking = VrSettingsRuntime.Current.Tracking;
+                bool captureContactHands = tracking.ShowContactHands;
+                ulong worldFlags = 0;
+                OpenXrEyeState worldLeft = default;
+                OpenXrEyeState worldRight = default;
                 if (worldSpace != IntPtr.Zero)
                 {
                     for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
@@ -875,14 +895,18 @@ internal static class OpenXrProbe
                         (worldViewState.ViewStateFlags & 3UL) == 3UL;
                     if (worldViewsValid)
                     {
+                        worldPositionTracked = (worldViewState.ViewStateFlags & 8UL) != 0UL;
                         XrView worldLeftView = Marshal.PtrToStructure<XrView>(
                             worldStereoViewBuffer);
                         XrView worldRightView = Marshal.PtrToStructure<XrView>(
                             IntPtr.Add(worldStereoViewBuffer, stereoViewSize));
-                        OpenXrStereoStateRegistry.UpdateWorldViews(
-                            worldViewState.ViewStateFlags,
-                            CreateStereoEyeState(worldLeftView),
-                            CreateStereoEyeState(worldRightView));
+                        worldFlags = worldViewState.ViewStateFlags;
+                        worldLeft = CreateStereoEyeState(worldLeftView);
+                        worldRight = CreateStereoEyeState(worldRightView);
+                        if (!captureContactHands)
+                        {
+                            OpenXrStereoStateRegistry.UpdateWorldViews(worldFlags, worldLeft, worldRight, default);
+                        }
                         if (!worldStereoViewSampleLogged)
                         {
                             RuntimeProbe.Append(RuntimeProbe.GetLogPath(), new ProbeEvent
@@ -912,7 +936,10 @@ internal static class OpenXrProbe
                     {
                         controllerFrame = controllerActions.Update(
                             frameState.PredictedDisplayTime,
-                            localSpace);
+                            localSpace,
+                            worldSpace,
+                            captureContactHands && worldPositionTracked && frameState.ShouldRender != 0 &&
+                            frameState.PredictedDisplayTime > localSpaceChangeTime);
                     }
                     catch (Exception exception)
                     {
@@ -934,13 +961,32 @@ internal static class OpenXrProbe
                         }
                     }
                 }
+                settingsOverlay.Update(controllerFrame);
+                bool menuBlocksGame = settingsOverlay.BlocksGameInput;
+                if (worldFlags != 0 && captureContactHands)
+                {
+                    OpenXrStereoStateRegistry.UpdateWorldViews(worldFlags, worldLeft, worldRight,
+                        menuBlocksGame ? default : controllerFrame.ContactHands);
+                }
+                else if (worldFlags == 0)
+                {
+                    OpenXrStereoStateRegistry.ClearContactHands();
+                }
+                bool worldGripInputAvailable = !menuBlocksGame && controllerFrame.ActionsFocused &&
+                    frameState.ShouldRender != 0 && worldPositionTracked &&
+                    frameState.PredictedDisplayTime > localSpaceChangeTime &&
+                    controllerFrame.WorldGripValue is float gripValue &&
+                    (gripValue <= .25f || controllerFrame.WorldGripPosition.HasValue);
+                if (!worldGripInputAvailable) OpenXrLocomotionStateRegistry.CancelWorldGrip();
                 OpenXrLocomotionStateRegistry.Update(
-                    controllerFrame.LocomotionThumbstickActive,
+                    !menuBlocksGame && controllerFrame.LocomotionThumbstickActive,
                     controllerFrame.LocomotionThumbstickX,
                     controllerFrame.LocomotionThumbstickY,
-                    controllerFrame.ViewTurnThumbstickActive,
+                    !menuBlocksGame && controllerFrame.ViewTurnThumbstickActive,
                     controllerFrame.ViewTurnThumbstickX,
-                    controllerFrame.ViewTurnThumbstickY);
+                    controllerFrame.ViewTurnThumbstickY,
+                    menuBlocksGame ? null : controllerFrame.LeftThumbstickClick,
+                    menuBlocksGame ? null : controllerFrame.RightThumbstickClick);
                 bool handPanelInView =
                     controllerFrame.PanelPoseTracked &&
                     currentStereoViewsValid &&
@@ -948,6 +994,7 @@ internal static class OpenXrProbe
                         controllerFrame.PanelPose,
                         latestLeftView,
                         latestRightView);
+                bool submittedWorldStereo = false;
                 bool rawHandPanelEligible = controllerFrame.PanelEnabled && handPanelInView;
                 if (controllerFrame.PanelEnabled && !rawHandPanelEligible)
                 {
@@ -1031,7 +1078,7 @@ internal static class OpenXrProbe
                     }
 
                     bool handPanelReady = false;
-                    bool panelRequested = flatPanelMode || handPanelVisible;
+                    bool panelRequested = !settingsOverlay.Visible && (flatPanelMode || handPanelVisible);
                     if (panelRequested)
                     {
                         D3D11TextureLease? liveWorldTexture = PreferCompositedGameBackBuffer
@@ -1183,7 +1230,7 @@ internal static class OpenXrProbe
                             out pointerV);
                     }
                     VrPointerVisual pointerVisual = pointerInput.Update(
-                        handPanelReady && pointerHit,
+                        !menuBlocksGame && handPanelReady && pointerHit,
                         pointerU,
                         pointerV,
                         controllerFrame);
@@ -1639,6 +1686,7 @@ internal static class OpenXrProbe
                                 layerCount = 1;
                             }
                             layers = layerPointers;
+                            submittedWorldStereo = stereoTextures.UsesWorldSpace;
                         }
                     }
                     finally
@@ -1668,6 +1716,13 @@ internal static class OpenXrProbe
                     _ = pointerInput.Update(false, 0f, 0f, controllerFrame);
                 }
 
+                if (frameState.ShouldRender != 0 && currentStereoViewsValid)
+                {
+                    layerCount = settingsOverlay.Render(context, gpuCompletionQuery, layerPointers, layerCount,
+                        cursorPanel, cursorLayerPointer, acquireImage, waitImage, releaseImage);
+                    if (layerCount > 0) layers = layerPointers;
+                }
+
                 XrFrameEndInfo frameEnd = new()
                 {
                     Type = 12,
@@ -1684,6 +1739,13 @@ internal static class OpenXrProbe
                 if (frameResult != XrSuccess)
                 {
                     break;
+                }
+                if (worldGripInputAvailable)
+                {
+                    OpenXrLocomotionStateRegistry.UpdateWorldGrip(
+                        submittedWorldStereo ? controllerFrame.WorldGripValue : null,
+                        controllerFrame.WorldGripPosition,
+                        frameState.PredictedDisplayTime);
                 }
 
                 if (layerCount != 0)
@@ -1788,6 +1850,7 @@ internal static class OpenXrProbe
                 Marshal.FreeHGlobal(stereoProjectionViewsPointer);
             }
 
+            settingsOverlay?.Dispose();
             verticalBlitter?.Dispose();
             pointerInput?.Dispose();
             DestroyEyeSwapchainResources(rightEyePanel, destroySwapchain);
@@ -1797,6 +1860,7 @@ internal static class OpenXrProbe
             DestroyPanelSwapchainResources(panel, destroySwapchain);
             controllerActions?.Dispose();
             OpenXrLocomotionStateRegistry.Clear();
+            OpenXrStereoStateRegistry.ClearContactHands();
 
             if (worldSpace != IntPtr.Zero)
             {

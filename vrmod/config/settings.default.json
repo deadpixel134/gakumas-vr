@@ -21,6 +21,8 @@
   "tracking": {
     "liveSixDofEnabled": true,
     "locomotionEnabled": true,
+    "worldGripEnabled": true,
+    "showContactHands": true,
     "locomotionHand": "right",
     "locomotionSpeed": 1.95,
     "viewTurnMode": "snap",

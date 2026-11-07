@@ -4,7 +4,7 @@ using GakumasVR.Core;
 
 namespace Doorstop;
 
-internal sealed class MainThreadSampler
+internal sealed partial class MainThreadSampler
 {
     private enum StereoSpatialProfileKind
     {
@@ -23,7 +23,6 @@ internal sealed class MainThreadSampler
     private const int StereoBlackFrameRetryMilliseconds = 100;
     private const int SixDofPoseMaximumAgeMilliseconds = 250;
     private const float SixDofHeadTranslationScale = 1f;
-    private const int LocomotionInputMaximumAgeMilliseconds = 250;
     private const float LocomotionDeadzone = 0.20f;
     private const int StereoFrozenDiagnosticDurationMilliseconds = 30_000;
     private const int NaturalUiVisibilitySettleMilliseconds = 500;
@@ -34,19 +33,19 @@ internal sealed class MainThreadSampler
     private readonly Il2CppApi _api;
     private readonly IntPtr _domain;
     private readonly string _logPath;
-    private readonly string _stereoVisualEffectMode;
-    private readonly VrManualVisualEffectSettings _manualVisualEffects;
-    private readonly float _stereoRenderResolutionScale;
-    private readonly float _stereoWorldEyeOffsetScale;
-    private readonly VrSpatialScaleProfile _liveSpatialProfile;
-    private readonly VrSpatialScaleProfile _nonLiveSpatialProfile;
-    private readonly bool _liveSixDofEnabled;
-    private readonly bool _locomotionEnabled;
-    private readonly VrHand _locomotionHand;
-    private readonly float _locomotionSpeed;
-    private readonly VrViewTurnMode _viewTurnMode;
-    private readonly float _viewTurnSpeed;
-    private readonly int _viewSnapAngleDegrees;
+    private string _stereoVisualEffectMode;
+    private VrManualVisualEffectSettings _manualVisualEffects;
+    private float _stereoRenderResolutionScale;
+    private float _stereoWorldEyeOffsetScale;
+    private VrSpatialScaleProfile _liveSpatialProfile;
+    private VrSpatialScaleProfile _nonLiveSpatialProfile;
+    private bool _liveSixDofEnabled;
+    private bool _locomotionEnabled;
+    private VrHand _locomotionHand;
+    private float _locomotionSpeed;
+    private VrViewTurnMode _viewTurnMode;
+    private float _viewTurnSpeed;
+    private int _viewSnapAngleDegrees;
     private readonly FrameCountDelegate _replacement;
     private readonly DrawFlareDelegate _drawFlareReplacement;
     private readonly VlPostProcessRenderDelegate _vlPostProcessRenderReplacement;
@@ -108,8 +107,8 @@ internal sealed class MainThreadSampler
     private bool _uiCaptureInProgress;
     private IntPtr _uiCaptureRequest;
     private IntPtr _uiCaptureRenderTexture;
-    private uint _uiCaptureRequestHandle;
-    private uint _uiCaptureRenderTextureHandle;
+    private IntPtr _uiCaptureRequestHandle;
+    private IntPtr _uiCaptureRenderTextureHandle;
     private bool _uiCaptureDestinationVerified;
     private IntPtr _cachedThreeDTextureRawImage;
     private IntPtr _cachedThreeDTextureCanvasRenderer;
@@ -133,10 +132,10 @@ internal sealed class MainThreadSampler
     private IntPtr _uiReplayRenderTargetIdentifier;
     private IntPtr _uiReplayCommandBuffer;
     private IntPtr _uiReplayPropertyBlock;
-    private uint _uiReplayRenderTextureHandle;
-    private uint _uiReplayRenderTargetIdentifierHandle;
-    private uint _uiReplayCommandBufferHandle;
-    private uint _uiReplayPropertyBlockHandle;
+    private IntPtr _uiReplayRenderTextureHandle;
+    private IntPtr _uiReplayRenderTargetIdentifierHandle;
+    private IntPtr _uiReplayCommandBufferHandle;
+    private IntPtr _uiReplayPropertyBlockHandle;
     private int _uiReplayMainTexturePropertyId;
     private long _nextUiReplayMilliseconds;
     private int _uiReplayFrameCount;
@@ -154,24 +153,24 @@ internal sealed class MainThreadSampler
     private IntPtr _stereoAlternateRightRenderTexture;
     private IntPtr _stereoThirdLeftRenderTexture;
     private IntPtr _stereoThirdRightRenderTexture;
-    private uint _stereoLeftGameObjectHandle;
-    private uint _stereoRightGameObjectHandle;
-    private uint _stereoLeftCameraHandle;
-    private uint _stereoRightCameraHandle;
-    private uint _stereoLeftRenderTextureHandle;
-    private uint _stereoRightRenderTextureHandle;
-    private uint _stereoAlternateLeftRenderTextureHandle;
-    private uint _stereoAlternateRightRenderTextureHandle;
-    private uint _stereoThirdLeftRenderTextureHandle;
-    private uint _stereoThirdRightRenderTextureHandle;
+    private IntPtr _stereoLeftGameObjectHandle;
+    private IntPtr _stereoRightGameObjectHandle;
+    private IntPtr _stereoLeftCameraHandle;
+    private IntPtr _stereoRightCameraHandle;
+    private IntPtr _stereoLeftRenderTextureHandle;
+    private IntPtr _stereoRightRenderTextureHandle;
+    private IntPtr _stereoAlternateLeftRenderTextureHandle;
+    private IntPtr _stereoAlternateRightRenderTextureHandle;
+    private IntPtr _stereoThirdLeftRenderTextureHandle;
+    private IntPtr _stereoThirdRightRenderTextureHandle;
     private IntPtr _stereoLeftRenderRequest;
     private IntPtr _stereoRightRenderRequest;
     private IntPtr _stereoAlternateLeftRenderRequest;
     private IntPtr _stereoAlternateRightRenderRequest;
-    private uint _stereoLeftRenderRequestHandle;
-    private uint _stereoRightRenderRequestHandle;
-    private uint _stereoAlternateLeftRenderRequestHandle;
-    private uint _stereoAlternateRightRenderRequestHandle;
+    private IntPtr _stereoLeftRenderRequestHandle;
+    private IntPtr _stereoRightRenderRequestHandle;
+    private IntPtr _stereoAlternateLeftRenderRequestHandle;
+    private IntPtr _stereoAlternateRightRenderRequestHandle;
     private IntPtr _stereoGpuCompletionQuery;
     private IntPtr _stereoPublishedLeftRenderTexture;
     private IntPtr _stereoPublishedRightRenderTexture;
@@ -203,7 +202,15 @@ internal sealed class MainThreadSampler
     private bool _drawFlareHookInstalled;
     private int _renderingDataCameraDataOffset;
     private int _cameraDataCameraOffset;
-    private int _insideCloneVlPostProcess;
+    [ThreadStatic] private static int _insideCloneVlPostProcess;
+    [ThreadStatic] private static float _comparisonEyeFov;
+    [ThreadStatic] private static float _comparisonProjectionScale;
+    private float _comparisonSourceProjectionY;
+    private float _lastComparisonEyeFov;
+    private float _lastComparisonProjectionScale;
+    private long _settingsRevision = 1;
+    private IntPtr _projectionGetter;
+    private readonly Dictionary<IntPtr, IntPtr> _vfxHookOriginals = new();
     private IntPtr _vlBloomIntensityField;
     private IntPtr _vlBloomThresholdField;
     private IntPtr _vlBloomDiffusionField;
@@ -273,9 +280,12 @@ internal sealed class MainThreadSampler
     private long _lastLocomotionUpdateTimestamp;
     private bool _locomotionWasMoving;
     private bool _viewTurnWasMoving;
-    private bool _liveSixDofAnchorCaptured;
-    private TrackingVector3 _liveSixDofAnchorPosition;
-    private TrackingQuaternion _liveSixDofAnchorRotation;
+    private string _navigationScene = string.Empty;
+    private bool _navigationUsesLiveCamera;
+    private bool? _followGameCamera;
+    private bool _fixedCameraAnchorCaptured;
+    private TrackingVector3 _fixedCameraAnchorPosition;
+    private TrackingQuaternion _fixedCameraAnchorRotation;
     private IntPtr _stereoPumpSourceCamera;
     private IntPtr _stereoPumpSourceTexture;
     private int _lastStereoPumpFrameCount = -1;
@@ -309,6 +319,8 @@ internal sealed class MainThreadSampler
         _stereoSpatialMultipliers = SpatialScaleResolver.Resolve(_liveSpatialProfile);
         _liveSixDofEnabled = settings.Tracking.LiveSixDofEnabled;
         _locomotionEnabled = settings.Tracking.LocomotionEnabled;
+        _worldGripEnabled = settings.Tracking.WorldGripEnabled;
+        _showContactHands = settings.Tracking.ShowContactHands;
         _locomotionHand = settings.Tracking.LocomotionHand;
         _locomotionSpeed = settings.Tracking.LocomotionSpeed;
         _viewTurnMode = settings.Tracking.ViewTurnMode;
@@ -413,6 +425,7 @@ internal sealed class MainThreadSampler
         int cameraCount = InvokeStaticInt(coreImage, "UnityEngine", "Camera", "get_allCamerasCount");
         string scene = InvokeSceneName(coreImage);
         _stereoPumpCoreImage = coreImage;
+        if (!_stereoNaturalRenderArmed) ApplyLiveSettings(DateTimeOffset.UtcNow, coreImage);
         string signature = $"{width}x{height}|{orientation}|{scene}";
         DateTimeOffset now = DateTimeOffset.UtcNow;
         bool captureM5Topology = ShouldCaptureM5Topology(scene);
@@ -732,10 +745,11 @@ internal sealed class MainThreadSampler
         }
 
         bool concreteLiveScene = IsConcreteLive3DScene(scene);
-        if (_liveSixDofAnchorCaptured && !IsLiveScene(scene))
+        if (_navigationUsesLiveCamera ? !IsLiveScene(scene) : _navigationScene != scene)
         {
             ResetSixDofNavigationState();
         }
+        _navigationScene = scene;
         bool liveStereoEligible =
             concreteLiveScene &&
             width > height &&
@@ -1113,6 +1127,9 @@ internal sealed class MainThreadSampler
             }
         }
 
+        ApplyLiveSettings(now, coreImage);
+        if (!_stereoCloneSetupReady) return;
+
         if (pumpNow < _nextStereoRenderMilliseconds)
         {
             return;
@@ -1166,8 +1183,8 @@ internal sealed class MainThreadSampler
             _stereoRightCamera != IntPtr.Zero;
         bool retiredLiveGeneration = hadCloneGeneration &&
             !_stereoGenerationRequiresDynamicUi;
-        bool preserveIndependentLiveNavigation =
-            _liveSixDofAnchorCaptured && IsLiveScene(scene);
+        bool preserveNavigation = (_navigationUsesLiveCamera && IsLiveScene(scene)) ||
+            (_followGameCamera == false && _fixedCameraAnchorCaptured && _navigationScene == scene);
         string stage = "stop-eye-cameras";
         Exception? resetFailure = null;
         try
@@ -1190,6 +1207,8 @@ internal sealed class MainThreadSampler
         finally
         {
             UnityRenderSourceRegistry.ClearStereoTextures();
+            _contactHandFrame = null;
+            OpenXrLocomotionStateRegistry.CancelWorldGrip();
             UnityRenderSourceRegistry.ClearLiveUiTexture();
 
             // Scene transitions destroy clone Cameras and can also invalidate
@@ -1199,35 +1218,36 @@ internal sealed class MainThreadSampler
             _stereoRightCamera = IntPtr.Zero;
             _stereoLeftAdditionalCameraData = IntPtr.Zero;
             _stereoRightAdditionalCameraData = IntPtr.Zero;
-            _stereoLeftGameObjectHandle = 0;
-            _stereoRightGameObjectHandle = 0;
-            _stereoLeftCameraHandle = 0;
-            _stereoRightCameraHandle = 0;
+            _stereoLeftGameObjectHandle = IntPtr.Zero;
+            _stereoRightGameObjectHandle = IntPtr.Zero;
+            _stereoLeftCameraHandle = IntPtr.Zero;
+            _stereoRightCameraHandle = IntPtr.Zero;
             _stereoLeftRenderTexture = IntPtr.Zero;
             _stereoRightRenderTexture = IntPtr.Zero;
             _stereoAlternateLeftRenderTexture = IntPtr.Zero;
             _stereoAlternateRightRenderTexture = IntPtr.Zero;
             _stereoThirdLeftRenderTexture = IntPtr.Zero;
             _stereoThirdRightRenderTexture = IntPtr.Zero;
-            _stereoLeftRenderTextureHandle = 0;
-            _stereoRightRenderTextureHandle = 0;
-            _stereoAlternateLeftRenderTextureHandle = 0;
-            _stereoAlternateRightRenderTextureHandle = 0;
-            _stereoThirdLeftRenderTextureHandle = 0;
-            _stereoThirdRightRenderTextureHandle = 0;
+            _stereoLeftRenderTextureHandle = IntPtr.Zero;
+            _stereoRightRenderTextureHandle = IntPtr.Zero;
+            _stereoAlternateLeftRenderTextureHandle = IntPtr.Zero;
+            _stereoAlternateRightRenderTextureHandle = IntPtr.Zero;
+            _stereoThirdLeftRenderTextureHandle = IntPtr.Zero;
+            _stereoThirdRightRenderTextureHandle = IntPtr.Zero;
             _stereoLeftRenderRequest = IntPtr.Zero;
             _stereoRightRenderRequest = IntPtr.Zero;
             _stereoAlternateLeftRenderRequest = IntPtr.Zero;
             _stereoAlternateRightRenderRequest = IntPtr.Zero;
-            _stereoLeftRenderRequestHandle = 0;
-            _stereoRightRenderRequestHandle = 0;
-            _stereoAlternateLeftRenderRequestHandle = 0;
-            _stereoAlternateRightRenderRequestHandle = 0;
+            _stereoLeftRenderRequestHandle = IntPtr.Zero;
+            _stereoRightRenderRequestHandle = IntPtr.Zero;
+            _stereoAlternateLeftRenderRequestHandle = IntPtr.Zero;
+            _stereoAlternateRightRenderRequestHandle = IntPtr.Zero;
             if (_stereoGpuCompletionQuery != IntPtr.Zero)
             {
                 D3D11Interop.Release(_stereoGpuCompletionQuery);
                 _stereoGpuCompletionQuery = IntPtr.Zero;
             }
+            _comparisonSourceProjectionY = float.NaN;
             _stereoCloneSetupAttempted = false;
             _stereoCloneSetupReady = false;
             _stereoGenerationRequiresDynamicUi = false;
@@ -1276,7 +1296,7 @@ internal sealed class MainThreadSampler
             _stereoRateWindowStartFrameCount = 0;
             _nextStereoStateUnavailableLogUtc = DateTimeOffset.MinValue;
             _stereoGenerationUsesSixDof = false;
-            if (!preserveIndependentLiveNavigation)
+            if (!preserveNavigation)
             {
                 ResetSixDofNavigationState();
             }
@@ -1286,8 +1306,8 @@ internal sealed class MainThreadSampler
             _cachedUiCamera = IntPtr.Zero;
             _uiCaptureRequest = IntPtr.Zero;
             _uiCaptureRenderTexture = IntPtr.Zero;
-            _uiCaptureRequestHandle = 0;
-            _uiCaptureRenderTextureHandle = 0;
+            _uiCaptureRequestHandle = IntPtr.Zero;
+            _uiCaptureRenderTextureHandle = IntPtr.Zero;
             _uiCaptureDestinationVerified = false;
             _uiNaturalCamera = IntPtr.Zero;
             _uiNaturalOriginalTargetTexture = IntPtr.Zero;
@@ -2383,6 +2403,17 @@ internal sealed class MainThreadSampler
                 {
                     return;
                 }
+
+                // Continuous stereo can arm the next pair in this same call.
+                // Consume pending settings while both eye cameras are stopped.
+                if (VrSettingsRuntime.Revision != _settingsRevision)
+                {
+                    ApplyLiveSettings(now, coreImage);
+                    if (!_stereoCloneSetupReady)
+                    {
+                        return;
+                    }
+                }
             }
 
             bool useSixDof = _stereoGenerationUsesSixDof;
@@ -2410,13 +2441,17 @@ internal sealed class MainThreadSampler
             }
             OpenXrStereoStateSnapshot stereo = stereoSnapshot;
             UnityStereoPose sixDofPose = default;
+            TrackingStereoPose trackedPose = useSixDof ? ToTrackingStereoPose(stereo) : default;
             bool positionTracked = (stereo.ViewStateFlags & 8UL) != 0UL;
+            float headTranslationScale = positionTracked
+                ? SixDofHeadTranslationScale * _stereoSpatialMultipliers.HeadTranslationMultiplier
+                : 0f;
+            float effectiveEyeOffsetScale =
+                _stereoWorldEyeOffsetScale * _stereoSpatialMultipliers.EyeOffsetMultiplier;
             if (useSixDof && !_sixDofPoseMapper.TryMap(
-                    ToTrackingStereoPose(stereo),
-                    positionTracked
-                        ? SixDofHeadTranslationScale * _stereoSpatialMultipliers.HeadTranslationMultiplier
-                        : 0f,
-                    _stereoWorldEyeOffsetScale * _stereoSpatialMultipliers.EyeOffsetMultiplier,
+                    trackedPose,
+                    headTranslationScale,
+                    effectiveEyeOffsetScale,
                     out sixDofPose))
             {
                 return;
@@ -2434,39 +2469,26 @@ internal sealed class MainThreadSampler
                 _lastLiveCamera);
             IntPtr transformClass = FindClass(coreImage, "UnityEngine", "Transform");
             IntPtr cameraClass = FindClass(coreImage, "UnityEngine", "Camera");
-            bool independentLiveAnchor = useSixDof &&
-                !_stereoGenerationRequiresDynamicUi;
-            if (independentLiveAnchor && !_liveSixDofAnchorCaptured)
-            {
-                CaptureLiveSixDofAnchor(transformClass, sourceTransform);
-                RuntimeProbe.Append(_logPath, new ProbeEvent
-                {
-                    TimestampUtc = now,
-                    Event = "live-sixdof-independent-anchor-captured",
-                    BootstrapVersion = RuntimeProbe.BootstrapVersion,
-                    ProcessId = Environment.ProcessId,
-                    Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
-                    Reason = "The live VR origin was captured once for this stereo generation; subsequent game-camera path and angle changes do not move the VR viewpoint."
-                });
-            }
+            OpenXrLocomotionStateSnapshot? navigationInput = useSixDof
+                ? OpenXrLocomotionStateRegistry.Consume() : null;
             TrackingVector3 navigationBasePosition = default;
             TrackingQuaternion navigationBaseRotation =
                 new(0f, 0f, 0f, 1f);
-            if (useSixDof)
-            {
-                if (independentLiveAnchor)
-                {
-                    navigationBasePosition = _liveSixDofAnchorPosition;
-                    navigationBaseRotation = _liveSixDofAnchorRotation;
-                }
-                else if (!TryReadWorldPose(
+            if (useSixDof && !TryResolveNavigationBase(
+                    now,
                     transformClass,
                     sourceTransform,
+                    navigationInput,
                     out navigationBasePosition,
                     out navigationBaseRotation))
-                {
-                    return;
-                }
+            {
+                return;
+            }
+            if (useSixDof && navigationInput?.ResetView == true &&
+                !_sixDofPoseMapper.TryRecenter(trackedPose, headTranslationScale,
+                    effectiveEyeOffsetScale, positionTracked, out sixDofPose))
+            {
+                return;
             }
             TrackingVector3 locomotionOffset = default;
             TrackingQuaternion navigationWorldRotation = useSixDof
@@ -2474,8 +2496,15 @@ internal sealed class MainThreadSampler
                     now,
                     navigationBaseRotation,
                     sixDofPose.Left,
+                    _locomotionEnabled && navigationInput?.ResetView != true ? navigationInput : null,
                     out locomotionOffset)
                 : new TrackingQuaternion(0f, 0f, 0f, 1f);
+            if (useSixDof && _worldGripEnabled && positionTracked &&
+                navigationInput is { ResetView: false, WorldGripDelta: var handDelta })
+            {
+                ApplyWorldGripMotion(now, handDelta, headTranslationScale, navigationWorldRotation);
+            }
+            TrackingVector3 controllerOffset = AddTrackingPosition(locomotionOffset, _worldGripOffset);
             TrackingQuaternion leftWorldRotation = default;
             TrackingQuaternion rightWorldRotation = default;
             if (useSixDof &&
@@ -2494,8 +2523,6 @@ internal sealed class MainThreadSampler
             {
                 return;
             }
-            float effectiveEyeOffsetScale =
-                _stereoWorldEyeOffsetScale * _stereoSpatialMultipliers.EyeOffsetMultiplier;
             TrackingVector3 leftWorldTrackedPosition = useSixDof
                 ? AddTrackingPosition(
                     navigationBasePosition,
@@ -2503,7 +2530,7 @@ internal sealed class MainThreadSampler
                         RotateTrackingVector(
                             navigationWorldRotation,
                             sixDofPose.Left.LocalPosition),
-                        locomotionOffset))
+                        controllerOffset))
                 : new TrackingVector3(
                     stereo.Left.PositionX * effectiveEyeOffsetScale,
                     stereo.Left.PositionY * effectiveEyeOffsetScale,
@@ -2515,7 +2542,7 @@ internal sealed class MainThreadSampler
                         RotateTrackingVector(
                             navigationWorldRotation,
                             sixDofPose.Right.LocalPosition),
-                        locomotionOffset))
+                        controllerOffset))
                 : new TrackingVector3(
                     stereo.Right.PositionX * effectiveEyeOffsetScale,
                     stereo.Right.PositionY * effectiveEyeOffsetScale,
@@ -2615,6 +2642,16 @@ internal sealed class MainThreadSampler
                 FindMethodBySignature(transformClass, "set_position", "UnityEngine.Vector3"),
                 leftTransform,
                 leftWorldPosition);
+            bool contactRequested = _showContactHands;
+            // Camera-following stereo renders VIEW-space eyes. Keep that render pose and use the
+            // separate, coherent LOCAL hand/eye sample only for aligning the hands to the clones.
+            OpenXrStereoStateSnapshot? contactStereo = contactRequested
+                ? useSixDof ? stereo : OpenXrStereoStateRegistry.SnapshotWorld(SixDofPoseMaximumAgeMilliseconds)
+                : null;
+            if (contactStereo is not null && _showContactHands)
+            {
+                nearClip = PrepareContactPilotEyeProjection(now, coreImage, cameraClass, nearClip, effectiveEyeOffsetScale);
+            }
             _ = InvokeWithObjectArgument(
                 FindMethodBySignature(
                     cameraClass,
@@ -2642,6 +2679,20 @@ internal sealed class MainThreadSampler
                 now,
                 _stereoRightCamera,
                 _stereoRightAdditionalCameraData);
+
+            _contactHandFrame = null;
+            _contactComposedEyes = 0;
+            ResetContactRenderEvidencePair();
+            if (contactStereo is not null && !useSixDof &&
+                !TryReadContactEyePoses(transformClass, leftTransform, rightTransform,
+                    out leftWorldTrackedPosition, out rightWorldTrackedPosition, out leftWorldRotation, out rightWorldRotation))
+                contactStereo = null;
+
+            if (contactStereo is not null)
+            {
+                PrepareContactHands(now, coreImage, stereo, contactStereo, leftWorldTrackedPosition,
+                    rightWorldTrackedPosition, leftWorldRotation, rightWorldRotation, nearClip);
+            }
 
             Volatile.Write(ref _stereoNaturalRenderCompletionMask, 0);
             InvokeInstanceBooleanSetter(
@@ -2682,7 +2733,7 @@ internal sealed class MainThreadSampler
                     Reason = useSixDof
                         ? _m6NonLiveWorldSurfaceEligible
                             ? "Non-live 6DoF is active: clone cameras use scene-relative XR_LOCAL head rotation and 1:1 positional movement, while each published eye pair retains its exact render pose for projection submission."
-                            : "The experimental live 6DoF option is active: the entry camera pose is retained as an independent VR anchor, game-camera path and angle changes are ignored, and XR_LOCAL head movement plus view-relative thumbstick locomotion control the viewpoint."
+                            : "Live 6DoF is active. XR_LOCAL head tracking and thumbstick navigation use the selected game-camera or fixed base."
                         : "Triple-buffered eye cameras publish after both clone renders complete; the first pair retains synchronous GPU validation while subsequent pairs rely on protected D3D11 command ordering, OpenXR final GPU completion, and lease-aware buffer reuse."
                 });
             }
@@ -2752,7 +2803,10 @@ internal sealed class MainThreadSampler
 
     private void FinalizeNaturalStereoRender(DateTimeOffset now, IntPtr coreImage)
     {
+        ReportContactRenderEvidence(now);
         long finalizeStartedTimestamp = Stopwatch.GetTimestamp();
+        CompleteContactOverlay(coreImage);
+        _contactHandFrame = null;
         long armTimestamp = _stereoNaturalRenderArmTimestamp;
         long presentDelta = D3D11DeviceCapture.PresentSerial -
             _stereoNaturalRenderStartPresentSerial;
@@ -3261,12 +3315,12 @@ internal sealed class MainThreadSampler
         return renderTexture;
     }
 
-    private (IntPtr Request, uint Handle) CreateSingleCameraRenderRequest(IntPtr destination)
+    private (IntPtr Request, IntPtr Handle) CreateSingleCameraRenderRequest(IntPtr destination)
     {
         IntPtr universalImage = FindImage("Unity.RenderPipelines.Universal.Runtime.dll");
         IntPtr requestClass = FindClassBySimpleName(universalImage, "SingleCameraRequest");
         IntPtr request = _api.ObjectNew(requestClass);
-        uint handle = RootObject(request, "SingleCameraRequest");
+        IntPtr handle = RootObject(request, "SingleCameraRequest");
         _ = Invoke(FindMethod(requestClass, ".ctor"), request);
 
         IntPtr destinationField = FindField(requestClass, "destination");
@@ -3331,6 +3385,7 @@ internal sealed class MainThreadSampler
         DateTimeOffset now,
         TrackingQuaternion baseWorldRotation,
         UnityEyePose physicalHeadPose,
+        OpenXrLocomotionStateSnapshot? input,
         out TrackingVector3 locomotionOffset)
     {
         long timestamp = Stopwatch.GetTimestamp();
@@ -3340,10 +3395,6 @@ internal sealed class MainThreadSampler
                 (float)Stopwatch.Frequency;
         _lastLocomotionUpdateTimestamp = timestamp;
 
-        OpenXrLocomotionStateSnapshot? input = _locomotionEnabled
-            ? OpenXrLocomotionStateRegistry.Snapshot(
-                LocomotionInputMaximumAgeMilliseconds)
-            : null;
         float axisX = input?.AxisX ?? 0f;
         float axisY = input?.AxisY ?? 0f;
         float viewTurnAxisX = input?.ViewTurnAxisX ?? 0f;
@@ -3437,55 +3488,92 @@ internal sealed class MainThreadSampler
     private void ResetSixDofNavigationState()
     {
         _sixDofPoseMapper.Reset();
+        ResetControllerNavigationOffsets();
+        _navigationUsesLiveCamera = false;
+        _followGameCamera = null;
+        _fixedCameraAnchorCaptured = false;
+    }
+
+    private void ResetControllerNavigationOffsets()
+    {
         _locomotionIntegrator.Reset();
         _viewTurnIntegrator.Reset();
+        _worldGripOffset = default;
+        OpenXrLocomotionStateRegistry.CancelWorldGrip();
         _lastLocomotionUpdateTimestamp = 0;
         _locomotionWasMoving = false;
         _viewTurnWasMoving = false;
-        _liveSixDofAnchorCaptured = false;
-        _liveSixDofAnchorPosition = default;
-        _liveSixDofAnchorRotation = default;
     }
 
     private static VrHand OppositeHand(VrHand hand) =>
         hand == VrHand.Left ? VrHand.Right : VrHand.Left;
 
-    private void CaptureLiveSixDofAnchor(
+    private bool TryResolveNavigationBase(
+        DateTimeOffset now,
         IntPtr transformClass,
-        IntPtr sourceTransform)
+        IntPtr sourceTransform,
+        OpenXrLocomotionStateSnapshot? input,
+        out TrackingVector3 position,
+        out TrackingQuaternion rotation)
     {
-        IntPtr boxedPosition = Invoke(
-            FindMethod(transformClass, "get_position"),
-            sourceTransform);
-        IntPtr positionValue = boxedPosition == IntPtr.Zero
-            ? IntPtr.Zero
-            : _api.ObjectUnbox(boxedPosition);
-        IntPtr boxedRotation = Invoke(
-            FindMethod(transformClass, "get_rotation"),
-            sourceTransform);
-        IntPtr rotationValue = boxedRotation == IntPtr.Zero
-            ? IntPtr.Zero
-            : _api.ObjectUnbox(boxedRotation);
-        if (positionValue == IntPtr.Zero || rotationValue == IntPtr.Zero)
+        bool live = !_stereoGenerationRequiresDynamicUi;
+        bool reset = input?.ResetView == true;
+        bool toggle = input?.ToggleCameraFollow == true;
+        bool follow = _followGameCamera ?? !live;
+        if (toggle)
         {
-            throw new InvalidOperationException(
-                "The live source-camera transform could not be captured for independent 6DoF.");
+            follow = !follow;
         }
 
-        UiReplayVector3 position =
-            Marshal.PtrToStructure<UiReplayVector3>(positionValue);
-        UiReplayQuaternion rotation =
-            Marshal.PtrToStructure<UiReplayQuaternion>(rotationValue);
-        _liveSixDofAnchorPosition = new TrackingVector3(
-            position.X,
-            position.Y,
-            position.Z);
-        _liveSixDofAnchorRotation = new TrackingQuaternion(
-            rotation.X,
-            rotation.Y,
-            rotation.Z,
-            rotation.W);
-        _liveSixDofAnchorCaptured = true;
+        bool captureAnchor = !follow && (!_fixedCameraAnchorCaptured || reset || toggle);
+        position = _fixedCameraAnchorPosition;
+        rotation = _fixedCameraAnchorRotation;
+        if ((follow || captureAnchor) &&
+            !TryReadWorldPose(transformClass, sourceTransform, out position, out rotation))
+        {
+            return false;
+        }
+
+        if (captureAnchor)
+        {
+            if (live && !_fixedCameraAnchorCaptured)
+            {
+                RuntimeProbe.Append(_logPath, new ProbeEvent
+                {
+                    TimestampUtc = now,
+                    Event = "live-sixdof-independent-anchor-captured",
+                    ProcessId = Environment.ProcessId,
+                    Reason = "Captured the game camera pose as the fixed live VR base."
+                });
+            }
+            _fixedCameraAnchorPosition = position;
+            _fixedCameraAnchorRotation = rotation;
+            _fixedCameraAnchorCaptured = true;
+        }
+        _navigationUsesLiveCamera = live;
+        if (toggle)
+        {
+            _followGameCamera = follow;
+            RuntimeProbe.Append(_logPath, new ProbeEvent
+            {
+                TimestampUtc = now,
+                Event = "controller-camera-follow-changed",
+                ProcessId = Environment.ProcessId,
+                Reason = $"enabled={follow};live={live}"
+            });
+        }
+        if (reset)
+        {
+            ResetControllerNavigationOffsets();
+            RuntimeProbe.Append(_logPath, new ProbeEvent
+            {
+                TimestampUtc = now,
+                Event = "controller-view-reset",
+                ProcessId = Environment.ProcessId,
+                Reason = $"source=game-camera;follow={follow};live={live};recenter=tracking-pose"
+            });
+        }
+        return true;
     }
 
     private void ApplyWorldCameraRotation(
@@ -3685,7 +3773,7 @@ internal sealed class MainThreadSampler
     }
 
     private (IntPtr Camera, IntPtr AdditionalCameraData,
-        uint GameObjectHandle, uint CameraHandle)
+        IntPtr GameObjectHandle, IntPtr CameraHandle)
         CreateDisabledStereoCamera(
             IntPtr coreImage,
             IntPtr sourceCamera,
@@ -3695,7 +3783,7 @@ internal sealed class MainThreadSampler
         IntPtr gameObjectClass = FindClass(coreImage, "UnityEngine", "GameObject");
         IntPtr cameraClass = FindClass(coreImage, "UnityEngine", "Camera");
         IntPtr gameObject = _api.ObjectNew(gameObjectClass);
-        uint gameObjectHandle = RootObject(gameObject, name + " GameObject");
+        IntPtr gameObjectHandle = RootObject(gameObject, name + " GameObject");
         _ = InvokeWithObjectArgument(
             FindMethodBySignature(gameObjectClass, ".ctor", "System.String"),
             gameObject,
@@ -3715,7 +3803,7 @@ internal sealed class MainThreadSampler
             FindMethodBySignature(gameObjectClass, "AddComponent", "System.Type"),
             gameObject,
             cameraType);
-        uint cameraHandle = RootObject(camera, name + " component");
+        IntPtr cameraHandle = RootObject(camera, name + " component");
         _ = InvokeWithObjectArgument(
             FindMethodBySignature(cameraClass, "CopyFrom", "UnityEngine.Camera"),
             camera,
@@ -4049,6 +4137,8 @@ internal sealed class MainThreadSampler
                             "VLBloom intensity and threshold remain at source values while diffusion is scaled to 50 percent; VL depth of field and texture blur are bypassed only for identified stereo clones.",
                         "vl-bloom-140-diffusion-min-vldof-textureblur-off" =>
                             "VLBloom intensity is scaled to 140 percent and integer diffusion is clamped to its minimum enabled step; threshold remains at the source value, and VL depth of field and texture blur are bypassed only for identified stereo clones.",
+                        VrVisualEffectModes.VrifyFollow =>
+                            "Stereo clone VLBloom keeps source intensity and threshold and adjusts diffusion using the eye-to-source vertical projection ratio. VL depth of field and texture blur are bypassed for the clones.",
                         VrVisualEffectModes.Manual =>
                             $"Manual clone VFX: bloom={_manualVisualEffects.VlBloomEnabled};" +
                             $"bloomIntensity={_manualVisualEffects.VlBloomIntensityScale:R};" +
@@ -4519,28 +4609,7 @@ internal sealed class MainThreadSampler
             intParameterClass,
             "m_Value");
         IntPtr universalImage = FindImage("Unity.RenderPipelines.Universal.Runtime.dll");
-        IntPtr renderingDataClass = FindClass(
-            universalImage,
-            "UnityEngine.Rendering.Universal",
-            "RenderingData");
-        IntPtr cameraDataClass = FindClass(
-            universalImage,
-            "UnityEngine.Rendering.Universal",
-            "CameraData");
-        _renderingDataCameraDataOffset = _api.FieldGetOffset(
-            FindField(renderingDataClass, "cameraData"));
-        _cameraDataCameraOffset = _api.FieldGetOffset(
-            FindField(cameraDataClass, "camera"));
-        if (_renderingDataCameraDataOffset < 0 ||
-            _renderingDataCameraDataOffset > 4_096 ||
-            _cameraDataCameraOffset < 0 ||
-            _cameraDataCameraOffset > 4_096)
-        {
-            throw new InvalidOperationException(
-                $"Unexpected RenderingData camera offsets: " +
-                $"cameraData={_renderingDataCameraDataOffset}, " +
-                $"camera={_cameraDataCameraOffset}.");
-        }
+        ReadRenderingDataCameraOffsets(universalImage);
 
         IntPtr renderMethod = FindMethod(passClass, "Render", 2);
         IntPtr renderTarget = Marshal.ReadIntPtr(renderMethod, 0);
@@ -4551,8 +4620,14 @@ internal sealed class MainThreadSampler
         }
 
         IntPtr hookExport = NativeLibrary.GetExport(_dobbyLibrary, "DobbyHook");
-        DobbyHookDelegate hook = Marshal.GetDelegateForFunctionPointer<DobbyHookDelegate>(
-            hookExport);
+        DobbyHookDelegate nativeHook = Marshal.GetDelegateForFunctionPointer<DobbyHookDelegate>(hookExport);
+        DobbyHookDelegate hook = (IntPtr target, IntPtr detour, out IntPtr original) =>
+        {
+            if (_vfxHookOriginals.TryGetValue(target, out original)) return 0;
+            int status = nativeHook(target, detour, out original);
+            if (status == 0 && original != IntPtr.Zero) _vfxHookOriginals[target] = original;
+            return status;
+        };
         IntPtr renderReplacement = Marshal.GetFunctionPointerForDelegate(
             _vlPostProcessRenderReplacement);
         int renderResult = hook(renderTarget, renderReplacement, out IntPtr renderOriginal);
@@ -4717,6 +4792,7 @@ internal sealed class MainThreadSampler
         "vl-bloom-threshold-vldof-textureblur-off" or
         "vl-bloom-diffusion-half-vldof-textureblur-off" or
         "vl-bloom-140-diffusion-min-vldof-textureblur-off" or
+        VrVisualEffectModes.VrifyFollow or
         VrVisualEffectModes.Manual;
 
     private byte OnDrawFlare(
@@ -4762,6 +4838,15 @@ internal sealed class MainThreadSampler
         IntPtr methodInfo)
     {
         Interlocked.Increment(ref _setupVlBloomCallCount);
+        if (_insideCloneVlPostProcess != 0 &&
+            _stereoVisualEffectMode == VrVisualEffectModes.VrifyFollow)
+        {
+            _lastComparisonEyeFov = _comparisonEyeFov;
+            _lastComparisonProjectionScale = _comparisonProjectionScale;
+            InvokeSetupVlBloomWithScaledIntensityAndDiffusion(
+                instance, commandBuffer, source, bloom, starStreak, methodInfo, 1f, 1f);
+            return;
+        }
         if (Volatile.Read(ref _insideCloneVlPostProcess) != 0 &&
             _stereoVisualEffectMode.Equals(
                 VrVisualEffectModes.Manual,
@@ -5114,6 +5199,8 @@ internal sealed class MainThreadSampler
             }
             _api.FieldGetValue(diffusionParameter, _volumeIntValueField, valueStorage);
             originalDiffusion = Marshal.ReadInt32(valueStorage);
+            if (_stereoVisualEffectMode == VrVisualEffectModes.VrifyFollow)
+                diffusionOverride = BloomComparison.Diffusion(originalDiffusion, _comparisonEyeFov, _comparisonProjectionScale);
             int adjustedDiffusion = diffusionOverride ?? Math.Max(
                 1,
                 (int)MathF.Round(originalDiffusion * diffusionScale));
@@ -5227,6 +5314,7 @@ internal sealed class MainThreadSampler
              _stereoVisualEffectMode.Equals(
                  "vl-bloom-140-diffusion-min-vldof-textureblur-off",
                  StringComparison.Ordinal) ||
+             _stereoVisualEffectMode == VrVisualEffectModes.VrifyFollow ||
              (_stereoVisualEffectMode.Equals(
                   VrVisualEffectModes.Manual,
                   StringComparison.Ordinal) &&
@@ -5269,6 +5357,7 @@ internal sealed class MainThreadSampler
              _stereoVisualEffectMode.Equals(
                  "vl-bloom-140-diffusion-min-vldof-textureblur-off",
                  StringComparison.Ordinal) ||
+             _stereoVisualEffectMode == VrVisualEffectModes.VrifyFollow ||
              (_stereoVisualEffectMode.Equals(
                   VrVisualEffectModes.Manual,
                   StringComparison.Ordinal) &&
@@ -5296,6 +5385,9 @@ internal sealed class MainThreadSampler
         IntPtr methodInfo)
     {
         Interlocked.Increment(ref _vlPostProcessRenderCount);
+        int previousCloneScope = _insideCloneVlPostProcess;
+        float previousFov = _comparisonEyeFov;
+        float previousProjectionScale = _comparisonProjectionScale;
         IntPtr camera = TryReadRenderingDataCamera(renderingData);
         bool isClone = camera != IntPtr.Zero &&
             (camera == _stereoLeftCamera || camera == _stereoRightCamera);
@@ -5304,10 +5396,23 @@ internal sealed class MainThreadSampler
             Interlocked.Increment(ref _vlPostProcessCloneRenderCount);
             StereoPerformanceTelemetry.RecordCloneVisualEffectRender(
                 D3D11DeviceCapture.PresentSerial);
-            Volatile.Write(ref _insideCloneVlPostProcess, 1);
+            _insideCloneVlPostProcess = previousCloneScope + 1;
+            OpenXrStereoStateSnapshot? views = _stereoVisualEffectMode == VrVisualEffectModes.VrifyFollow
+                ? OpenXrStereoStateRegistry.Snapshot(750) : null;
+            if (views is not null)
+            {
+                OpenXrEyeState eye = camera == _stereoLeftCamera ? views.Left : views.Right;
+                _comparisonEyeFov = (eye.FovUp - eye.FovDown) * 180f / MathF.PI;
+            }
+            else _comparisonEyeFov = float.NaN;
+            float eyeProjectionY = _stereoVisualEffectMode == VrVisualEffectModes.VrifyFollow ? ReadProjectionY(camera) : float.NaN;
+            _comparisonProjectionScale = _comparisonSourceProjectionY > 0f
+                ? eyeProjectionY / _comparisonSourceProjectionY : float.NaN;
         }
         else if (camera != IntPtr.Zero && camera == _lastLiveCamera)
         {
+            if (_stereoVisualEffectMode == VrVisualEffectModes.VrifyFollow) _comparisonSourceProjectionY = ReadProjectionY(camera);
+            _insideCloneVlPostProcess = 0;
             Interlocked.Increment(ref _vlPostProcessSourceRenderCount);
             long presentSerial = D3D11DeviceCapture.PresentSerial;
             StereoPerformanceTelemetry.RecordSourceVisualEffectRender(presentSerial);
@@ -5317,6 +5422,7 @@ internal sealed class MainThreadSampler
         }
         else
         {
+            _insideCloneVlPostProcess = 0;
             Interlocked.Increment(ref _vlPostProcessUnmatchedRenderCount);
         }
 
@@ -5359,13 +5465,30 @@ internal sealed class MainThreadSampler
                                 _stereoNaturalRenderStartPresentSerial);
                     }
                 }
-                Volatile.Write(ref _insideCloneVlPostProcess, 0);
             }
+            _insideCloneVlPostProcess = previousCloneScope;
+            _comparisonEyeFov = previousFov;
+            _comparisonProjectionScale = previousProjectionScale;
         }
     }
 
-    private IntPtr TryReadRenderingDataCamera(IntPtr renderingData)
+    private void ReadRenderingDataCameraOffsets(IntPtr universalImage)
     {
+        IntPtr renderingDataClass = FindClass(universalImage, "UnityEngine.Rendering.Universal", "RenderingData");
+        IntPtr cameraDataClass = FindClass(universalImage, "UnityEngine.Rendering.Universal", "CameraData");
+        _renderingDataCameraDataOffset = _api.FieldGetOffset(FindField(renderingDataClass, "cameraData"));
+        _cameraDataCameraOffset = _api.FieldGetOffset(FindField(cameraDataClass, "camera"));
+        if (_renderingDataCameraDataOffset is < 0 or > 4096 || _cameraDataCameraOffset is < 0 or > 4096)
+            throw new InvalidOperationException(
+                $"Unexpected RenderingData camera offsets: cameraData={_renderingDataCameraDataOffset}, camera={_cameraDataCameraOffset}.");
+    }
+
+    private IntPtr TryReadRenderingDataCamera(IntPtr renderingData) =>
+        TryReadRenderingDataCamera(renderingData, out _);
+
+    private IntPtr TryReadRenderingDataCamera(IntPtr renderingData, out IntPtr cameraField)
+    {
+        cameraField = IntPtr.Zero;
         if (renderingData == IntPtr.Zero)
         {
             return IntPtr.Zero;
@@ -5389,13 +5512,13 @@ internal sealed class MainThreadSampler
         {
             foreach (int cameraOffset in cameraOffsets)
             {
-                IntPtr camera = Marshal.ReadIntPtr(
-                    renderingData,
-                    checked(renderingOffset + cameraOffset));
-                if (camera == _stereoLeftCamera ||
+                IntPtr field = IntPtr.Add(renderingData, checked(renderingOffset + cameraOffset));
+                IntPtr camera = Marshal.ReadIntPtr(field);
+                if (camera != IntPtr.Zero && (camera == _stereoLeftCamera ||
                     camera == _stereoRightCamera ||
-                    camera == _lastLiveCamera)
+                    camera == _lastLiveCamera))
                 {
+                    cameraField = field;
                     return camera;
                 }
             }
@@ -5433,6 +5556,9 @@ internal sealed class MainThreadSampler
                 $"unmatchedRenders={Interlocked.Read(ref _vlPostProcessUnmatchedRenderCount)};" +
                 $"renderingDataCameraDataOffset={_renderingDataCameraDataOffset};" +
                 $"cameraDataCameraOffset={_cameraDataCameraOffset}"
+                + $";comparisonEyeFov={_lastComparisonEyeFov:R};comparisonProjectionYRatio={_lastComparisonProjectionScale:R}"
+                + $";comparisonProjectionFallback={_stereoVisualEffectMode == VrVisualEffectModes.VrifyFollow && (!float.IsFinite(_lastComparisonProjectionScale) || _lastComparisonProjectionScale <= 0f)}"
+                + $";settingsRevision={_settingsRevision}"
                 + $";setupVlBloomCalls={Interlocked.Read(ref _setupVlBloomCallCount)}"
                 + $";setupVlBloomCloneSkips={Interlocked.Read(ref _setupVlBloomCloneSkipCount)}"
                 + $";drawStarStreakCalls={Interlocked.Read(ref _drawStarStreakCallCount)}"
@@ -6422,7 +6548,10 @@ internal sealed class MainThreadSampler
     private IReadOnlyList<IntPtr> FindObjectsOfTypeAll(
         IntPtr coreImage,
         IntPtr klass,
-        int maximumLength)
+        int maximumLength) =>
+        ReadObjectArray(FindObjectsOfTypeAllArray(coreImage, klass), maximumLength);
+
+    private IntPtr FindObjectsOfTypeAllArray(IntPtr coreImage, IntPtr klass)
     {
         Il2CppApi.ClassGetTypeDelegate classGetType = _api.ClassGetType ??
             throw new MissingMethodException("GameAssembly.dll does not export il2cpp_class_get_type.");
@@ -6437,8 +6566,7 @@ internal sealed class MainThreadSampler
         }
 
         IntPtr method = FindMethod(coreImage, "UnityEngine", "Resources", "FindObjectsOfTypeAll", 1);
-        IntPtr array = InvokeWithObjectArgument(method, IntPtr.Zero, managedType);
-        return ReadObjectArray(array, maximumLength);
+        return InvokeWithObjectArgument(method, IntPtr.Zero, managedType);
     }
 
     private static bool IsLiveUiPath(string path) =>
@@ -7372,15 +7500,15 @@ internal sealed class MainThreadSampler
             "CanvasRenderer element replay (unrendered)");
     }
 
-    private uint RootObject(IntPtr instance, string label)
+    private IntPtr RootObject(IntPtr instance, string label)
     {
         if (instance == IntPtr.Zero)
         {
             throw new InvalidOperationException($"Could not allocate {label}.");
         }
 
-        uint handle = _api.GcHandleNew(instance, pinned: false);
-        return handle == 0
+        IntPtr handle = _api.GcHandleNew(instance, pinned: false);
+        return handle == IntPtr.Zero
             ? throw new InvalidOperationException($"Could not root {label}.")
             : handle;
     }
@@ -7947,7 +8075,7 @@ internal sealed class MainThreadSampler
         }
 
         _uiCaptureRenderTextureHandle = _api.GcHandleNew(_uiCaptureRenderTexture, pinned: false);
-        if (_uiCaptureRenderTextureHandle == 0)
+        if (_uiCaptureRenderTextureHandle == IntPtr.Zero)
         {
             throw new InvalidOperationException("Could not root the UI RenderTexture.");
         }
@@ -7979,7 +8107,7 @@ internal sealed class MainThreadSampler
         }
 
         _uiCaptureRequestHandle = _api.GcHandleNew(_uiCaptureRequest, pinned: false);
-        if (_uiCaptureRequestHandle == 0)
+        if (_uiCaptureRequestHandle == IntPtr.Zero)
         {
             throw new InvalidOperationException("Could not root SingleCameraRequest.");
         }

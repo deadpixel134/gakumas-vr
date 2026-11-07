@@ -8,7 +8,7 @@ Support: [buymeacoffee.com/vrshits](https://buymeacoffee.com/vrshits)
 
 Gakumas VR is an unofficial Meta Quest/OpenXR VR mod for the DMM version of Gakuen Idolmaster. Supported 3D scenes are presented in stereo VR, while other content appears on aspect-correct flat panels that can be controlled with VR controllers.
 
-This project is playable via VDXR (Virtual Desktop), and this path has also been hardware-tested. The current public build is the **v0.175.6 stable release**. The core 6DoF controls were hardware-validated through v0.173 on Meta Quest 2 with Virtual Desktop OpenXR; v0.175.6 retains that behavior while updating the spatial/scale profiles, default GUI flow, and package-validation baseline for the current public release. SteamVR OpenXR and Meta Quest Link are preliminary targets and have not yet been hardware-tested by this project.
+The core 6DoF controls were hardware-tested on Meta Quest 2 with VDXR (Virtual Desktop) through v0.173. The current public release is [v0.177.0](https://github.com/deadpixel134/gakumas-vr/releases/tag/v0.177.0). SteamVR OpenXR and Meta Quest Link remain preliminary targets.
 
 ## Documentation
 
@@ -32,7 +32,7 @@ This project is playable via VDXR (Virtual Desktop), and this path has also been
 ## Important limitations
 
 - This stable release targets Windows 11 x64, the DMM edition, and Unity 6000.0.77f1.
-- The release ZIP includes the required Dobby binary. Before touching the game directory, the v0.175.6 installer preflights every payload hash, required clean-install component, and preservation policy.
+- The release ZIP includes the required Dobby binary. Before touching the game directory, the v0.177.0 installer preflights every payload hash, required clean-install component, and preservation policy.
 - If something fails, close the game and use the installer to uninstall or roll back. Before attaching logs to an issue, check them for account identifiers or authentication data.
 
 This repository does not contain game files, Localify assets, user settings, logs, rollback data, or build outputs. Project source is released under the [MIT License](LICENSE); third-party components retain their own licenses. See [Credits and third-party licenses](CREDITS.md).

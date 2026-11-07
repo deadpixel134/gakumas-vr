@@ -62,7 +62,12 @@ internal static class AutoUpdateRunner
             throw new FileNotFoundException("The installed configurator is missing.", configurator);
         }
 
-        ProcessStartInfo start = new(configurator) { UseShellExecute = true };
+        ProcessStartInfo start = new(configurator)
+        {
+            UseShellExecute = true,
+            // The configurator removes the staging directory during startup.
+            WorkingDirectory = Path.GetFullPath(gameRoot)
+        };
         start.ArgumentList.Add("--cleanup-update");
         start.ArgumentList.Add(cleanupRoot);
         start.ArgumentList.Add("--wait-pid");

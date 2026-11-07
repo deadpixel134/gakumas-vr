@@ -18,7 +18,7 @@ internal sealed class VrPointerInput : IDisposable
     private static readonly long ScrollRepeatTicks = Stopwatch.Frequency * 80 / 1000;
 
     private readonly AnalogPressLatch _triggerLatch = new(0.15f, 0.72f, 0.10f, 0.25f);
-    private readonly VrInputSettings _settings;
+    private VrInputSettings _settings;
     private PrimarySource _primarySource;
     private bool _lastPrimaryPressed;
     private bool _lastSecondaryPressed;
@@ -46,6 +46,14 @@ internal sealed class VrPointerInput : IDisposable
         float v,
         OpenXrControllerFrame controllerFrame)
     {
+        VrInputSettings nextSettings = VrSettingsRuntime.Current.Input;
+        if (!ReferenceEquals(_settings, nextSettings))
+        {
+            ReleasePrimaryIfNeeded();
+            _ = _triggerLatch.Cancel();
+            _suppressTriggerUntilReleased = true;
+            _settings = nextSettings;
+        }
         bool primaryRising = controllerFrame.PointerPrimaryPressed && !_lastPrimaryPressed;
         bool primaryFalling = !controllerFrame.PointerPrimaryPressed && _lastPrimaryPressed;
         bool secondaryRising = controllerFrame.PointerBackPressed && !_lastSecondaryPressed;

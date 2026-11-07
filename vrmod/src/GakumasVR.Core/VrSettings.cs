@@ -34,6 +34,7 @@ public enum SpatialScaleMode
 public static class VrVisualEffectModes
 {
     public const string Approved = "vl-bloom-140-diffusion-min-vldof-textureblur-off";
+    public const string VrifyFollow = "vrify-follow";
     public const string AllOn = "all-on";
     public const string AllOff = "all-off";
     public const string Manual = "manual";
@@ -81,6 +82,8 @@ public sealed class VrTrackingSettings
     public bool LiveSixDofEnabled { get; set; } = true;
 
     public bool LocomotionEnabled { get; set; } = true;
+    public bool WorldGripEnabled { get; set; } = true;
+    public bool ShowContactHands { get; set; } = true;
 
     public VrHand LocomotionHand { get; set; } = VrHand.Right;
 
@@ -272,6 +275,8 @@ public static class VrSettingsValidator
             {
                 LiveSixDofEnabled = tracking.LiveSixDofEnabled,
                 LocomotionEnabled = tracking.LocomotionEnabled,
+                WorldGripEnabled = tracking.WorldGripEnabled,
+                ShowContactHands = tracking.ShowContactHands,
                 LocomotionHand = ValidateEnum(
                     tracking.LocomotionHand,
                     defaults.Tracking.LocomotionHand,
@@ -490,7 +495,9 @@ public static class VrSettingsValidator
         List<string> issues)
     {
         string normalized = value?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (normalized == "vrify-default") return VrVisualEffectModes.VrifyFollow;
         if (normalized is VrVisualEffectModes.Approved or
+            VrVisualEffectModes.VrifyFollow or
             VrVisualEffectModes.AllOn or
             VrVisualEffectModes.AllOff or
             VrVisualEffectModes.Manual)

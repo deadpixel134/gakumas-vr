@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.175.6',
+    [ValidatePattern('^\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?$')]
+    [string]$Version = '0.177.0',
     [string]$OutputRoot
 )
 
@@ -8,6 +9,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $vrmodRoot = Join-Path $repositoryRoot 'vrmod'
+$edition = 'public'
+$packageName = "GakumasVR-v$Version"
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $OutputRoot = Join-Path $vrmodRoot 'dist'
 }
@@ -16,20 +19,25 @@ $allowedRoot = [System.IO.Path]::GetFullPath((Join-Path $vrmodRoot 'dist')).Trim
 if (-not (($outputFull.TrimEnd('\') + '\').StartsWith($allowedRoot, [System.StringComparison]::OrdinalIgnoreCase))) {
     throw '패키지 출력은 vrmod\dist 내부여야 합니다.'
 }
-$packageRoot = Join-Path $outputFull "GakumasVR-v$Version"
+$packageRoot = [System.IO.Path]::GetFullPath((Join-Path $outputFull $packageName))
+if (-not $packageRoot.StartsWith($allowedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw '패키지 폴더는 vrmod\dist 내부여야 합니다.'
+}
 if (Test-Path -LiteralPath $packageRoot) {
     Remove-Item -LiteralPath $packageRoot -Recurse -Force
 }
 $payload = Join-Path $packageRoot 'payload'
 [System.IO.Directory]::CreateDirectory($payload) | Out-Null
 
-dotnet build (Join-Path $vrmodRoot 'src\GakumasVR.RuntimeBootstrap\GakumasVR.RuntimeBootstrap.csproj') -c Release
+$artifacts = Join-Path $outputFull ".build-$edition"
+$buildProperty = '-p:GakumasPublicBuild=true'
+dotnet build (Join-Path $vrmodRoot 'src\GakumasVR.RuntimeBootstrap\GakumasVR.RuntimeBootstrap.csproj') -c Release --artifacts-path $artifacts $buildProperty
 if ($LASTEXITCODE -ne 0) { throw '런타임 빌드 실패' }
-$publish = Join-Path $vrmodRoot 'src\GakumasVR.Configurator\bin\Release\publish-win-x64'
-dotnet publish (Join-Path $vrmodRoot 'src\GakumasVR.Configurator\GakumasVR.Configurator.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $publish
+$publish = Join-Path $artifacts 'publish-configurator'
+dotnet publish (Join-Path $vrmodRoot 'src\GakumasVR.Configurator\GakumasVR.Configurator.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true --artifacts-path $artifacts $buildProperty -o $publish
 if ($LASTEXITCODE -ne 0) { throw '설정 GUI publish 실패' }
-$installerPublish = Join-Path $vrmodRoot 'src\GakumasVR.Installer\bin\Release\publish-win-x64'
-dotnet publish (Join-Path $vrmodRoot 'src\GakumasVR.Installer\GakumasVR.Installer.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o $installerPublish
+$installerPublish = Join-Path $artifacts 'publish-installer'
+dotnet publish (Join-Path $vrmodRoot 'src\GakumasVR.Installer\GakumasVR.Installer.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true --artifacts-path $artifacts $buildProperty -o $installerPublish
 if ($LASTEXITCODE -ne 0) { throw '설치 GUI publish 실패' }
 
 function Copy-PayloadFile {
@@ -62,7 +70,7 @@ Copy-PayloadFile (Join-Path $repositoryRoot 'doorstop_config.ini') 'doorstop_con
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $vendorRoot 'dotnet') -File) {
     Copy-PayloadFile $file.FullName (Join-Path 'dotnet' $file.Name)
 }
-$runtimeOutput = Join-Path $vrmodRoot 'src\GakumasVR.RuntimeBootstrap\bin\Release\net6.0'
+$runtimeOutput = Join-Path $artifacts 'bin\GakumasVR.RuntimeBootstrap\release'
 Copy-PayloadFile (Join-Path $runtimeOutput 'GakumasVR.RuntimeBootstrap.dll') 'vrmod\runtime\GakumasVR.RuntimeBootstrap.dll'
 Copy-PayloadFile (Join-Path $runtimeOutput 'GakumasVR.RuntimeBootstrap.deps.json') 'vrmod\runtime\GakumasVR.RuntimeBootstrap.deps.json'
 Copy-PayloadFile (Join-Path $runtimeOutput 'GakumasVR.Core.dll') 'vrmod\runtime\GakumasVR.Core.dll'
@@ -96,6 +104,7 @@ foreach ($file in Get-ChildItem -LiteralPath $payload -File -Recurse | Sort-Obje
 $manifest = [ordered]@{
     schemaVersion = 1
     version = $Version
+    edition = $edition
     createdUtc = [DateTime]::UtcNow.ToString('o')
     loader = 'winhttp-doorstop'
     localifyPolicy = 'preserve-version-dll-and-gakumas-local'
@@ -106,7 +115,7 @@ $manifest = [ordered]@{
     files = $files
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $packageRoot 'package-manifest.json') -Encoding utf8
-& (Join-Path $vrmodRoot 'tests\Test-DistributionPackage.ps1') -PackageRoot $packageRoot
+& (Join-Path $vrmodRoot 'tests\Test-DistributionPackage.ps1') -PackageRoot $packageRoot -ExpectedEdition $edition
 $archivePath = "$packageRoot.zip"
 if (Test-Path -LiteralPath $archivePath) {
     Remove-Item -LiteralPath $archivePath -Force

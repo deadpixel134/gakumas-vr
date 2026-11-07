@@ -87,7 +87,24 @@ public sealed class SixDofPoseMapper
         TrackingStereoPose tracked,
         float headTranslationScale,
         float eyeOffsetScale,
-        out UnityStereoPose mapped)
+        out UnityStereoPose mapped) =>
+        TryMap(tracked, headTranslationScale, eyeOffsetScale, out mapped, recenter: false, positionTracked: true);
+
+    public bool TryRecenter(
+        TrackingStereoPose tracked,
+        float headTranslationScale,
+        float eyeOffsetScale,
+        bool positionTracked,
+        out UnityStereoPose mapped) =>
+        TryMap(tracked, headTranslationScale, eyeOffsetScale, out mapped, recenter: true, positionTracked);
+
+    private bool TryMap(
+        TrackingStereoPose tracked,
+        float headTranslationScale,
+        float eyeOffsetScale,
+        out UnityStereoPose mapped,
+        bool recenter,
+        bool positionTracked)
     {
         mapped = default;
         if (!IsFinite(headTranslationScale) || headTranslationScale < 0f ||
@@ -105,9 +122,10 @@ public sealed class SixDofPoseMapper
         TrackingQuaternion centerOrientation = AverageOrientation(
             leftOrientation,
             rightOrientation);
-        if (!HasOrigin)
+        if (!HasOrigin || recenter)
         {
-            _originPosition = center;
+            if (!HasOrigin || positionTracked)
+                _originPosition = center;
             _originOrientation = centerOrientation;
             ToYawPitchRoll(
                 ToUnityRotation(centerOrientation),
@@ -162,6 +180,18 @@ public sealed class SixDofPoseMapper
                 WrapAngle(rightYaw - _originUnityYaw),
                 rightPitch - _originUnityPitch,
                 WrapAngle(rightRoll - _originUnityRoll)));
+        return true;
+    }
+
+    public bool TryMapWorldGripDelta(TrackingVector3 handDelta, float headTranslationScale, out TrackingVector3 cameraDelta)
+    {
+        cameraDelta = default;
+        if (!HasOrigin || !IsFinite(handDelta) || !IsFinite(headTranslationScale) || headTranslationScale < 0f)
+            return false;
+
+        TrackingVector3 mapped = ToUnityPosition(Scale(Rotate(Conjugate(_originOrientation), handDelta), -headTranslationScale));
+        if (!IsFinite(mapped)) return false;
+        cameraDelta = mapped;
         return true;
     }
 

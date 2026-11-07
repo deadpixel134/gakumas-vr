@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$PackageRoot
+    [string]$PackageRoot,
+    [ValidateSet('public', 'local-contact')]
+    [string]$ExpectedEdition
 )
 
 Set-StrictMode -Version Latest
@@ -69,6 +71,46 @@ foreach ($file in $manifest.files) {
 }
 Assert-Equal ([int]$manifest.files.Count) $verified 'Manifest verification count mismatch.'
 
+if ($ExpectedEdition) {
+    Assert-Equal $ExpectedEdition ([string]$manifest.edition) 'Unexpected package edition.'
+    $public = $ExpectedEdition -eq 'public'
+    $defaults = Get-Content -Raw -LiteralPath (Join-Path $payload 'vrmod\config\settings.json') | ConvertFrom-Json -AsHashtable
+    $contactKeys = @($defaults.tracking.Keys | Where-Object { $_ -match '^contact|^showContactLocations$' })
+    Assert-Equal $public ($contactKeys.Count -eq 0) 'Contact settings do not match the package edition.'
+    Assert-True ($defaults.tracking.Contains('showContactHands')) 'Hand display setting is missing.'
+
+    $assemblyContext = [System.Runtime.Loader.AssemblyLoadContext]::new('GakumasVR-package-edition', $true)
+    try {
+        $core = $assemblyContext.LoadFromAssemblyPath((Join-Path $payload 'vrmod\runtime\GakumasVR.Core.dll'))
+        $runtime = $assemblyContext.LoadFromAssemblyPath((Join-Path $payload 'vrmod\runtime\GakumasVR.RuntimeBootstrap.dll'))
+        $sampler = $runtime.GetType('Doorstop.MainThreadSampler', $true)
+        $methods = [System.Reflection.BindingFlags]'Instance,Static,Public,NonPublic'
+        foreach ($method in @('PrepareContactCollisionPair', 'ApplyContactTrialPosition', 'ObserveThighCoverage')) {
+            Assert-Equal $public ($null -eq $sampler.GetMethod($method, $methods)) "Unexpected availability of $method."
+        }
+        Assert-Equal $public ($null -eq $runtime.GetType('Doorstop.OpenXrContactHaptics')) 'Unexpected contact haptics availability.'
+        Assert-Equal $public ($null -eq $core.GetType('GakumasVR.Core.ContactResponse')) 'Unexpected contact solver availability.'
+        Assert-True ($null -ne $sampler.GetMethod('PrepareContactHands', $methods)) 'Hand display renderer is missing.'
+
+        $type = $core.GetType('GakumasVR.Core.VrSettings', $true)
+        $jsonOptions = [System.Text.Json.JsonSerializerOptions]::new()
+        $jsonOptions.PropertyNameCaseInsensitive = $true
+        $legacyJson = '{"tracking":{"showContactHands":true,"contactCollisionEnabled":true,"contactBoneTrialEnabled":true,"showContactLocations":true}}'
+        $legacy = [System.Text.Json.JsonSerializer]::Deserialize($legacyJson, $type, $jsonOptions)
+        Assert-True ($legacy.Tracking.ShowContactHands) 'Legacy hand display preference was not loaded.'
+        Assert-Equal $public ($null -eq $legacy.Tracking.GetType().GetProperty('ContactCollisionEnabled')) 'Unexpected legacy collision setting availability.'
+        $editor = [Activator]::CreateInstance($core.GetType('GakumasVR.Core.VrSettingsEditor', $true), [object[]]@($legacy))
+        $editorPaths = @($editor.Entries | ForEach-Object Path)
+        Assert-True ($editorPaths -contains 'Tracking.ShowContactHands') 'Hand display is missing from the VR settings menu.'
+        $reactionPaths = @($editorPaths | Where-Object { $_ -match '^Tracking\.(Contact|ShowContactLocations$)' })
+        Assert-Equal $public ($reactionPaths.Count -eq 0) 'VR contact menu does not match the package edition.'
+    }
+    finally {
+        $assemblyContext.Unload()
+    }
+    Write-Host "CHECK: $ExpectedEdition runtime, defaults, and legacy settings compatibility passed."
+}
+
 $dobbyPath = Join-Path $payload 'BepInEx\core\dobby.dll'
 $openXrPath = Join-Path $payload 'vrmod\runtime\openxr_loader.dll'
 Assert-Equal $expectedDobbyHash (Get-FileHash -LiteralPath $dobbyPath -Algorithm SHA256).Hash.ToUpperInvariant() 'Unexpected Dobby binary.'
@@ -104,15 +146,16 @@ try {
     [System.IO.Directory]::CreateDirectory((Join-Path $localifyGame 'BepInEx\core')) | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $localifyGame 'BepInEx\core\dobby.dll'), 'existing-dobby-sentinel')
     [System.IO.Directory]::CreateDirectory((Join-Path $localifyGame 'vrmod\config')) | Out-Null
-    [System.IO.File]::WriteAllText((Join-Path $localifyGame 'vrmod\config\settings.json'), 'existing-settings-sentinel')
+    $existingSettings = if ($ExpectedEdition -eq 'public') { $legacyJson } else { 'existing-settings-sentinel' }
+    [System.IO.File]::WriteAllText((Join-Path $localifyGame 'vrmod\config\settings.json'), $existingSettings)
     & $installScript -GameRoot $localifyGame -PackageRoot $package
     Assert-Equal 'localify-proxy' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'version.dll')) 'Localify proxy was changed.'
     Assert-Equal 'existing-dobby-sentinel' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'BepInEx\core\dobby.dll')) 'Existing Dobby was changed.'
-    Assert-Equal 'existing-settings-sentinel' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'vrmod\config\settings.json')) 'Existing settings were changed.'
+    Assert-Equal $existingSettings (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'vrmod\config\settings.json')) 'Existing settings were changed.'
     & $uninstallScript -GameRoot $localifyGame
     Assert-Equal 'localify-proxy' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'version.dll')) 'Localify proxy was removed.'
     Assert-Equal 'existing-dobby-sentinel' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'BepInEx\core\dobby.dll')) 'Existing Dobby was removed.'
-    Assert-Equal 'existing-settings-sentinel' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'vrmod\config\settings.json')) 'Existing settings were removed.'
+    Assert-Equal $existingSettings (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'vrmod\config\settings.json')) 'Existing settings were removed.'
 }
 finally {
     $resolvedRunRoot = [System.IO.Path]::GetFullPath($runRoot)

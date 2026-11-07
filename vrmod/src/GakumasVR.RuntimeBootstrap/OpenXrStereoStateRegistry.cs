@@ -1,4 +1,8 @@
+using GakumasVR.Core;
+
 namespace Doorstop;
+
+internal readonly record struct OpenXrContactHands(TrackingVector3? Left, TrackingVector3? Right, int AllowedMask = 3);
 
 internal readonly record struct OpenXrEyeState(
     float PositionX,
@@ -20,6 +24,8 @@ internal sealed class OpenXrStereoStateSnapshot
     public ulong ViewStateFlags { get; init; }
     public OpenXrEyeState Left { get; init; }
     public OpenXrEyeState Right { get; init; }
+    public long CapturedMilliseconds { get; init; }
+    public OpenXrContactHands ContactHands { get; init; }
 }
 
 internal static class OpenXrStereoStateRegistry
@@ -35,6 +41,7 @@ internal static class OpenXrStereoStateRegistry
     private static OpenXrEyeState _worldLeft;
     private static OpenXrEyeState _worldRight;
     private static long _worldUpdatedMilliseconds;
+    private static OpenXrContactHands _worldContactHands;
 
     public static void UpdateConfiguration(uint recommendedWidth, uint recommendedHeight)
     {
@@ -84,13 +91,15 @@ internal static class OpenXrStereoStateRegistry
     public static void UpdateWorldViews(
         ulong viewStateFlags,
         OpenXrEyeState left,
-        OpenXrEyeState right)
+        OpenXrEyeState right,
+        OpenXrContactHands contactHands)
     {
         lock (Sync)
         {
             _worldViewStateFlags = viewStateFlags;
             _worldLeft = left;
             _worldRight = right;
+            _worldContactHands = contactHands;
             _worldUpdatedMilliseconds = Environment.TickCount64;
         }
     }
@@ -112,8 +121,15 @@ internal static class OpenXrStereoStateRegistry
                 RecommendedHeight = _recommendedHeight,
                 ViewStateFlags = _worldViewStateFlags,
                 Left = _worldLeft,
-                Right = _worldRight
+                Right = _worldRight,
+                CapturedMilliseconds = _worldUpdatedMilliseconds,
+                ContactHands = _worldContactHands
             };
         }
+    }
+
+    public static void ClearContactHands()
+    {
+        lock (Sync) _worldContactHands = default;
     }
 }

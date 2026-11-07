@@ -3,6 +3,13 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Shared translations cover every VR setting and enum", SharedTranslations),
+    ("GUI language preference preserves legacy and culture fallbacks", LanguagePreferences),
+    ("Comparison bloom preserves authored diffusion and follows FOV", ComparisonBloom),
+    ("Grip distinguishes short long and tracking loss", GripGestures),
+    ("VR editor exposes all settings without mutating source", SettingsEditor),
+    ("VR editor keeps role pairs and ranges valid", SettingsEditorValidation),
+    ("VR menu layout rejects gaps and edges", MenuLayout),
     ("Transition takes priority", TransitionTakesPriority),
     ("Video takes priority over 3D", VideoTakesPriority),
     ("Unapproved live uses safe panel", UnapprovedLiveUsesPanel),
@@ -26,6 +33,7 @@ var tests = new (string Name, Action Run)[]
     ("6DoF maps relative head rotation into Unity space", SixDofMapsRelativeRotation),
     ("6DoF separates physical roll from yaw at a tilted origin", SixDofSeparatesPhysicalRoll),
     ("6DoF reset captures a fresh scene origin", SixDofResetCapturesFreshOrigin),
+    ("6DoF recenter clears yaw pitch and roll while preserving valid position tracking", SixDofRecentersCurrentHeadPose),
     ("Locomotion moves in the full 3D view direction", LocomotionMovesInViewDirection),
     ("Locomotion follows upward and downward view pitch", LocomotionFollowsViewPitch),
     ("Locomotion applies radial deadzone and frame clamp", LocomotionAppliesDeadzoneAndFrameClamp),
@@ -300,6 +308,35 @@ static void SixDofResetCapturesFreshOrigin()
     Near(-0.03f, mapped.Left.LocalPosition.X);
     Near(0f, mapped.Left.LocalPosition.Y);
     Near(0f, mapped.Left.LocalPosition.Z);
+}
+
+static void SixDofRecentersCurrentHeadPose()
+{
+    var mapper = new SixDofPoseMapper();
+    True(mapper.TryMap(StereoPose(-0.03f, 1f, 0f, 0.03f, 1f, 0f), 1f, 1f, out _));
+    TrackingQuaternion turned = MultiplyTestQuaternion(AxisAngle(0f, 1f, 0f, 45f),
+        MultiplyTestQuaternion(AxisAngle(1f, 0f, 0f, 20f), AxisAngle(0f, 0f, 1f, 15f)));
+    TrackingStereoPose current = StereoPose(1.97f, 2f, -3f, 2.03f, 2f, -3f, UnityToTracking(turned));
+    True(mapper.TryRecenter(current, 1f, 1f, positionTracked: true, out UnityStereoPose recentered));
+    Near(0f, recentered.Left.YawDeltaRadians);
+    Near(0f, recentered.Left.PitchDeltaRadians);
+    Near(0f, recentered.Left.RollDeltaRadians);
+    Near(0f, recentered.Left.LocalPosition.X + recentered.Right.LocalPosition.X);
+    Near(0f, recentered.Left.LocalPosition.Y + recentered.Right.LocalPosition.Y);
+    Near(0f, recentered.Left.LocalPosition.Z + recentered.Right.LocalPosition.Z);
+
+    TrackingQuaternion later = MultiplyTestQuaternion(AxisAngle(0f, 1f, 0f, 15f), turned);
+    TrackingStereoPose laterPose = StereoPose(1.97f, 2f, -3f, 2.03f, 2f, -3f, UnityToTracking(later));
+    True(mapper.TryMap(laterPose, 1f, 1f, out UnityStereoPose moved));
+    Near(MathF.PI / 12f, moved.Left.YawDeltaRadians);
+
+    TrackingStereoPose untracked = StereoPose(0f, 0f, 0f, 0f, 0f, 0f, UnityToTracking(later));
+    True(mapper.TryRecenter(untracked, 0f, 1f, positionTracked: false, out UnityStereoPose rotationOnly));
+    Near(0f, rotationOnly.Left.YawDeltaRadians);
+    True(mapper.TryMap(laterPose, 1f, 1f, out UnityStereoPose recovered));
+    Near(0f, recovered.Left.LocalPosition.X + recovered.Right.LocalPosition.X);
+    Near(0f, recovered.Left.LocalPosition.Y + recovered.Right.LocalPosition.Y);
+    Near(0f, recovered.Left.LocalPosition.Z + recovered.Right.LocalPosition.Z);
 }
 
 static void SixDofSeparatesPhysicalRoll()
@@ -1008,4 +1045,108 @@ static void Near(float expected, float actual, float tolerance = 0.0001f)
     {
         throw new InvalidOperationException($"Expected {expected}, got {actual}.");
     }
+}
+
+static void ComparisonBloom()
+{
+    Equal(4, BloomComparison.Diffusion(5, 100, .5f));
+    Equal(6, BloomComparison.Diffusion(5, 100, 2f));
+    Equal(0, BloomComparison.Diffusion(0, 100, .5f));
+    Equal(1, BloomComparison.Diffusion(5, 100, float.NaN));
+    Equal(5, BloomComparison.Diffusion(5, 29.9f, float.NaN));
+    Equal(2, BloomComparison.Diffusion(5, float.NaN, 0));
+    foreach (string mode in new[] { "vrify-default", VrVisualEffectModes.VrifyFollow })
+    {
+        var settings = VrSettings.CreateApprovedDefaults(); settings.Render.VisualEffectMode = mode;
+        var validation = VrSettingsValidator.Validate(settings);
+        Equal(0, validation.Issues.Count);
+        Equal(VrVisualEffectModes.VrifyFollow, validation.Settings.Render.VisualEffectMode);
+    }
+}
+static void GripGestures()
+{
+    var grip = new GripPressGesture(800);
+    Equal(GripGesture.None, grip.Update(true, 1, 0)); // Already held at entry does not activate.
+    grip.Update(true, 0, 1);
+    grip.Update(true, .8f, 100);
+    Equal(GripGesture.Short, grip.Update(true, 0, 899));
+    grip.Update(true, .8f, 1000);
+    Equal(GripGesture.Long, grip.Update(true, .8f, 1800));
+    Equal(GripGesture.None, grip.Update(true, .8f, 2800));
+    Equal(GripGesture.None, grip.Update(true, 0, 2900));
+    grip.Update(true, .8f, 3000); grip.Update(false, 1, 3100);
+    Equal(GripGesture.None, grip.Update(true, 1, 5000));
+    Equal(GripGesture.None, grip.Update(true, 0, 5001));
+}
+static void SettingsEditor()
+{
+    var source = VrSettings.CreateApprovedDefaults(); var editor = new VrSettingsEditor(source);
+    Equal("Render.VisualEffectMode", editor.Entries[0].Path);
+    editor.Change(0, 1); Equal(VrVisualEffectModes.VrifyFollow, editor.Draft.Render.VisualEffectMode);
+    Equal(VrVisualEffectModes.Approved, source.Render.VisualEffectMode);
+    Equal(editor.Entries.Count, editor.Entries.Select(x => x.Path).Distinct().Count());
+    if (editor.Entries.Count < 50) throw new Exception("Runtime settings were omitted from the VR editor.");
+}
+static void SettingsEditorValidation()
+{
+    var editor = new VrSettingsEditor(VrSettings.CreateApprovedDefaults());
+    for (int index = 0; index < editor.Entries.Count; index++)
+        foreach (int direction in new[] { 1, -1 })
+            for (int i = 0; i < 80; i++)
+            {
+                editor.Change(index, direction);
+                var result = VrSettingsValidator.Validate(editor.Draft);
+                if (result.Issues.Count != 0) throw new Exception(editor.Entries[index].Path + ": " + string.Join(",", result.Issues));
+            }
+}
+static void MenuLayout()
+{
+    Equal(SettingsMenuAction.ProfileA, SettingsMenuLayout.Hit(.1f, .15f).Action);
+    Equal(SettingsMenuAction.None, SettingsMenuLayout.Hit(.5f, .15f).Action);
+    Equal(SettingsMenuAction.ProfileB, SettingsMenuLayout.Hit(.9f, .15f).Action);
+    Equal(SettingsMenuAction.Apply, SettingsMenuLayout.Hit(.5f, .93f).Action);
+    Equal(SettingsMenuAction.None, SettingsMenuLayout.Hit(-.1f, .5f).Action);
+    Equal(SettingsMenuAction.None, SettingsMenuLayout.Hit(.5f, float.NaN).Action);
+    Equal(SettingsMenuAction.None, SettingsMenuLayout.Hit(.5f, .82f).Action);
+}
+
+static void SharedTranslations()
+{
+    VrUiText.Validate();
+    var editor = new VrSettingsEditor(VrSettings.CreateApprovedDefaults());
+    foreach (VrUiLanguage language in Enum.GetValues<VrUiLanguage>())
+    {
+        for (int index = 0; index < editor.Entries.Count; index++)
+            for (int value = 0; value < 6; value++)
+            {
+                var entry = editor.Entries[index];
+                if (string.IsNullOrWhiteSpace(entry.GetLabel(language)) || string.IsNullOrWhiteSpace(entry.GetGroup(language)) || string.IsNullOrWhiteSpace(entry.GetDisplay(language)))
+                    throw new Exception("Untranslated setting: " + entry.Path);
+                editor.Change(index, 1);
+            }
+        if (VrUiText.Get(language, "MenuPage").Contains("{0}") == false) throw new Exception("Page format is missing.");
+    }
+    Equal("켜짐", VrSettingsText.Value(VrUiLanguage.Korean, true));
+    Equal("オフ", VrSettingsText.Value(VrUiLanguage.Japanese, false));
+    Equal("140 %", VrSettingsText.Value(VrUiLanguage.English, 1.4f, "Render.ManualVisualEffects.VlBloomIntensityScale"));
+    Equal(SettingsMenuAction.Language, SettingsMenuLayout.Hit(.85f, .05f).Action);
+}
+static void LanguagePreferences()
+{
+    string root = Path.Combine(Path.GetTempPath(), "GakumasVR-language-tests-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    Equal(VrUiLanguage.Japanese, VrUiPreferences.Load(root, System.Globalization.CultureInfo.GetCultureInfo("ja-JP")));
+    File.WriteAllText(Path.Combine(root, "configurator-language.txt"), "en");
+    Equal(VrUiLanguage.English, VrUiPreferences.Load(root));
+    foreach (VrUiLanguage language in Enum.GetValues<VrUiLanguage>())
+    {
+        if (!VrUiPreferences.TrySave(language, root)) throw new Exception("Preference save failed.");
+        Equal(language, VrUiPreferences.Load(root));
+    }
+    Equal("en", File.ReadAllText(Path.Combine(root, "configurator-language.txt")));
+    File.WriteAllText(Path.Combine(root, "ui-language.txt"), "invalid");
+    Equal(VrUiLanguage.Korean, VrUiPreferences.Load(root));
+    string blocked = Path.Combine(root, "not-a-directory"); File.WriteAllText(blocked, "keep");
+    Equal(false, VrUiPreferences.TrySave(VrUiLanguage.Japanese, blocked));
+    Equal("keep", File.ReadAllText(blocked));
 }

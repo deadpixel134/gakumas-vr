@@ -51,7 +51,7 @@ public static class Entrypoint
 internal static class RuntimeProbe
 {
     private static readonly object LogLock = new();
-    internal const string BootstrapVersion = "0.175.6";
+    internal const string BootstrapVersion = "0.177.0";
     private const int ModuleTimeoutMilliseconds = 60_000;
     private const int DomainTimeoutMilliseconds = 60_000;
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -807,7 +807,7 @@ internal sealed class Il2CppApi
     internal delegate IntPtr ValueBoxDelegate(IntPtr klass, IntPtr value);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    internal delegate uint GcHandleNewDelegate(
+    internal delegate IntPtr GcHandleNewDelegate(
         IntPtr instance,
         [MarshalAs(UnmanagedType.I1)] bool pinned);
 
@@ -1077,6 +1077,9 @@ internal sealed class Il2CppApi
 
 internal static class NativeMethods
 {
+    [DllImport("kernel32.dll")]
+    internal static extern uint GetCurrentThreadId();
+
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     internal static extern IntPtr GetModuleHandle(string moduleName);
 

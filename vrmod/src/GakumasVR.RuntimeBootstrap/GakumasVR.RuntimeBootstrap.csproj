@@ -8,9 +8,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NuGetAudit>false</NuGetAudit>
     <AssemblyName>GakumasVR.RuntimeBootstrap</AssemblyName>
-    <Version>0.175.6</Version>
+    <Version>0.177.0</Version>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="GakumasVR.Runtime.Tests" />
     <ProjectReference Include="..\GakumasVR.Core\GakumasVR.Core.csproj" />
   </ItemGroup>
 </Project>

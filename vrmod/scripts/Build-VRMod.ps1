@@ -36,4 +36,7 @@ if ($LASTEXITCODE -ne 0) { throw "Configurator build failed." }
 dotnet build $installerProject -c Release
 if ($LASTEXITCODE -ne 0) { throw "Installer build failed." }
 
-Write-Host "CHECK: core/management tests and runtime/configurator/installer builds passed"
+dotnet run --project (Join-Path $vrmodRoot "tests\GakumasVR.Runtime.Tests\GakumasVR.Runtime.Tests.csproj") -c Release -- (Join-Path $vrmodRoot "test-output\runtime-settings")
+if ($LASTEXITCODE -ne 0) { throw "Runtime settings tests failed." }
+
+Write-Host "CHECK: core/management/runtime tests and runtime/configurator/installer builds passed"

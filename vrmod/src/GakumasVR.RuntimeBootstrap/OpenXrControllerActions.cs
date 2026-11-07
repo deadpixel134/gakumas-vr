@@ -30,9 +30,16 @@ internal readonly record struct OpenXrControllerFrame(
     float LocomotionThumbstickY,
     bool ViewTurnThumbstickActive,
     float ViewTurnThumbstickX,
-    float ViewTurnThumbstickY);
+    float ViewTurnThumbstickY,
+    bool SettingsToggleRequested = false,
+    bool ActionsFocused = false,
+    bool? LeftThumbstickClick = null,
+    bool? RightThumbstickClick = null,
+    float? WorldGripValue = null,
+    TrackingVector3? WorldGripPosition = null,
+    OpenXrContactHands ContactHands = default);
 
-internal sealed class OpenXrControllerActions : IDisposable
+internal sealed partial class OpenXrControllerActions : IDisposable
 {
     private const int XrSuccess = 0;
     private const int XrSessionNotFocused = 8;
@@ -53,6 +60,7 @@ internal sealed class OpenXrControllerActions : IDisposable
     private const int XrActionTypeVector2fInput = 3;
     private const int XrActionTypePoseInput = 4;
     private const ulong XrSpaceLocationPoseValidAndTracked = 0xFUL;
+    private const ulong XrSpaceLocationPositionValidAndTracked = 0xAUL;
     private const float GripPressThreshold = 0.72f;
     private const float GripReleaseThreshold = 0.25f;
 
@@ -65,6 +73,7 @@ internal sealed class OpenXrControllerActions : IDisposable
     private readonly IntPtr _primaryClickAction;
     private readonly IntPtr _secondaryClickAction;
     private readonly IntPtr _thumbstickAction;
+    private readonly IntPtr _thumbstickClickAction;
     private readonly ulong _leftHandPath;
     private readonly ulong _rightHandPath;
     private readonly LocateSpaceDelegate _locateSpace;
@@ -77,16 +86,23 @@ internal sealed class OpenXrControllerActions : IDisposable
     private readonly DestroyActionDelegate _destroyAction;
     private readonly DestroyActionSetDelegate _destroyActionSet;
     private readonly IntPtr _activeActionSetPointer;
-    private readonly VrPanelSettings _panelSettings;
-    private readonly VrInputSettings _inputSettings;
-    private readonly VrTrackingSettings _trackingSettings;
+    private VrPanelSettings _panelSettings;
+    private VrInputSettings _inputSettings;
+    private VrTrackingSettings _trackingSettings;
     private readonly GripToggleLatch _panelToggle;
+    private readonly GripPressGesture _settingsGrip = new(Stopwatch.Frequency * 800 / 1000);
+    private bool _gripPanelEnabled;
+    private bool _suppressPanelToggle;
+    private long _lastGripToggleTimestamp;
     private long _nextSqueezeReadFailureLogTimestamp;
+    private long _nextWorldGripReadFailureLogTimestamp;
     private long _nextTriggerReadFailureLogTimestamp;
     private long _nextPrimaryReadFailureLogTimestamp;
     private long _nextSecondaryReadFailureLogTimestamp;
     private long _nextLocomotionThumbstickReadFailureLogTimestamp;
     private long _nextViewTurnThumbstickReadFailureLogTimestamp;
+    private long _nextLeftThumbstickClickReadFailureLogTimestamp;
+    private long _nextRightThumbstickClickReadFailureLogTimestamp;
     private bool _disposed;
 
     private OpenXrControllerActions(
@@ -99,6 +115,7 @@ internal sealed class OpenXrControllerActions : IDisposable
         IntPtr primaryClickAction,
         IntPtr secondaryClickAction,
         IntPtr thumbstickAction,
+        IntPtr thumbstickClickAction,
         ulong leftHandPath,
         ulong rightHandPath,
         IntPtr leftGripSpace,
@@ -125,6 +142,7 @@ internal sealed class OpenXrControllerActions : IDisposable
         _primaryClickAction = primaryClickAction;
         _secondaryClickAction = secondaryClickAction;
         _thumbstickAction = thumbstickAction;
+        _thumbstickClickAction = thumbstickClickAction;
         _leftHandPath = leftHandPath;
         _rightHandPath = rightHandPath;
         LeftGripSpace = leftGripSpace;
@@ -140,6 +158,7 @@ internal sealed class OpenXrControllerActions : IDisposable
         _destroySpace = destroySpace;
         _destroyAction = destroyAction;
         _destroyActionSet = destroyActionSet;
+        _gripPanelEnabled = settings.Panel.StartEnabled;
         _panelSettings = settings.Panel;
         _inputSettings = settings.Input;
         _trackingSettings = settings.Tracking;
@@ -163,7 +182,7 @@ internal sealed class OpenXrControllerActions : IDisposable
 
     public IntPtr RightAimSpace { get; }
 
-    public bool PanelEnabled => _panelToggle.Enabled;
+    public bool PanelEnabled => _panelSettings.ToggleBinding == PanelToggleBinding.Grip ? _gripPanelEnabled : _panelToggle.Enabled;
 
     public static OpenXrControllerActions? TryCreate(
         IntPtr loader,
@@ -213,6 +232,7 @@ internal sealed class OpenXrControllerActions : IDisposable
         IntPtr primaryClickAction = IntPtr.Zero;
         IntPtr secondaryClickAction = IntPtr.Zero;
         IntPtr thumbstickAction = IntPtr.Zero;
+        IntPtr thumbstickClickAction = IntPtr.Zero;
         IntPtr leftGripSpace = IntPtr.Zero;
         IntPtr rightGripSpace = IntPtr.Zero;
         IntPtr leftAimSpace = IntPtr.Zero;
@@ -248,6 +268,7 @@ internal sealed class OpenXrControllerActions : IDisposable
             primaryClickAction = CreateAction(createAction, actionSet, subactionPathsPointer, "primary_click", "Primary Click", XrActionTypeBooleanInput);
             secondaryClickAction = CreateAction(createAction, actionSet, subactionPathsPointer, "secondary_click", "Secondary Click", XrActionTypeBooleanInput);
             thumbstickAction = CreateAction(createAction, actionSet, subactionPathsPointer, "thumbstick", "Thumbstick", XrActionTypeVector2fInput);
+            thumbstickClickAction = CreateAction(createAction, actionSet, subactionPathsPointer, "thumbstick_click", "Thumbstick Click", XrActionTypeBooleanInput);
 
             XrActionSuggestedBinding[] bindings =
             {
@@ -264,7 +285,9 @@ internal sealed class OpenXrControllerActions : IDisposable
                 Bind(secondaryClickAction, ToPath(stringToPath, instance, "/user/hand/left/input/y/click")),
                 Bind(secondaryClickAction, ToPath(stringToPath, instance, "/user/hand/right/input/b/click")),
                 Bind(thumbstickAction, ToPath(stringToPath, instance, "/user/hand/left/input/thumbstick")),
-                Bind(thumbstickAction, ToPath(stringToPath, instance, "/user/hand/right/input/thumbstick"))
+                Bind(thumbstickAction, ToPath(stringToPath, instance, "/user/hand/right/input/thumbstick")),
+                Bind(thumbstickClickAction, ToPath(stringToPath, instance, "/user/hand/left/input/thumbstick/click")),
+                Bind(thumbstickClickAction, ToPath(stringToPath, instance, "/user/hand/right/input/thumbstick/click"))
             };
             int bindingSize = Marshal.SizeOf<XrActionSuggestedBinding>();
             bindingsPointer = Marshal.AllocHGlobal(bindingSize * bindings.Length);
@@ -282,7 +305,8 @@ internal sealed class OpenXrControllerActions : IDisposable
                 CountSuggestedBindings = checked((uint)bindings.Length),
                 SuggestedBindings = bindingsPointer
             };
-            Check(suggestBindings(instance, ref suggested), "suggest Quest Touch controller bindings");
+            int suggestResult = suggestBindings(instance, ref suggested);
+            Check(suggestResult, "suggest Quest Touch controller bindings");
 
             actionSetsPointer = Marshal.AllocHGlobal(IntPtr.Size);
             Marshal.WriteIntPtr(actionSetsPointer, actionSet);
@@ -309,6 +333,7 @@ internal sealed class OpenXrControllerActions : IDisposable
                 primaryClickAction,
                 secondaryClickAction,
                 thumbstickAction,
+                thumbstickClickAction,
                 leftHandPath,
                 rightHandPath,
                 leftGripSpace,
@@ -333,6 +358,7 @@ internal sealed class OpenXrControllerActions : IDisposable
             primaryClickAction = IntPtr.Zero;
             secondaryClickAction = IntPtr.Zero;
             thumbstickAction = IntPtr.Zero;
+            thumbstickClickAction = IntPtr.Zero;
             leftGripSpace = IntPtr.Zero;
             rightGripSpace = IntPtr.Zero;
             leftAimSpace = IntPtr.Zero;
@@ -349,6 +375,7 @@ internal sealed class OpenXrControllerActions : IDisposable
             DestroySpace(leftAimSpace, destroySpace);
             DestroySpace(rightGripSpace, destroySpace);
             DestroySpace(leftGripSpace, destroySpace);
+            DestroyAction(thumbstickClickAction, destroyAction);
             DestroyAction(thumbstickAction, destroyAction);
             DestroyAction(secondaryClickAction, destroyAction);
             DestroyAction(primaryClickAction, destroyAction);
@@ -379,8 +406,14 @@ internal sealed class OpenXrControllerActions : IDisposable
         }
     }
 
-    public OpenXrControllerFrame Update(long predictedDisplayTime, IntPtr baseSpace)
+    public OpenXrControllerFrame Update(long predictedDisplayTime, IntPtr baseSpace, IntPtr worldSpace, bool captureContactHands)
     {
+        VrSettings settings = VrSettingsRuntime.Current;
+        if (_panelSettings.PanelHand != settings.Panel.PanelHand)
+            _settingsGrip.Update(false, 0f, Stopwatch.GetTimestamp());
+        _panelSettings = settings.Panel;
+        _inputSettings = settings.Input;
+        _trackingSettings = settings.Tracking;
         XrActionsSyncInfo syncInfo = new()
         {
             Type = XrTypeActionsSyncInfo,
@@ -394,6 +427,7 @@ internal sealed class OpenXrControllerActions : IDisposable
         }
         if (syncResult == XrSessionNotFocused)
         {
+            _settingsGrip.Update(false, 0f, Stopwatch.GetTimestamp());
             return new OpenXrControllerFrame(
                 PanelEnabled,
                 false,
@@ -417,16 +451,23 @@ internal sealed class OpenXrControllerActions : IDisposable
         ulong pointerHandPath = PathForHand(_panelSettings.PointerHand);
         bool toggleActive;
         float toggleValue;
+        TryGetFloat(_squeezeValueAction, panelHandPath,
+            $"{HandName(_panelSettings.PanelHand)} squeeze", ref _nextSqueezeReadFailureLogTimestamp,
+            out XrActionStateFloat toggleGrip);
+        GripGesture gesture = _settingsGrip.Update(toggleGrip.IsActive != 0,
+            toggleGrip.CurrentState, Stopwatch.GetTimestamp());
         if (_panelSettings.ToggleBinding == PanelToggleBinding.Grip)
         {
-            TryGetFloat(
-                _squeezeValueAction,
-                panelHandPath,
-                $"{HandName(_panelSettings.PanelHand)} squeeze",
-                ref _nextSqueezeReadFailureLogTimestamp,
-                out XrActionStateFloat toggleGrip);
-            toggleActive = toggleGrip.IsActive != 0;
-            toggleValue = toggleGrip.CurrentState;
+            toggleActive = false;
+            toggleValue = 0f;
+            long gripNow = Stopwatch.GetTimestamp();
+            if (gesture == GripGesture.Short && !VrSettingsRuntime.MenuOpen &&
+                gripNow - _lastGripToggleTimestamp >= Stopwatch.Frequency / 4)
+            {
+                _gripPanelEnabled = !_gripPanelEnabled;
+                _lastGripToggleTimestamp = gripNow;
+                Log(PanelEnabled ? "hand-panel-enabled" : "hand-panel-disabled", "Short Grip release toggled the hand panel.");
+            }
         }
         else
         {
@@ -442,8 +483,10 @@ internal sealed class OpenXrControllerActions : IDisposable
             toggleActive = toggleButton.IsActive != 0;
             toggleValue = toggleButton.CurrentState != 0 ? 1f : 0f;
         }
+        if (VrSettingsRuntime.MenuOpen) _suppressPanelToggle = true;
+        else if (toggleValue <= GripReleaseThreshold) _suppressPanelToggle = false;
         if (_panelToggle.Update(
-                toggleActive,
+                toggleActive && !_suppressPanelToggle,
                 toggleValue,
                 Stopwatch.GetTimestamp()))
         {
@@ -498,10 +541,34 @@ internal sealed class OpenXrControllerActions : IDisposable
             $"{HandName(viewTurnHand)} view-turn thumbstick",
             ref _nextViewTurnThumbstickReadFailureLogTimestamp,
             out XrActionStateVector2f viewTurnThumbstick);
+        bool? leftThumbstickClick = ReadThumbstickClick(_leftHandPath, "left thumbstick click", ref _nextLeftThumbstickClickReadFailureLogTimestamp);
+        bool? rightThumbstickClick = ReadThumbstickClick(_rightHandPath, "right thumbstick click", ref _nextRightThumbstickClickReadFailureLogTimestamp);
+        float? worldGripValue = null;
+        TrackingVector3? worldGripPosition = null;
+        if (_trackingSettings.WorldGripEnabled && _panelSettings.PanelHand != VrHand.Right && worldSpace != IntPtr.Zero &&
+            TryGetFloat(_squeezeValueAction, _rightHandPath, "right world grip", ref _nextWorldGripReadFailureLogTimestamp, out XrActionStateFloat worldGrip) &&
+            worldGrip.IsActive != 0)
+        {
+            worldGripValue = worldGrip.CurrentState;
+            if (worldGrip.CurrentState > GripReleaseThreshold &&
+                TryLocatePose(_gripPoseAction, _rightHandPath, RightGripSpace, worldSpace,
+                    predictedDisplayTime, out OpenXrControllerPose gripPose, XrSpaceLocationPositionValidAndTracked))
+            {
+                worldGripPosition = new TrackingVector3(gripPose.PositionX, gripPose.PositionY, gripPose.PositionZ);
+            }
+        }
+        bool showHands = _trackingSettings.ShowContactHands;
+        OpenXrContactHands contactHands = captureContactHands && showHands
+            ? new OpenXrContactHands(
+                ReadContactHand(_leftHandPath, LeftGripSpace, worldSpace, predictedDisplayTime),
+                worldGripPosition ?? ReadContactHand(_rightHandPath, RightGripSpace, worldSpace, predictedDisplayTime))
+            : default;
         bool locomotionActive = _trackingSettings.LocomotionEnabled &&
-            locomotionThumbstick.IsActive != 0;
+            locomotionThumbstick.IsActive != 0 &&
+            (locomotionHand == VrHand.Left ? leftThumbstickClick : rightThumbstickClick) != true;
         bool viewTurnActive = _trackingSettings.LocomotionEnabled &&
-            viewTurnThumbstick.IsActive != 0;
+            viewTurnThumbstick.IsActive != 0 &&
+            (viewTurnHand == VrHand.Left ? leftThumbstickClick : rightThumbstickClick) != true;
         bool rawPrimary = pointerPrimary.IsActive != 0 && pointerPrimary.CurrentState != 0;
         bool rawSecondary = pointerSecondary.IsActive != 0 && pointerSecondary.CurrentState != 0;
         bool pointerClick = _inputSettings.PrimaryClickButton == FaceButtonBinding.Primary
@@ -526,7 +593,25 @@ internal sealed class OpenXrControllerActions : IDisposable
             locomotionActive ? locomotionThumbstick.CurrentState.Y : 0f,
             viewTurnActive,
             viewTurnActive ? viewTurnThumbstick.CurrentState.X : 0f,
-            viewTurnActive ? viewTurnThumbstick.CurrentState.Y : 0f);
+            viewTurnActive ? viewTurnThumbstick.CurrentState.Y : 0f,
+            gesture == GripGesture.Long,
+            true,
+            leftThumbstickClick,
+            rightThumbstickClick,
+            worldGripValue,
+            worldGripPosition,
+            contactHands);
+    }
+
+    private TrackingVector3? ReadContactHand(ulong hand, IntPtr gripSpace, IntPtr worldSpace, long displayTime) =>
+        TryLocatePose(_gripPoseAction, hand, gripSpace, worldSpace, displayTime,
+            out OpenXrControllerPose pose, XrSpaceLocationPositionValidAndTracked)
+            ? new TrackingVector3(pose.PositionX, pose.PositionY, pose.PositionZ) : null;
+
+    private bool? ReadThumbstickClick(ulong handPath, string name, ref long nextFailureLogTimestamp)
+    {
+        bool read = TryGetBoolean(_thumbstickClickAction, handPath, name, ref nextFailureLogTimestamp, out XrActionStateBoolean state);
+        return read && state.IsActive != 0 ? state.CurrentState != 0 : null;
     }
 
     private ulong PathForHand(VrHand hand) =>
@@ -556,6 +641,7 @@ internal sealed class OpenXrControllerActions : IDisposable
         DestroySpace(LeftAimSpace, _destroySpace);
         DestroySpace(RightGripSpace, _destroySpace);
         DestroySpace(LeftGripSpace, _destroySpace);
+        DestroyAction(_thumbstickClickAction, _destroyAction);
         DestroyAction(_thumbstickAction, _destroyAction);
         DestroyAction(_secondaryClickAction, _destroyAction);
         DestroyAction(_primaryClickAction, _destroyAction);
@@ -575,7 +661,8 @@ internal sealed class OpenXrControllerActions : IDisposable
         IntPtr actionSpace,
         IntPtr baseSpace,
         long predictedDisplayTime,
-        out OpenXrControllerPose pose)
+        out OpenXrControllerPose pose,
+        ulong requiredFlags = XrSpaceLocationPoseValidAndTracked)
     {
         pose = default;
         XrActionStateGetInfo getInfo = new()
@@ -594,7 +681,7 @@ internal sealed class OpenXrControllerActions : IDisposable
         XrSpaceLocation location = new() { Type = XrTypeSpaceLocation };
         int locateResult = _locateSpace(actionSpace, baseSpace, predictedDisplayTime, ref location);
         if (locateResult != XrSuccess ||
-            (location.LocationFlags & XrSpaceLocationPoseValidAndTracked) != XrSpaceLocationPoseValidAndTracked)
+            (location.LocationFlags & requiredFlags) != requiredFlags)
         {
             return false;
         }

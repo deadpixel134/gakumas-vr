@@ -6,7 +6,7 @@ using GakumasVR.Core;
 
 namespace Doorstop;
 
-internal static class VrSettingsRuntime
+internal static partial class VrSettingsRuntime
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

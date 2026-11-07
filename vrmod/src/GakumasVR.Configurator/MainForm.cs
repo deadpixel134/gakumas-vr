@@ -5,6 +5,7 @@ namespace GakumasVR.Configurator;
 
 internal sealed class MainForm : Form
 {
+    private readonly System.Windows.Forms.Timer _languageRefresh = new() { Interval = 1000 };
     private readonly StartupResult _startup;
     private readonly UpdateService _updateService = new();
     private readonly TextBox _gameRoot = new() { Dock = DockStyle.Fill };
@@ -59,6 +60,8 @@ internal sealed class MainForm : Form
     private readonly ComboBox _back = ChoiceCombo();
     private readonly CheckBox _trigger = TaggedCheckBox("TriggerEnabled");
     private readonly CheckBox _locomotion = TaggedCheckBox("LocomotionEnabled");
+    private readonly CheckBox _worldGrip = TaggedCheckBox("WorldGripEnabled");
+    private readonly CheckBox _contactHands = TaggedCheckBox("WorldGripEnabled");
     private readonly ComboBox _locomotionHand = ChoiceCombo();
     private readonly NumericUpDown _locomotionSpeed = Number(0.10m, 5.00m, 0.10m, 2);
     private readonly ComboBox _viewTurnMode = ChoiceCombo();
@@ -175,7 +178,9 @@ internal sealed class MainForm : Form
         ApplyLanguage(languageChanged: false);
         Load += (_, _) => Run("StatusLoaded", LoadSettings);
         Shown += async (_, _) => await OnShownAsync();
-        FormClosed += (_, _) => _updateService.Dispose();
+        _languageRefresh.Tick += (_, _) => { if (UiText.ReloadLanguage()) ApplyLanguage(languageChanged: true); };
+        _languageRefresh.Start();
+        FormClosed += (_, _) => { _languageRefresh.Dispose(); _updateService.Dispose(); };
     }
 
     private void BuildRenderTab()
@@ -326,6 +331,8 @@ internal sealed class MainForm : Form
         AddRow(grid, "BackButton", _back);
         AddRow(grid, "Trigger", _trigger);
         AddRow(grid, "Locomotion", _locomotion);
+        AddRow(grid, "WorldGrip", _worldGrip);
+        AddRow(grid, "ContactHands", _contactHands);
         AddRow(grid, "LocomotionHand", _locomotionHand);
         AddRow(grid, "LocomotionSpeed", _locomotionSpeed);
         AddRow(grid, "ViewTurnMode", _viewTurnMode);
@@ -334,6 +341,7 @@ internal sealed class MainForm : Form
         AddRow(grid, "InputSafety", _requireFocus);
         _inputTab.Controls.Add(grid);
     }
+
 
     private void ChangeLanguage(UiLanguage language)
     {
@@ -380,6 +388,7 @@ internal sealed class MainForm : Form
             new[]
             {
                 VrVisualEffectModes.Approved,
+                VrVisualEffectModes.VrifyFollow,
                 VrVisualEffectModes.AllOn,
                 VrVisualEffectModes.AllOff,
                 VrVisualEffectModes.Manual
@@ -567,6 +576,8 @@ internal sealed class MainForm : Form
         {
             LiveSixDofEnabled = _liveSixDof.Checked,
             LocomotionEnabled = _locomotion.Checked,
+            WorldGripEnabled = _worldGrip.Checked,
+            ShowContactHands = _contactHands.Checked,
             LocomotionHand = Selected(_locomotionHand, VrHand.Right),
             LocomotionSpeed = (float)_locomotionSpeed.Value,
             ViewTurnMode = Selected(_viewTurnMode, VrViewTurnMode.Snap),
@@ -619,6 +630,8 @@ internal sealed class MainForm : Form
             _nonLiveHeadAuto, _nonLiveHeadMultiplier, _nonLiveLocomotionAuto, _nonLiveLocomotionMultiplier);
         _liveSixDof.Checked = settings.Tracking.LiveSixDofEnabled;
         _locomotion.Checked = settings.Tracking.LocomotionEnabled;
+        _worldGrip.Checked = settings.Tracking.WorldGripEnabled;
+        _contactHands.Checked = settings.Tracking.ShowContactHands;
         Select(_locomotionHand, settings.Tracking.LocomotionHand);
         Set(_locomotionSpeed, settings.Tracking.LocomotionSpeed);
         Select(_viewTurnMode, settings.Tracking.ViewTurnMode);
