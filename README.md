@@ -10,10 +10,15 @@
 
 주요 6DoF 조작은 Meta Quest 2와 VDXR (Virtual Desktop)에서 v0.173 실기로 확인했습니다. 현재 공개판은 [v0.177.0](https://github.com/deadpixel134/gakumas-vr/releases/tag/v0.177.0)입니다. SteamVR OpenXR와 Meta Quest Link는 예비 지원 대상입니다.
 
+## VR 컨트롤 안내
+
+[![왼손과 오른손의 Gakumas VR 기본 조작](docs/images/vr-controls-ko.png)](docs/ko/CONTROLS.md)
+
 ## 문서
 
 - [설치 방법](docs/ko/INSTALLATION.md)
-- [사용 방법과 조작법](docs/ko/USAGE.md)
+- [VR 컨트롤 안내](docs/ko/CONTROLS.md)
+- [사용 방법](docs/ko/USAGE.md)
 - [프로그램 구조와 동작 방식](docs/ko/ARCHITECTURE.md)
 - [재사용 가능한 VR 조작·포즈 합성 명세](docs/ko/VR_INTERACTION_SPEC.md)
 - [개발자 안내](vrmod/README.md)

@@ -10,10 +10,15 @@ Gakumas VR is an unofficial Meta Quest/OpenXR VR mod for the DMM version of Gaku
 
 The core 6DoF controls were hardware-tested on Meta Quest 2 with VDXR (Virtual Desktop) through v0.173. The current public release is [v0.177.0](https://github.com/deadpixel134/gakumas-vr/releases/tag/v0.177.0). SteamVR OpenXR and Meta Quest Link remain preliminary targets.
 
+## VR controls
+
+[![Default Gakumas VR controls for the left and right hands](docs/images/vr-controls-en.png)](docs/en/CONTROLS.md)
+
 ## Documentation
 
 - [Installation](docs/en/INSTALLATION.md)
-- [Usage and controls](docs/en/USAGE.md)
+- [VR controls](docs/en/CONTROLS.md)
+- [Usage](docs/en/USAGE.md)
 - [Architecture](docs/en/ARCHITECTURE.md)
 - [Reusable VR interaction and pose-composition specification](docs/en/VR_INTERACTION_SPEC.md)
 - [Developer guide](vrmod/README.md) (Korean)

@@ -10,10 +10,15 @@ Gakumas VRは、学園アイドルマスターDMM版向けの非公式Meta Quest
 
 主要な6DoF操作は、v0.173までにMeta Quest 2とVDXR（Virtual Desktop）で実機確認済みです。現在の公開版は [v0.177.0](https://github.com/deadpixel134/gakumas-vr/releases/tag/v0.177.0) です。SteamVR OpenXRとMeta Quest Linkは予備対応です。
 
+## VR操作ガイド
+
+[![Gakumas VRの左右のデフォルト操作](docs/images/vr-controls-ja.png)](docs/ja/CONTROLS.md)
+
 ## ドキュメント
 
 - [インストール](docs/ja/INSTALLATION.md)
-- [使い方と操作方法](docs/ja/USAGE.md)
+- [VR操作ガイド](docs/ja/CONTROLS.md)
+- [使い方](docs/ja/USAGE.md)
 - [構成と仕組み](docs/ja/ARCHITECTURE.md)
 - [再利用可能なVR操作・ポーズ合成仕様](docs/ja/VR_INTERACTION_SPEC.md)
 - [開発者向けガイド](vrmod/README.md)（韓国語）

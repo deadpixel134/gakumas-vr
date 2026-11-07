@@ -13,6 +13,8 @@
 
 ## Default controls
 
+See the [VR controls guide](CONTROLS.md) for the complete v0.177.0 bindings and a controller diagram.
+
 | Action | Default input |
 |---|---|
 | Aim cursor | Right controller aim ray |
@@ -20,7 +22,7 @@
 | Back | B button (`Esc`) |
 | 3D movement | Right Thumbstick, including current view pitch |
 | View turning | Left Thumbstick, 30° snap by default |
-| Toggle 3D auxiliary panel | Left Grip |
+| Toggle 3D auxiliary panel | Press and release the left Grip quickly |
 
 Use A when pulling the trigger would disturb fine aim. Trigger input latches the early press position to reduce drift and becomes a drag only after being held and moved far enough. Thumbstick scrolling is disabled in VR. Direct touch is not supported.
 
@@ -38,13 +40,13 @@ If you swap the panel and pointer hands in settings, these terms follow the sele
 After installation, run `game directory\vrmod\tools\GakumasVR.Configurator.exe`. Korean, English, and Japanese can be selected at the top.
 
 - **Rendering:** per-eye render scale from 0.50 to 2.00 and world eye-offset scale
-- **VFX:** approved default, all on, all off, or manual effects
+- **VFX** — preset A (default), preset B (camera projection follow), all on, all off, or manual effects
 - **Panel:** panel/pointer hands, initial state, placement, size, rotation, viewer-facing behavior, and toggle binding
 - **Input:** click/back buttons, trigger click, movement hand and speed, snap/smooth turning, snap angle, and game-focus requirement
 
 Live 6DoF is enabled by default and uses an entry anchor independent of the live direction camera. The movement hand defaults to right, movement speed defaults to 1.95m/s, and the opposite left hand turns the view. Changing the movement hand swaps both roles. The default snap step is 30°, with 15°/30°/45°/60° available. Stick turning never creates view roll; only physical HMD tilt introduced after VR entry is retained. See the [VR interaction and pose-composition specification](VR_INTERACTION_SPEC.md) for the portable implementation contract.
 
-Save only while the game is closed. Invalid values are replaced with safe defaults and the reason is logged.
+Close the game before saving from the desktop configurator. To save during play, use **Save** in the [VR settings menu](CONTROLS.md#using-vr-settings). Invalid values are replaced with safe defaults and the reason is logged.
 
 ## Render scale and frame rate
 
