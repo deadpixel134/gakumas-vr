@@ -1,6 +1,6 @@
 namespace GakumasVR.Core;
 
-public enum SettingsMenuAction { None, Previous, Next, Apply, Save, Close, ProfileA, ProfileB, Decrease, Increase, Language }
+public enum SettingsMenuAction { None, Previous, Next, Apply, Save, Close, ProfileA, ProfileC, Decrease, Increase, Language }
 
 public static class SettingsMenuLayout
 {
@@ -20,7 +20,7 @@ public static class SettingsMenuLayout
         {
             if (x >= ProfileStart && x < ProfileStart + ProfileWidth) return (SettingsMenuAction.ProfileA, -1);
             if (x >= ProfileStart + ProfileSpacing && x < ProfileStart + ProfileSpacing + ProfileWidth)
-                return (SettingsMenuAction.ProfileB, -1);
+                return (SettingsMenuAction.ProfileC, -1);
         }
         if (y >= 148 && y < 568)
         {

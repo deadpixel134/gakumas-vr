@@ -73,10 +73,10 @@ Assert-Equal ([int]$manifest.files.Count) $verified 'Manifest verification count
 
 if ($ExpectedEdition) {
     Assert-Equal $ExpectedEdition ([string]$manifest.edition) 'Unexpected package edition.'
-    $public = $ExpectedEdition -eq 'public'
+    $contactExcluded = $false # Both editions include consent-gated contact.
     $defaults = Get-Content -Raw -LiteralPath (Join-Path $payload 'vrmod\config\settings.json') | ConvertFrom-Json -AsHashtable
     $contactKeys = @($defaults.tracking.Keys | Where-Object { $_ -match '^contact|^showContactLocations$' })
-    Assert-Equal $public ($contactKeys.Count -eq 0) 'Contact settings do not match the package edition.'
+    Assert-Equal $contactExcluded ($contactKeys.Count -eq 0) 'Contact settings do not match the package edition.'
     Assert-True ($defaults.tracking.Contains('showContactHands')) 'Hand display setting is missing.'
 
     $assemblyContext = [System.Runtime.Loader.AssemblyLoadContext]::new('GakumasVR-package-edition', $true)
@@ -85,11 +85,13 @@ if ($ExpectedEdition) {
         $runtime = $assemblyContext.LoadFromAssemblyPath((Join-Path $payload 'vrmod\runtime\GakumasVR.RuntimeBootstrap.dll'))
         $sampler = $runtime.GetType('Doorstop.MainThreadSampler', $true)
         $methods = [System.Reflection.BindingFlags]'Instance,Static,Public,NonPublic'
-        foreach ($method in @('PrepareContactCollisionPair', 'ApplyContactTrialPosition', 'ObserveThighCoverage')) {
-            Assert-Equal $public ($null -eq $sampler.GetMethod($method, $methods)) "Unexpected availability of $method."
+        foreach ($method in @('PrepareContactCollisionPair', 'ApplyContactTrialPosition', 'BindWeightedLowerBodyPatches', 'ContactRangeVertices')) {
+            Assert-Equal $contactExcluded ($null -eq $sampler.GetMethod($method, $methods)) "Unexpected availability of $method."
         }
-        Assert-Equal $public ($null -eq $runtime.GetType('Doorstop.OpenXrContactHaptics')) 'Unexpected contact haptics availability.'
-        Assert-Equal $public ($null -eq $core.GetType('GakumasVR.Core.ContactResponse')) 'Unexpected contact solver availability.'
+        Assert-Equal $contactExcluded ($null -eq $runtime.GetType('Doorstop.OpenXrContactHaptics')) 'Unexpected contact haptics availability.'
+        Assert-Equal $contactExcluded ($null -eq $core.GetType('GakumasVR.Core.ContactResponse')) 'Unexpected contact solver availability.'
+        Assert-Equal $contactExcluded ($null -eq $core.GetType('GakumasVR.Core.ContactConsent')) 'Unexpected contact consent availability.'
+        Assert-True (-not (@($manifest.files | Where-Object path -Match 'character-contact-consent').Count)) 'Packages must not include a consent record.'
         Assert-True ($null -ne $sampler.GetMethod('PrepareContactHands', $methods)) 'Hand display renderer is missing.'
 
         $type = $core.GetType('GakumasVR.Core.VrSettings', $true)
@@ -98,12 +100,12 @@ if ($ExpectedEdition) {
         $legacyJson = '{"tracking":{"showContactHands":true,"contactCollisionEnabled":true,"contactBoneTrialEnabled":true,"showContactLocations":true}}'
         $legacy = [System.Text.Json.JsonSerializer]::Deserialize($legacyJson, $type, $jsonOptions)
         Assert-True ($legacy.Tracking.ShowContactHands) 'Legacy hand display preference was not loaded.'
-        Assert-Equal $public ($null -eq $legacy.Tracking.GetType().GetProperty('ContactCollisionEnabled')) 'Unexpected legacy collision setting availability.'
+        Assert-Equal $contactExcluded ($null -eq $legacy.Tracking.GetType().GetProperty('ContactCollisionEnabled')) 'Unexpected legacy collision setting availability.'
         $editor = [Activator]::CreateInstance($core.GetType('GakumasVR.Core.VrSettingsEditor', $true), [object[]]@($legacy))
         $editorPaths = @($editor.Entries | ForEach-Object Path)
         Assert-True ($editorPaths -contains 'Tracking.ShowContactHands') 'Hand display is missing from the VR settings menu.'
         $reactionPaths = @($editorPaths | Where-Object { $_ -match '^Tracking\.(Contact|ShowContactLocations$)' })
-        Assert-Equal $public ($reactionPaths.Count -eq 0) 'VR contact menu does not match the package edition.'
+        Assert-Equal $contactExcluded ($reactionPaths.Count -eq 0) 'VR contact menu does not match the package edition.'
     }
     finally {
         $assemblyContext.Unload()

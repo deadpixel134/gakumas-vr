@@ -11,6 +11,11 @@ internal sealed partial class MainThreadSampler
     private bool _showContactHands;
     private bool _contactHandsFailed;
     private bool _contactHandsLogged;
+#if !GAKUMAS_PUBLIC
+    private int _contactRigProbeAttempts;
+    private ContactRigScan? _contactRigScan;
+    private DateTimeOffset _nextContactRigProbeUtc;
+#endif
     private DateTimeOffset _nextContactShaderProbeUtc;
     private int _contactShaderProbeAttempts;
     private string _contactShaderName = string.Empty;
@@ -29,6 +34,12 @@ internal sealed partial class MainThreadSampler
     private bool _contactProjectionProbeFailed;
     private DateTimeOffset _nextContactProjectionProbeUtc;
 
+#if !GAKUMAS_PUBLIC
+    private static bool IsContactTrialScene(string scene) =>
+        string.Equals(scene, "env_3d_home_classroom-01-00-noon", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(scene, "env_3d_home_classroom-01-00-evening", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(scene, "env_3d_home_classroom-01-00-night", StringComparison.OrdinalIgnoreCase);
+#endif
 
     private float PrepareContactPilotEyeProjection(DateTimeOffset now, IntPtr coreImage, IntPtr cameraClass,
         float originalNear, float eyeScale)
@@ -98,6 +109,12 @@ internal sealed partial class MainThreadSampler
         float holdSeconds = .1f;
         float radiusMeters = ContactHandAlignment.HandRadiusMeters;
         bool showTrialMarkers = false;
+#if !GAKUMAS_PUBLIC
+        VrTrackingSettings tracking = VrSettingsRuntime.Current.Tracking;
+        holdSeconds = tracking.ContactHandHoldSeconds;
+        radiusMeters = tracking.ContactHandRadiusMeters;
+        showTrialMarkers = _contactTrialPairPrepared && (!_contactCollisionEnabled || tracking.ShowContactLocations || tracking.ContactShowRanges);
+#endif
         long age = Environment.TickCount64 - contactStereo.CapturedMilliseconds;
         OpenXrContactHands hands = _showContactHands && age >= 0 && age <= holdSeconds * 1000f
             ? contactStereo.ContactHands : default;
@@ -125,6 +142,12 @@ internal sealed partial class MainThreadSampler
                 _contactCheckMarkerAssets = false;
                 bool expired = DropExpiredContactMarkerAsset(ref _contactMeshAsset) |
                     DropExpiredContactMarkerAsset(ref _contactMaterialAsset);
+#if !GAKUMAS_PUBLIC
+                expired |= DropExpiredContactMarkerAsset(ref _contactTrialMarkerBaseline) |
+                    DropExpiredContactMarkerAsset(ref _contactTrialMarkerOffset) |
+                    DropExpiredContactMarkerAsset(ref _contactRangeMeshAsset);
+                if (expired) _contactTrialMarkerFailed = false;
+#endif
                 if (expired)
                 {
                     _contactHandsFailed = _contactCompositionFailed = _contactFinalOverlayFailed = false;
@@ -139,8 +162,14 @@ internal sealed partial class MainThreadSampler
             float radius = alignment.Scale * radiusMeters * ContactMarkerDisplayScale;
             Vector3? left = hands.Left is TrackingVector3 l && alignment.TryMap(l, out Vector3 lp) ? lp : null;
             Vector3? right = hands.Right is TrackingVector3 r && alignment.TryMap(r, out Vector3 rp) ? rp : null;
+#if !GAKUMAS_PUBLIC
+            ContactTrialMarker[] markers = GetContactTrialMarkers(now, coreImage);
+            if (left is null && right is null && markers.Length == 0) return;
+            var frame = new ContactHandFrame(renderStereo, left, right, radius, alignment.Scale, nearClip, markers);
+#else
             if (left is null && right is null) return;
             var frame = new ContactHandFrame(renderStereo, left, right, radius, alignment.Scale, nearClip);
+#endif
             if (!_contactFinalOverlayFailed)
             {
                 try { EnsureContactOverlayCommand(coreImage); }
@@ -191,8 +220,12 @@ internal sealed partial class MainThreadSampler
             _contactSceneLayer = RootContactValue(BoxInt32(FindImage("mscorlib.dll"), BitOperations.TrailingZeroCount(layers)));
         }
         IntPtr size = BoxContactVector(new Vector3(frame.Radius));
-        DrawMarker(frame.Left, size, _contactMaterial);
-        DrawMarker(frame.Right, size, _contactMaterial);
+        DrawMarker(frame.Left, size, _contactMaterial, _contactMesh);
+        DrawMarker(frame.Right, size, _contactMaterial, _contactMesh);
+#if !GAKUMAS_PUBLIC
+        foreach (ContactTrialMarker marker in frame.TargetMarkers)
+            DrawMarker(marker.Center, BoxContactVector(new Vector3(marker.Radius)), marker.Material, marker.Mesh);
+#endif
         if (!_contactHandsLogged)
         {
             _contactHandsLogged = true;
@@ -200,14 +233,14 @@ internal sealed partial class MainThreadSampler
                 $"left={frame.Left.HasValue};right={frame.Right.HasValue};displayRadius={frame.Radius:R};shader={_contactShaderName};cameraTargets=stereo-eyes;phase=scene-fallback");
         }
 
-        void DrawMarker(Vector3? center, IntPtr markerSize, IntPtr material)
+        void DrawMarker(Vector3? center, IntPtr markerSize, IntPtr material, IntPtr mesh)
         {
             if (center is not Vector3 position) return;
             IntPtr matrix = InvokeWithObjectArguments(_contactTrs, IntPtr.Zero, BoxContactVector(position), _contactOrientation, markerSize);
-            _ = InvokeWithObjectArguments(_contactSceneDraw, IntPtr.Zero, _contactMesh, matrix, material,
+            _ = InvokeWithObjectArguments(_contactSceneDraw, IntPtr.Zero, mesh, matrix, material,
                 _contactSceneLayer, _stereoLeftCamera, _contactSceneSubmesh, IntPtr.Zero, _contactSceneShadows,
                 _contactSceneReceiveShadows, IntPtr.Zero, _contactSceneLightProbes, IntPtr.Zero);
-            _ = InvokeWithObjectArguments(_contactSceneDraw, IntPtr.Zero, _contactMesh, matrix, material,
+            _ = InvokeWithObjectArguments(_contactSceneDraw, IntPtr.Zero, mesh, matrix, material,
                 _contactSceneLayer, _stereoRightCamera, _contactSceneSubmesh, IntPtr.Zero, _contactSceneShadows,
                 _contactSceneReceiveShadows, IntPtr.Zero, _contactSceneLightProbes, IntPtr.Zero);
         }
@@ -230,6 +263,9 @@ internal sealed partial class MainThreadSampler
             string rightHandLeftEye = ContactProjectionSample(stereo.ContactHands.Right, stereo.Left, _stereoLeftCamera, alignment, nearClip);
             string rightHandRightEye = ContactProjectionSample(stereo.ContactHands.Right, stereo.Right, _stereoRightCamera, alignment, nearClip);
             string reach = string.Empty;
+#if !GAKUMAS_PUBLIC
+            reach = DescribeContactTrialReach(frame);
+#endif
             LogContactPilot(now, "contact-pilot-hand-projection",
                 $"scale={alignment.Scale:F4};near={nearClip:F4};leftHandLeftEye={leftHandLeftEye};leftHandRightEye={leftHandRightEye};rightHandLeftEye={rightHandLeftEye};rightHandRightEye={rightHandRightEye}{reach}");
         }
@@ -283,16 +319,13 @@ internal sealed partial class MainThreadSampler
         {
             IntPtr meshClass = FindClass(coreImage, "UnityEngine", "Mesh");
             _contactMeshAsset = CreateContactMarkerAsset(coreImage, meshClass, "contact marker Mesh",
-                mesh => InitializeContactMarkerMesh(coreImage, meshClass, mesh));
+                mesh => InitializeContactMarkerMesh(coreImage, meshClass, mesh, ContactMarkerVertices()));
         }
         return true;
     }
 
-    private void InitializeContactMarkerMesh(IntPtr coreImage, IntPtr meshClass, IntPtr mesh)
+    private static List<Vector3> ContactMarkerVertices()
     {
-        _ = Invoke(FindMethod(meshClass, ".ctor"), mesh);
-        var arrayNew = Marshal.GetDelegateForFunctionPointer<ContactArrayNew>(
-            NativeLibrary.GetExport(NativeMethods.GetModuleHandle("GameAssembly.dll"), "il2cpp_array_new"));
         List<Vector3> vertices = new();
         Vector3[] ring = { Vector3.UnitX, -Vector3.UnitZ, -Vector3.UnitX, Vector3.UnitZ };
         for (int i = 0; i < ring.Length; i++)
@@ -301,6 +334,14 @@ internal sealed partial class MainThreadSampler
             AddContactSphereFace(vertices, Vector3.UnitY, ring[i], next, 2);
             AddContactSphereFace(vertices, -Vector3.UnitY, next, ring[i], 2);
         }
+        return vertices;
+    }
+
+    private void InitializeContactMarkerMesh(IntPtr coreImage, IntPtr meshClass, IntPtr mesh, IReadOnlyList<Vector3> vertices)
+    {
+        _ = Invoke(FindMethod(meshClass, ".ctor"), mesh);
+        var arrayNew = Marshal.GetDelegateForFunctionPointer<ContactArrayNew>(
+            NativeLibrary.GetExport(NativeMethods.GetModuleHandle("GameAssembly.dll"), "il2cpp_array_new"));
         _contactVectorClass = FindClass(coreImage, "UnityEngine", "Vector3");
         IntPtr vertexArray = arrayNew(_contactVectorClass, (nuint)vertices.Count);
         if (vertexArray == IntPtr.Zero) throw new InvalidOperationException("Could not allocate contact marker vertices.");
@@ -462,6 +503,246 @@ internal sealed partial class MainThreadSampler
         return value;
     }
 
+#if !GAKUMAS_PUBLIC
+    private void ProbeContactPilot(DateTimeOffset now, IntPtr coreImage)
+    {
+        if (now < _nextContactRigProbeUtc) return;
+        try
+        {
+            if (!ProbeContactPilotRig(now, coreImage)) return;
+            _contactRigProbeAttempts = Math.Min(3, _contactRigProbeAttempts + 1);
+            // Keep finding actors that load later while the same camera stays active.
+            _nextContactRigProbeUtc = now.AddSeconds(_contactRigProbeAttempts < 3 || _contactBoneTrialTargets.Count == 0 ? 2 : 10);
+        }
+        catch (Exception error)
+        {
+            ReleaseContactRigScan();
+            _contactRigProbeAttempts = 3;
+            _nextContactRigProbeUtc = now.AddSeconds(10);
+            LogContactPilot(now, "contact-pilot-rig-unavailable", error.GetType().Name + ": " + error.Message.Split('\n')[0]);
+        }
+    }
+
+    private sealed class ContactRigScan(IReadOnlyList<IntPtr> skins, IntPtr root)
+    {
+        public IReadOnlyList<IntPtr> Skins { get; } = skins;
+        public IntPtr Root { get; } = root;
+        public int Cursor, InspectedBones, ActorSkins;
+        public int InactiveSkins, LayerRejectedSkins, MissingAnimators, InvalidRigRoots;
+        public int LowerBodyCursor, LowerBodyInspectedBones, LowerBodySkins;
+        public HashSet<int> LowerBodyWeightedActors { get; } = new();
+        public double ScanMilliseconds;
+        public HashSet<IntPtr> ChestActors { get; } = new();
+        public SortedSet<string> Candidates { get; } = new(StringComparer.Ordinal);
+        public SortedSet<string> LowerBody { get; } = new(StringComparer.Ordinal);
+        public List<string> Weighted { get; } = new();
+    }
+
+    private void ReleaseContactRigScan()
+    {
+        if (_contactRigScan is { } scan && scan.Root != IntPtr.Zero) _contactTrialFreeHandle!(scan.Root);
+        _contactRigScan = null;
+    }
+
+    private void ProbeContactRenderContract(DateTimeOffset now, string scene)
+    {
+        try
+        {
+            IntPtr urp = FindImage("Unity.RenderPipelines.Universal.Runtime.dll");
+            IntPtr pipeline = FindClass(urp, "UnityEngine.Rendering.Universal", "UniversalRenderPipeline");
+            IntPtr renderer = FindClass(urp, "UnityEngine.Rendering.Universal", "ScriptableRenderer");
+            LogContactPilot(now, "contact-pilot-render-contract",
+                $"scene={scene};stack={DescribeNamedMethods(pipeline, "RenderCameraStack")};renderer={DescribeNamedMethods(renderer, "Execute")};cleanup={DescribeNamedMethods(renderer, "InternalFinishRendering")};writes=0");
+        }
+        catch (Exception error)
+        {
+            LogContactPilot(now, "contact-pilot-render-contract-unavailable", $"scene={scene};error={error.GetType().Name};writes=0");
+        }
+    }
+
+    private bool ProbeContactPilotRig(DateTimeOffset now, IntPtr coreImage)
+    {
+        long started = Stopwatch.GetTimestamp();
+        IntPtr rendererClass = FindClass(coreImage, "UnityEngine", "SkinnedMeshRenderer");
+        IntPtr animatorClass = FindClass(FindImage("UnityEngine.AnimationModule.dll"), "UnityEngine", "Animator");
+        IntPtr animatorType = GetManagedType(animatorClass);
+        if (animatorType == IntPtr.Zero) throw new MissingMemberException("Animator runtime type is unavailable.");
+        IntPtr componentClass = FindClass(coreImage, "UnityEngine", "Component");
+        IntPtr inParent = FindMethodBySignature(componentClass, "GetComponentInParent", "System.Type");
+        IntPtr transformClass = FindClass(coreImage, "UnityEngine", "Transform");
+        IntPtr isChild = FindMethodBySignature(transformClass, "IsChildOf", "UnityEngine.Transform");
+        IntPtr getTransform = FindMethod(componentClass, "get_transform");
+        IntPtr getParent = FindMethod(transformClass, "get_parent");
+        IntPtr getChildCount = FindMethod(transformClass, "get_childCount");
+        IntPtr getChild = FindMethodBySignature(transformClass, "GetChild", "System.Int32");
+        IntPtr mscorlib = FindImage("mscorlib.dll");
+        IntPtr getName = FindMethod(coreImage, "UnityEngine", "Object", "get_name");
+        IntPtr getBones = FindMethod(rendererClass, "get_bones");
+        IntPtr getMesh = FindMethod(rendererClass, "get_sharedMesh");
+        IntPtr getRoot = FindMethod(rendererClass, "get_rootBone");
+        int eyeLayers = InvokeInstanceInt(coreImage, "UnityEngine", "Camera", "get_cullingMask", _stereoLeftCamera) &
+            InvokeInstanceInt(coreImage, "UnityEngine", "Camera", "get_cullingMask", _stereoRightCamera);
+        if (_contactRigScan is null)
+        {
+            EnsureContactTrialHook(coreImage);
+            IntPtr array = FindActiveContactSkins(coreImage, rendererClass);
+            IReadOnlyList<IntPtr> skins = ReadObjectArray(array, 512);
+            IntPtr handle = array == IntPtr.Zero ? IntPtr.Zero : RootObject(array, "contact rig scan");
+            _contactRigScan = new ContactRigScan(skins, handle);
+        }
+        ContactRigScan scan = _contactRigScan;
+        int end = Math.Min(scan.Cursor + 8, scan.Skins.Count);
+        while (scan.Cursor < end)
+        {
+            IntPtr skin = scan.Skins[scan.Cursor++];
+            if (!ContactTrialAlive(skin)) continue;
+            IntPtr gameObject = Invoke(_contactTrialSkinGameObject, skin);
+            if (gameObject == IntPtr.Zero || !ReadContactBool(Invoke(_contactTrialObjectActive, gameObject)) ||
+                !ReadContactBool(Invoke(_contactTrialSkinEnabled, skin)))
+            {
+                scan.InactiveSkins++;
+                continue;
+            }
+            IntPtr mesh = Invoke(getMesh, skin);
+            if (mesh == IntPtr.Zero) continue;
+            int layer = InvokeInstanceInt(coreImage, "UnityEngine", "GameObject", "get_layer", gameObject);
+            if (layer is < 0 or > 31 || (eyeLayers & (1 << layer)) == 0)
+            {
+                scan.LayerRejectedSkins++;
+                continue;
+            }
+
+            IntPtr animator = InvokeWithObjectArgument(inParent, skin, animatorType);
+            // The Animator identifies ownership even when a timeline drives the active skin.
+            if (!ContactTrialAlive(animator))
+            {
+                scan.MissingAnimators++;
+                continue;
+            }
+            if (ContactActorHasBothSides(animator))
+            {
+                scan.ChestActors.Add(animator);
+                continue;
+            }
+            IntPtr actorTransform = Invoke(getTransform, animator);
+            IntPtr root = Invoke(getRoot, skin);
+            if (actorTransform == IntPtr.Zero || root == IntPtr.Zero || !ContactChildOf(isChild, root, actorTransform))
+            {
+                scan.InvalidRigRoots++;
+                continue;
+            }
+            IntPtr bones = Invoke(getBones, skin);
+            if (bones == IntPtr.Zero) continue;
+            ulong slots = unchecked((ulong)Marshal.ReadInt64(bones, 3 * IntPtr.Size));
+            if (slots is 0 or > 512) continue;
+            scan.InspectedBones += (int)slots;
+            var chestSlots = new Dictionary<int, string>();
+            var skinLowerBody = new List<string>();
+            for (int slot = 0; slot < (int)slots; slot++)
+            {
+                // Bone weights refer to the original skin.bones slot, including empty slots.
+                IntPtr bone = Marshal.ReadIntPtr(bones, (4 + slot) * IntPtr.Size);
+                if (bone == IntPtr.Zero) continue;
+                string name = ReadContactBoneLabel(getName, bone);
+                bool chestHint = name is "LeftBust1_S" or "RightBust1_S";
+                bool lowerHint = IsContactLowerBodyHint(name);
+                if (!chestHint && !lowerHint) continue;
+                IntPtr parent = Invoke(getParent, bone);
+                if (parent == IntPtr.Zero) continue;
+                string parentName = ReadContactBoneLabel(getName, parent);
+                if (!IsSafeContactBoneLabel(name) || !IsSafeContactBoneLabel(parentName)) continue;
+                if (IsObservedContactChestBone(name, parentName) && ContactChildOf(isChild, bone, root))
+                    chestSlots[slot] = $"{parentName}/{name}";
+                if (lowerHint)
+                    skinLowerBody.Add($"{parentName}/{name}");
+                if (name == "Hips")
+                {
+                    int children = Math.Min(16, ReadContactInt(getChildCount, bone));
+                    for (int i = 0; i < children; i++)
+                    {
+                        string child = ReadContactBoneLabel(getName,
+                            InvokeWithObjectArgument(getChild, bone, BoxInt32(mscorlib, i)));
+                        if (IsSafeContactBoneLabel(child)) skinLowerBody.Add($"Hips/{child}");
+                    }
+                }
+            }
+            if (chestSlots.Count != 0)
+            {
+                scan.ActorSkins++;
+                scan.Candidates.UnionWith(chestSlots.Values);
+                scan.LowerBody.UnionWith(skinLowerBody);
+                scan.ChestActors.Add(animator);
+                scan.Weighted.Add(ObserveContactSkinWeights(coreImage, mesh, (int)slots, chestSlots, out int[]? weights));
+                if (weights is not null)
+                {
+                    string[] boundPaths = _contactBoneTrialTargets.Where(target => !target.Invalid && target.Animator == animator)
+                        .Select(target => target.BonePath).ToArray();
+                    foreach (var candidate in SelectContactRigSlots(chestSlots, weights, boundPaths))
+                    {
+                        int slot = candidate.Slot;
+                        IntPtr bone = Marshal.ReadIntPtr(bones, (4 + slot) * IntPtr.Size);
+                        BindContactBoneTrial(now, coreImage, animator, skin, mesh, root, bone, Invoke(getParent, bone),
+                            slot, (int)slots, weights[slot], candidate.Path);
+                    }
+                }
+            }
+            break;
+        }
+        scan.ScanMilliseconds += (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
+        if (scan.Cursor < scan.Skins.Count)
+            return false;
+        try
+        {
+            if (!AdvanceContactLowerBodyAudit(now, coreImage, scan, componentClass, inParent, animatorType,
+                getTransform, getRoot, getBones, getMesh, getName, getParent, isChild, eyeLayers)) return false;
+        }
+        catch (Exception error)
+        {
+            LogContactPilot(now, "contact-lower-body-audit-unavailable", $"error={error.GetType().Name};auditWrites=0");
+        }
+        LogContactPilot(now, "contact-pilot-rig-observed",
+            $"skins={scan.Skins.Count};scanned={scan.Cursor};inactive={scan.InactiveSkins};layerRejected={scan.LayerRejectedSkins};eyeLayers=0x{eyeLayers:X8};missingAnimator={scan.MissingAnimators};invalidRigRoot={scan.InvalidRigRoots};actorsWithChest={scan.ChestActors.Count};trialTargets={_contactBoneTrialTargets.Count};selectedActorSkins={scan.ActorSkins};inspectedBones={scan.InspectedBones};scanMs={scan.ScanMilliseconds:F2};chestCandidates={string.Join(",", scan.Candidates)};lowerBodyTopology={string.Join(",", scan.LowerBody.Take(24))};skinWeights={string.Join("|", scan.Weighted)};writes=0");
+        ReleaseContactRigScan();
+        return true;
+    }
+
+    private unsafe IntPtr FindActiveContactSkins(IntPtr coreImage, IntPtr rendererClass)
+    {
+        IntPtr find = FindMethodBySignature(FindClass(coreImage, "UnityEngine", "Object"), "FindObjectsByType",
+            "System.Type", "UnityEngine.FindObjectsSortMode");
+        int unsorted = 0; // FindObjectsSortMode.None
+        IntPtr mode = _api.ValueBox(FindClass(coreImage, "UnityEngine", "FindObjectsSortMode"), (IntPtr)(&unsorted));
+        return InvokeWithObjectArguments(find, IntPtr.Zero, GetManagedType(rendererClass), mode);
+    }
+
+    private string ReadContactBoneLabel(IntPtr getName, IntPtr bone)
+    {
+        if (bone == IntPtr.Zero) return string.Empty;
+        IntPtr value = Invoke(getName, bone);
+        if (value == IntPtr.Zero) return string.Empty;
+        int length = _api.StringLength(value);
+        if (length is < 1 or > 64) return string.Empty;
+        IntPtr characters = _api.StringChars(value);
+        return characters == IntPtr.Zero ? string.Empty : Marshal.PtrToStringUni(characters, length) ?? string.Empty;
+    }
+
+    private bool ContactChildOf(IntPtr method, IntPtr transform, IntPtr parent)
+    {
+        if (transform == parent) return true;
+        return ReadContactBool(InvokeWithObjectArgument(method, transform, parent));
+    }
+
+    internal static bool IsObservedContactChestBone(string name, string parent) =>
+        parent == "Spine2" && name is "LeftBust1_S" or "RightBust1_S";
+
+    private static bool IsContactLowerBodyHint(string name) =>
+        name.Contains("butt", StringComparison.OrdinalIgnoreCase) ||
+        name.Contains("glut", StringComparison.OrdinalIgnoreCase) || name.Contains("hip", StringComparison.OrdinalIgnoreCase) ||
+        name.Contains("thigh", StringComparison.OrdinalIgnoreCase) || name.Contains("upperleg", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSafeContactBoneLabel(string name) =>
+        name.Length is > 0 and <= 64 && name.All(c => char.IsLetterOrDigit(c) || c is '_' or '.' or '-');
+#endif
 
     private void LogContactPilot(DateTimeOffset now, string name, string reason) => RuntimeProbe.Append(_logPath, new ProbeEvent
     {

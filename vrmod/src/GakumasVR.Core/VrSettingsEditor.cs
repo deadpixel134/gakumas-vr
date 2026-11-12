@@ -30,7 +30,7 @@ public sealed class VrSettingsEditor
                 if (value is string mode) return mode switch
                 {
                     VrVisualEffectModes.Approved => "A - APPROVED",
-                    VrVisualEffectModes.VrifyFollow => "B - CAMERA FOLLOW",
+                    VrVisualEffectModes.VrifyFollow => "C - CAMERA FOLLOW",
                     _ => mode.ToUpperInvariant()
                 };
                 return value.ToString()!.ToUpperInvariant();
@@ -84,17 +84,45 @@ public sealed class VrSettingsEditor
             "RotationPitch" or "RotationYaw" or "RotationRoll" => (-180f, 180f, 5f),
             "VisibilityHysteresisMilliseconds" => (0f, 500f, 25f),
             "ScrollSensitivity" => (.1f, 5f, .1f),
+#if !GAKUMAS_PUBLIC
+            "ContactStrengthPercent" => (0f, 300f, 5f),
+            "ContactThighFrequencyHz" => (2f, 8f, 0.1f),
+            "ContactThighDampingRatio" => (0.3f, 1.5f, 0.01f),
+            "ContactThighDisplacementMm" => (0f, 12f, 0.5f),
+            "ContactThighTiltDegrees" => (0f, 4f, 0.1f),
+            "ContactThighCompressionPercent" => (0f, 5f, 0.1f),
+            "ContactThighStretchPercent" => (0f, 5f, 0.1f),
+            "ContactThighReleasePercent" => (0f, 20f, 1f),
+            "ContactDurationMultiplier" => (0.1f, 3f, 0.05f),
+            "ContactRangePercent" => (0f, 200f, 5f),
+            "ContactTiltPercent" => (0f, 200f, 5f),
+            "ContactStretchPercent" => (0f, 200f, 5f),
+            "ContactHapticStrengthPercent" => (0f, 100f, 5f),
+            "ContactHapticDurationMs" => (0f, 250f, 5f),
+            "ContactHandRadiusMeters" => (0.01f, 0.1f, 0.005f),
+            "ContactBodyRadiusMeters" => (0.015f, 0.15f, 0.005f),
+            "ContactHandHoldSeconds" => (0.025f, 0.25f, 0.025f),
+#endif
             _ => (0f, 4f, .05f)
         };
     }
 
     public VrSettings Draft { get; }
     public IReadOnlyList<Entry> Entries { get; }
-    public VrSettingsEditor(VrSettings settings)
+    public VrSettingsEditor(VrSettings settings) : this(settings, true) { }
+
+    public VrSettingsEditor(VrSettings settings, bool includeContactSettings)
     {
         Draft = VrSettingsValidator.Validate(settings).Settings;
         List<Entry> entries = new();
         Add(Draft, "", entries);
+#if !GAKUMAS_PUBLIC
+        if (!includeContactSettings)
+        {
+            ContactConsent.Enforce(Draft.Tracking, accepted: false);
+            entries.RemoveAll(entry => ContactConsent.IsContactSetting(entry.Path));
+        }
+#endif
         // The comparison profile is always on the first page.
         entries.Sort((a, b) => a.Path == b.Path ? 0 : a.Path == "Render.VisualEffectMode" ? -1 : b.Path == "Render.VisualEffectMode" ? 1 :
             string.Compare(a.Path, b.Path, StringComparison.Ordinal));

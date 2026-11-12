@@ -131,5 +131,8 @@ internal static class OpenXrStereoStateRegistry
     public static void ClearContactHands()
     {
         lock (Sync) _worldContactHands = default;
+#if !GAKUMAS_PUBLIC
+        OpenXrContactHaptics.Clear();
+#endif
     }
 }

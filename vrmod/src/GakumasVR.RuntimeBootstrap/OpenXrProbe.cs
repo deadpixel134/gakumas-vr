@@ -863,6 +863,9 @@ internal static partial class OpenXrProbe
                 bool worldPositionTracked = false;
                 VrTrackingSettings tracking = VrSettingsRuntime.Current.Tracking;
                 bool captureContactHands = tracking.ShowContactHands;
+#if !GAKUMAS_PUBLIC
+                captureContactHands |= tracking.ContactCollisionEnabled;
+#endif
                 ulong worldFlags = 0;
                 OpenXrEyeState worldLeft = default;
                 OpenXrEyeState worldRight = default;
@@ -1740,6 +1743,10 @@ internal static partial class OpenXrProbe
                 {
                     break;
                 }
+#if !GAKUMAS_PUBLIC
+                controllerActions?.SubmitContactHaptics(submittedWorldStereo && !menuBlocksGame && controllerFrame.ActionsFocused &&
+                    frameState.ShouldRender != 0 && worldPositionTracked ? controllerFrame.ContactHands.AllowedMask : 0);
+#endif
                 if (worldGripInputAvailable)
                 {
                     OpenXrLocomotionStateRegistry.UpdateWorldGrip(

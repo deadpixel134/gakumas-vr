@@ -56,6 +56,12 @@ internal sealed partial class MainThreadSampler
         _locomotionEnabled = settings.Tracking.LocomotionEnabled;
         _worldGripEnabled = settings.Tracking.WorldGripEnabled;
         _showContactHands = settings.Tracking.ShowContactHands;
+#if !GAKUMAS_PUBLIC
+        bool contactChanged = _contactCollisionEnabled != settings.Tracking.ContactCollisionEnabled;
+        _contactCollisionEnabled = settings.Tracking.ContactCollisionEnabled;
+        SetContactBoneTrialEnabled(settings.Tracking.ContactBoneTrialEnabled);
+        if (contactChanged) RetireContactTrial();
+#endif
         _locomotionHand = settings.Tracking.LocomotionHand;
         _locomotionSpeed = settings.Tracking.LocomotionSpeed;
         _viewTurnMode = settings.Tracking.ViewTurnMode;

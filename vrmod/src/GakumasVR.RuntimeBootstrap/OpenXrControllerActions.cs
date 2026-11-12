@@ -233,6 +233,9 @@ internal sealed partial class OpenXrControllerActions : IDisposable
         IntPtr secondaryClickAction = IntPtr.Zero;
         IntPtr thumbstickAction = IntPtr.Zero;
         IntPtr thumbstickClickAction = IntPtr.Zero;
+#if !GAKUMAS_PUBLIC
+        IntPtr hapticAction = IntPtr.Zero;
+#endif
         IntPtr leftGripSpace = IntPtr.Zero;
         IntPtr rightGripSpace = IntPtr.Zero;
         IntPtr leftAimSpace = IntPtr.Zero;
@@ -270,6 +273,14 @@ internal sealed partial class OpenXrControllerActions : IDisposable
             thumbstickAction = CreateAction(createAction, actionSet, subactionPathsPointer, "thumbstick", "Thumbstick", XrActionTypeVector2fInput);
             thumbstickClickAction = CreateAction(createAction, actionSet, subactionPathsPointer, "thumbstick_click", "Thumbstick Click", XrActionTypeBooleanInput);
 
+#if !GAKUMAS_PUBLIC
+            try
+            {
+                hapticAction = CreateAction(createAction, actionSet, subactionPathsPointer,
+                    "contact_vibration", "Contact Vibration", 100);
+            }
+            catch (Exception) { Log("contact-haptics-unavailable", "Vibration action is unavailable; contact continues."); }
+#endif
             XrActionSuggestedBinding[] bindings =
             {
                 Bind(gripPoseAction, ToPath(stringToPath, instance, "/user/hand/left/input/grip/pose")),
@@ -289,6 +300,12 @@ internal sealed partial class OpenXrControllerActions : IDisposable
                 Bind(thumbstickClickAction, ToPath(stringToPath, instance, "/user/hand/left/input/thumbstick/click")),
                 Bind(thumbstickClickAction, ToPath(stringToPath, instance, "/user/hand/right/input/thumbstick/click"))
             };
+#if !GAKUMAS_PUBLIC
+            if (hapticAction != IntPtr.Zero)
+                bindings = bindings.Concat(new[] {
+                    Bind(hapticAction, ToPath(stringToPath, instance, "/user/hand/left/output/haptic")),
+                    Bind(hapticAction, ToPath(stringToPath, instance, "/user/hand/right/output/haptic")) }).ToArray();
+#endif
             int bindingSize = Marshal.SizeOf<XrActionSuggestedBinding>();
             bindingsPointer = Marshal.AllocHGlobal(bindingSize * bindings.Length);
             for (int index = 0; index < bindings.Length; index++)
@@ -306,6 +323,15 @@ internal sealed partial class OpenXrControllerActions : IDisposable
                 SuggestedBindings = bindingsPointer
             };
             int suggestResult = suggestBindings(instance, ref suggested);
+#if !GAKUMAS_PUBLIC
+            if (suggestResult != XrSuccess && hapticAction != IntPtr.Zero)
+            {
+                suggested.CountSuggestedBindings -= 2;
+                suggestResult = suggestBindings(instance, ref suggested);
+                DestroyAction(hapticAction, destroyAction); hapticAction = IntPtr.Zero;
+                Log("contact-haptics-unavailable", "Vibration binding rejected; input bindings retried without vibration.");
+            }
+#endif
             Check(suggestResult, "suggest Quest Touch controller bindings");
 
             actionSetsPointer = Marshal.AllocHGlobal(IntPtr.Size);
@@ -350,6 +376,10 @@ internal sealed partial class OpenXrControllerActions : IDisposable
                 destroyAction,
                 destroyActionSet,
                 settings);
+#if !GAKUMAS_PUBLIC
+            result.InitializeContactHaptics(loader, hapticAction);
+            hapticAction = IntPtr.Zero;
+#endif
             actionSet = IntPtr.Zero;
             gripPoseAction = IntPtr.Zero;
             aimPoseAction = IntPtr.Zero;
@@ -375,6 +405,9 @@ internal sealed partial class OpenXrControllerActions : IDisposable
             DestroySpace(leftAimSpace, destroySpace);
             DestroySpace(rightGripSpace, destroySpace);
             DestroySpace(leftGripSpace, destroySpace);
+#if !GAKUMAS_PUBLIC
+            DestroyAction(hapticAction, destroyAction);
+#endif
             DestroyAction(thumbstickClickAction, destroyAction);
             DestroyAction(thumbstickAction, destroyAction);
             DestroyAction(secondaryClickAction, destroyAction);
@@ -558,6 +591,9 @@ internal sealed partial class OpenXrControllerActions : IDisposable
             }
         }
         bool showHands = _trackingSettings.ShowContactHands;
+#if !GAKUMAS_PUBLIC
+        showHands |= _trackingSettings.ContactCollisionEnabled;
+#endif
         OpenXrContactHands contactHands = captureContactHands && showHands
             ? new OpenXrContactHands(
                 ReadContactHand(_leftHandPath, LeftGripSpace, worldSpace, predictedDisplayTime),
@@ -577,6 +613,15 @@ internal sealed partial class OpenXrControllerActions : IDisposable
         bool pointerBack = _inputSettings.BackButton == FaceButtonBinding.Primary
             ? rawPrimary
             : rawSecondary;
+#if !GAKUMAS_PUBLIC
+        // Reserve physical hands for their existing input roles; a blocked hand is not an exit.
+        int allowed = ContactInputMask(settings, PanelEnabled,
+            toggleGrip.IsActive != 0 ? toggleGrip.CurrentState : null, toggleValue > GripReleaseThreshold,
+            pointerTrigger.IsActive != 0 ? pointerTrigger.CurrentState : null,
+            pointerPrimary.IsActive != 0 ? rawPrimary : null, pointerSecondary.IsActive != 0 ? rawSecondary : null,
+            worldGripValue);
+        contactHands = contactHands with { AllowedMask = allowed };
+#endif
         return new OpenXrControllerFrame(
             PanelEnabled,
             panelPoseTracked,
@@ -641,6 +686,10 @@ internal sealed partial class OpenXrControllerActions : IDisposable
         DestroySpace(LeftAimSpace, _destroySpace);
         DestroySpace(RightGripSpace, _destroySpace);
         DestroySpace(LeftGripSpace, _destroySpace);
+#if !GAKUMAS_PUBLIC
+        OpenXrContactHaptics.Clear();
+        DestroyAction(_contactHapticAction, _destroyAction);
+#endif
         DestroyAction(_thumbstickClickAction, _destroyAction);
         DestroyAction(_thumbstickAction, _destroyAction);
         DestroyAction(_secondaryClickAction, _destroyAction);
@@ -851,6 +900,10 @@ internal sealed partial class OpenXrControllerActions : IDisposable
 
     private static void ValidateAbi()
     {
+#if !GAKUMAS_PUBLIC
+        ValidateSize<XrHapticActionInfo>(32);
+        ValidateSize<XrHapticVibration>(32);
+#endif
         ValidateSize<XrActionSetCreateInfo>(216);
         ValidateSize<XrActionCreateInfo>(224);
         ValidateSize<XrActionSuggestedBinding>(16);

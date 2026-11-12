@@ -6,5 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup Condition="'$(GakumasPublicBuild)' == 'true'">
+    <Compile Remove="ContactResponse.cs;ContactMaterialProfile.cs;ContactSurfaceFit.cs;ContactConsent.cs" />
+  </ItemGroup>
 </Project>
 

@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using GakumasVR.Core;
 
 namespace Doorstop;
 
@@ -15,8 +16,19 @@ internal sealed partial class MainThreadSampler
     private const int RenderTextureTarget = -2;
     private const int CurrentCameraTarget = 2;
 
+#if !GAKUMAS_PUBLIC
+    private readonly record struct ContactTrialMarker(Vector3 Center, float Radius, IntPtr Material, IntPtr Mesh,
+        ContactRegion RangeRegion = ContactRegion.Unknown)
+    {
+        public bool IsRange => RangeRegion != ContactRegion.Unknown;
+    }
+    private int _contactRangeOverlayRegions;
+    private sealed record ContactHandFrame(OpenXrStereoStateSnapshot Stereo, Vector3? Left, Vector3? Right,
+        float Radius, float Scale, float NearClip, ContactTrialMarker[] TargetMarkers);
+#else
     private sealed record ContactHandFrame(OpenXrStereoStateSnapshot Stereo, Vector3? Left, Vector3? Right,
         float Radius, float Scale, float NearClip);
+#endif
 
     private readonly record struct ContactDepthStore(IntPtr Pass, int Action, byte Overridden);
     private ContactHandFrame? _contactHandFrame;
@@ -362,8 +374,20 @@ internal sealed partial class MainThreadSampler
     private void CompleteContactOverlay(IntPtr coreImage)
     {
         if (_contactHandFrame is not { } frame || !ReferenceEquals(frame.Stereo, _stereoNaturalRenderState) ||
-            _contactComposedEyes == 3) return;
-        DisableContactComposition($"The completed pair did not compose both eyes;postVfxEyeMask={_contactComposedEyes}.");
+            _contactFinalOverlayFailed) return;
+        int rangeCount = 0;
+#if !GAKUMAS_PUBLIC
+        int rangeRegions = 0;
+        foreach (ContactTrialMarker marker in frame.TargetMarkers)
+        {
+            if (!marker.IsRange) continue;
+            rangeCount++;
+            rangeRegions |= 1 << (int)marker.RangeRegion;
+        }
+#endif
+        if (_contactComposedEyes == 3 && rangeCount == 0) return;
+        if (_contactComposedEyes != 3)
+            DisableContactComposition($"The completed pair did not compose both eyes;postVfxEyeMask={_contactComposedEyes}.");
         try
         {
             if (_contactNoDepth == IntPtr.Zero)
@@ -379,6 +403,16 @@ internal sealed partial class MainThreadSampler
             }
             DrawMissingEye(1, _stereoLeftCamera, _stereoNaturalLeftRenderTexture);
             DrawMissingEye(2, _stereoRightCamera, _stereoNaturalRightRenderTexture);
+#if !GAKUMAS_PUBLIC
+            if ((rangeRegions & ~_contactRangeOverlayRegions) != 0)
+            {
+                _contactRangeOverlayRegions |= rangeRegions;
+                string regions = string.Join(",", frame.TargetMarkers.Where(marker => marker.IsRange)
+                    .Select(marker => marker.RangeRegion.ToString().ToLowerInvariant()).Distinct());
+                LogContactPilot(DateTimeOffset.UtcNow, "contact-range-overlay-submitted",
+                    $"ranges={rangeCount};regions={regions};eyes=left,right;depth=none");
+            }
+#endif
         }
         catch (Exception error)
         {
@@ -389,15 +423,17 @@ internal sealed partial class MainThreadSampler
 
         void DrawMissingEye(int bit, IntPtr camera, IntPtr color)
         {
-            if ((_contactComposedEyes & bit) != 0) return;
+            bool rangesOnly = (_contactComposedEyes & bit) != 0;
+            if (rangesOnly && rangeCount == 0) return;
             if (camera == IntPtr.Zero || color == IntPtr.Zero || Invoke(_contactCameraTarget, camera) != color)
                 throw new InvalidOperationException("The completed eye no longer owns its color target.");
-            ComposeContactHands(frame, IntPtr.Zero, camera, color, _contactNoDepth, "none", completedEye: true);
+            ComposeContactHands(frame, IntPtr.Zero, camera, color, _contactNoDepth, "none", completedEye: true,
+                rangesOnly: rangesOnly);
         }
     }
 
     private unsafe void ComposeContactHands(ContactHandFrame frame, IntPtr context, IntPtr camera, IntPtr color,
-        IntPtr depthIdentifier, string depthSource, bool completedEye = false)
+        IntPtr depthIdentifier, string depthSource, bool completedEye = false, bool rangesOnly = false)
     {
         if (!completedEye && context == IntPtr.Zero)
             throw new InvalidOperationException("The renderer has no scriptable context.");
@@ -414,9 +450,17 @@ internal sealed partial class MainThreadSampler
                 Invoke(_contactCameraProjection, camera), _contactTrue);
             _ = InvokeWithObjectArguments(_contactSetMatrices, IntPtr.Zero, _contactCommand, view, projection, _contactTrue);
             stage = "draw-markers";
-            IntPtr size = BoxContactVector(new Vector3(frame.Radius));
-            RecordContactMarker(frame.Left, size, _contactMaterial);
-            RecordContactMarker(frame.Right, size, _contactMaterial);
+            if (!rangesOnly)
+            {
+                IntPtr size = BoxContactVector(new Vector3(frame.Radius));
+                RecordContactMarker(frame.Left, size, _contactMaterial, _contactMesh);
+                RecordContactMarker(frame.Right, size, _contactMaterial, _contactMesh);
+            }
+#if !GAKUMAS_PUBLIC
+            foreach (ContactTrialMarker marker in frame.TargetMarkers)
+                if (marker.IsRange ? completedEye : !rangesOnly)
+                    RecordContactMarker(marker.Center, BoxContactVector(new Vector3(marker.Radius)), marker.Material, marker.Mesh);
+#endif
             stage = "submit";
             if (completedEye)
                 _ = InvokeWithObjectArgument(_contactGraphicsExecute, IntPtr.Zero, _contactCommand);
@@ -444,11 +488,11 @@ internal sealed partial class MainThreadSampler
         }
     }
 
-    private void RecordContactMarker(Vector3? center, IntPtr size, IntPtr material)
+    private void RecordContactMarker(Vector3? center, IntPtr size, IntPtr material, IntPtr mesh)
     {
         if (center is not Vector3 position) return;
         IntPtr matrix = InvokeWithObjectArguments(_contactTrs, IntPtr.Zero, BoxContactVector(position), _contactOrientation, size);
-        _ = InvokeWithObjectArguments(_contactCommandDraw, _contactCommand, _contactMesh, matrix, material,
+        _ = InvokeWithObjectArguments(_contactCommandDraw, _contactCommand, mesh, matrix, material,
             _contactZero, _contactZero, IntPtr.Zero);
     }
 

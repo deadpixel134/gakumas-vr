@@ -321,6 +321,10 @@ internal sealed partial class MainThreadSampler
         _locomotionEnabled = settings.Tracking.LocomotionEnabled;
         _worldGripEnabled = settings.Tracking.WorldGripEnabled;
         _showContactHands = settings.Tracking.ShowContactHands;
+#if !GAKUMAS_PUBLIC
+        _contactBoneTrialEnabled = settings.Tracking.ContactBoneTrialEnabled;
+        _contactCollisionEnabled = settings.Tracking.ContactCollisionEnabled;
+#endif
         _locomotionHand = settings.Tracking.LocomotionHand;
         _locomotionSpeed = settings.Tracking.LocomotionSpeed;
         _viewTurnMode = settings.Tracking.ViewTurnMode;
@@ -834,6 +838,9 @@ internal sealed partial class MainThreadSampler
         {
             TryEnsureStereoCloneResources(now, coreImage);
         }
+#if !GAKUMAS_PUBLIC
+        MaintainContactBoneTrial(now, coreImage, scene);
+#endif
         if (_stereoRenderSubmitted &&
             !_stereoDiagnosticSaved &&
             captureNow - _stereoRenderSubmittedMilliseconds >= 2_000)
@@ -1208,6 +1215,9 @@ internal sealed partial class MainThreadSampler
         {
             UnityRenderSourceRegistry.ClearStereoTextures();
             _contactHandFrame = null;
+#if !GAKUMAS_PUBLIC
+            RetireContactTrial();
+#endif
             OpenXrLocomotionStateRegistry.CancelWorldGrip();
             UnityRenderSourceRegistry.ClearLiveUiTexture();
 
@@ -1754,6 +1764,9 @@ internal sealed partial class MainThreadSampler
             throw new InvalidOperationException("SceneManager.GetActiveScene returned null.");
         }
 
+#if !GAKUMAS_PUBLIC
+        ReadContactSceneHandle(coreImage, sceneValue);
+#endif
         IntPtr getName = FindMethod(coreImage, "UnityEngine.SceneManagement", "Scene", "get_name");
         IntPtr managedString = Invoke(getName, sceneValue);
         if (managedString == IntPtr.Zero)
@@ -2643,6 +2656,9 @@ internal sealed partial class MainThreadSampler
                 leftTransform,
                 leftWorldPosition);
             bool contactRequested = _showContactHands;
+#if !GAKUMAS_PUBLIC
+            contactRequested |= IsContactRigRequested(_navigationScene, _contactCollisionEnabled, _contactBoneTrialEnabled);
+#endif
             // Camera-following stereo renders VIEW-space eyes. Keep that render pose and use the
             // separate, coherent LOCAL hand/eye sample only for aligning the hands to the clones.
             OpenXrStereoStateSnapshot? contactStereo = contactRequested
@@ -2683,6 +2699,9 @@ internal sealed partial class MainThreadSampler
             _contactHandFrame = null;
             _contactComposedEyes = 0;
             ResetContactRenderEvidencePair();
+#if !GAKUMAS_PUBLIC
+            PrepareContactBoneTrialPair();
+#endif
             if (contactStereo is not null && !useSixDof &&
                 !TryReadContactEyePoses(transformClass, leftTransform, rightTransform,
                     out leftWorldTrackedPosition, out rightWorldTrackedPosition, out leftWorldRotation, out rightWorldRotation))
@@ -2690,9 +2709,17 @@ internal sealed partial class MainThreadSampler
 
             if (contactStereo is not null)
             {
+#if !GAKUMAS_PUBLIC
+                PrepareContactCollisionPair(contactStereo, leftWorldTrackedPosition, rightWorldTrackedPosition,
+                    leftWorldRotation, rightWorldRotation);
+#endif
                 PrepareContactHands(now, coreImage, stereo, contactStereo, leftWorldTrackedPosition,
                     rightWorldTrackedPosition, leftWorldRotation, rightWorldRotation, nearClip);
             }
+#if !GAKUMAS_PUBLIC
+            else if (_contactCollisionEnabled)
+                ResetContactCollision();
+#endif
 
             Volatile.Write(ref _stereoNaturalRenderCompletionMask, 0);
             InvokeInstanceBooleanSetter(
@@ -2804,6 +2831,9 @@ internal sealed partial class MainThreadSampler
     private void FinalizeNaturalStereoRender(DateTimeOffset now, IntPtr coreImage)
     {
         ReportContactRenderEvidence(now);
+#if !GAKUMAS_PUBLIC
+        ReportContactBoneTrialPair(now);
+#endif
         long finalizeStartedTimestamp = Stopwatch.GetTimestamp();
         CompleteContactOverlay(coreImage);
         _contactHandFrame = null;
@@ -3496,6 +3526,9 @@ internal sealed partial class MainThreadSampler
 
     private void ResetControllerNavigationOffsets()
     {
+#if !GAKUMAS_PUBLIC
+        ResetContactCollision();
+#endif
         _locomotionIntegrator.Reset();
         _viewTurnIntegrator.Reset();
         _worldGripOffset = default;
@@ -3523,6 +3556,9 @@ internal sealed partial class MainThreadSampler
         if (toggle)
         {
             follow = !follow;
+#if !GAKUMAS_PUBLIC
+            ResetContactCollision();
+#endif
         }
 
         bool captureAnchor = !follow && (!_fixedCameraAnchorCaptured || reset || toggle);

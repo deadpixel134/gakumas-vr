@@ -8,6 +8,236 @@ using GakumasVR.Core;
 string output = Path.GetFullPath(args.Length > 0 ? args[0] : Path.Combine("vrmod", "test-output", "runtime-settings"));
 Directory.CreateDirectory(output);
 int failed = 0, executed = 0;
+Run("Thigh binding requires an exact path and a measured mid-thigh surface", () =>
+{
+    var existing = Array.Empty<MainThreadSampler.ContactRigKey>();
+    var actor = (IntPtr)1;
+    var bone = (IntPtr)2;
+    Check(!MainThreadSampler.CanBindContactRig(existing, actor, bone, MainThreadSampler.ContactLeftThighPath));
+    Check(!MainThreadSampler.CanBindContactRig(existing, actor, bone, "Pelvis/LeftUpLeg", verifiedSurface: true));
+    Check(MainThreadSampler.CanBindContactRig(existing, actor, bone, MainThreadSampler.ContactLeftThighPath, verifiedSurface: true));
+    var points = (from y in Enumerable.Range(-4, 9)
+                  from x in Enumerable.Range(-4, 9)
+                  select new Vector3(x * .015f, y * .015f, .12f)).ToArray();
+    var normals = Enumerable.Repeat(Vector3.UnitZ, points.Length).ToArray();
+    var selected = Enumerable.Range(0, points.Length).ToArray();
+    Check(!MainThreadSampler.TryFitThighSurface(points, normals, selected, Matrix4x4.Identity, Matrix4x4.Identity,
+        new Vector3(.01f, .4f, .6f), out _));
+    Check(MainThreadSampler.TryFitThighSurface(points, normals, selected, Matrix4x4.Identity, Matrix4x4.Identity,
+        new Vector3(.21f, .43f, .65f), out var anchor));
+    Check(anchor.TryMap(Matrix4x4.Identity, out var center, out var outward, out float radius) && radius <= .04f);
+    Check(MathF.Abs((center + outward * radius).Z - .12f) < .0001f);
+});
+Run("Calf binding requires a measured patch on either exact rig path", () =>
+{
+    var existing = Array.Empty<MainThreadSampler.ContactRigKey>();
+    var actor = (IntPtr)1;
+    var bone = (IntPtr)2;
+    foreach (string path in new[] { MainThreadSampler.ContactLeftCalfPath, MainThreadSampler.ContactRightCalfPath })
+    {
+        Check(MainThreadSampler.ContactRegionForPath(path) == ContactRegion.Calf);
+        Check(!MainThreadSampler.CanBindContactRig(existing, actor, bone, path));
+        Check(MainThreadSampler.CanBindContactRig(existing, actor, bone, path, verifiedSurface: true));
+    }
+    foreach (string path in new[]
+    {
+        "Pelvis/LeftUpLeg/LeftLeg",
+        "Pelvis/LeftHipSkin1_S",
+        "Pelvis/RightWaist_O/RightWaist_H",
+        "Pelvis/Skirt_Leftside_O/LeftBackSkirt_A/LeftBackSkirt1_S/LeftBackSkirt2_S"
+    })
+    {
+        Check(MainThreadSampler.ContactRegionForPath(path) == ContactRegion.Unknown);
+        Check(!MainThreadSampler.CanBindContactRig(existing, actor, bone, path, verifiedSurface: true));
+    }
+
+    var vertices = (from y in Enumerable.Range(-2, 5) from x in Enumerable.Range(-2, 5)
+                    select new Vector3(x * .015f, y * .015f, .12f)).ToArray();
+    var normals = Enumerable.Repeat(Vector3.UnitZ, vertices.Length).ToArray();
+    int[] selected = Enumerable.Range(0, vertices.Length).ToArray();
+    Check(!MainThreadSampler.TryFitLowerBodySurface(ContactRegion.Calf, vertices, normals, selected,
+        Matrix4x4.Identity, Matrix4x4.Identity, new Vector3(.02f, .4f, .6f), out _));
+    Check(MainThreadSampler.TryFitLowerBodySurface(ContactRegion.Calf, vertices, normals, selected,
+        Matrix4x4.Identity, Matrix4x4.Identity, new Vector3(.22f, .4f, .6f), out var calfSurface));
+    Check(calfSurface.TryMap(Matrix4x4.Identity, out _, out _, out float radius) && radius <= .03201f);
+    Check(!MainThreadSampler.TryFitLowerBodySurface(ContactRegion.Calf, vertices, normals, selected,
+        Matrix4x4.CreateTranslation(Vector3.UnitX), Matrix4x4.Identity, new Vector3(.22f, .4f, .6f), out _));
+});
+Run("Contact range rings lie on the unit collision boundary", () =>
+{
+    var points = MainThreadSampler.ContactRangeVertices();
+    Check(points.Count == 3 * 32 * 6 && points.All(p => MathF.Abs(p.LengthSquared() - 1f) < .00001f));
+});
+Run("Calf contact survives small boundary crossings only for an already touching tracked hand", () =>
+{
+    const float entryRadius = .05f;
+    Vector3 near = Vector3.UnitZ * .052f;
+    Vector3 outside = Vector3.UnitZ * .055f;
+    Check(MainThreadSampler.ResolveCalfContactMask(1, 0, true, true, Vector3.Zero, entryRadius, null, near) == 1);
+    Check(MainThreadSampler.ResolveCalfContactMask(0, 0, true, true, Vector3.Zero, entryRadius, near, near) == 0);
+    Check(MainThreadSampler.ResolveCalfContactMask(0, 1, true, true, Vector3.Zero, entryRadius, near, near) == 1);
+    Check(MainThreadSampler.ResolveCalfContactMask(0, 3, true, true, Vector3.Zero, entryRadius, outside, near) == 2);
+    Check(MainThreadSampler.ResolveCalfContactMask(0, 3, false, true, Vector3.Zero, entryRadius, near, null) == 0);
+});
+Run("Contact bone translation preserves descendant world positions through a rotated and scaled parent", () =>
+{
+    Matrix4x4 boneToWorld = Matrix4x4.CreateScale(.6f, 1.8f, .9f) *
+        Matrix4x4.CreateRotationX(.7f) * Matrix4x4.CreateTranslation(3, 4, 5);
+    var worldOffset = new Vector3(.003f, -.004f, .006f);
+    Check(MainThreadSampler.TryCompensateContactChild(boneToWorld, worldOffset, out var correction));
+    var child = new Vector3(.1f, .2f, -.3f);
+    var shifted = boneToWorld * Matrix4x4.CreateTranslation(worldOffset);
+    Check(Vector3.Distance(Vector3.Transform(child, boneToWorld), Vector3.Transform(child + correction, shifted)) < .00001f);
+    Check(!MainThreadSampler.TryCompensateContactChild(Matrix4x4.CreateScale(0f), worldOffset, out _));
+    Check(!MainThreadSampler.TryCompensateContactChild(boneToWorld, new Vector3(float.NaN), out _));
+});
+Run("Thigh coverage measures the weighted patch in hip-to-knee coordinates", () =>
+{
+    Vector3[] vertices = { new(.2f, .04f, 0), new(.5f, -.03f, 0), new(.8f, 0, 0), new(2, 0, 0) };
+    Matrix4x4 transform = Matrix4x4.CreateRotationZ(MathF.PI / 2) * Matrix4x4.CreateTranslation(3, 4, 5);
+    Check(MainThreadSampler.TryMeasureThighCoverage(vertices, new[] { 0, 1, 2 }, transform,
+        new Vector3(3, 4, 5), Vector3.UnitY, out Vector3 range));
+    Check(Vector3.Distance(range, new Vector3(.2f, .5f, .8f)) < .0001f);
+    Check(!MainThreadSampler.TryMeasureThighCoverage(vertices, new[] { 0 }, transform, Vector3.Zero, Vector3.Zero, out _));
+});
+Run("Bilateral rig selection uses observed slots including right slot zero", () =>
+{
+    var candidates = new Dictionary<int, string> { [80] = MainThreadSampler.ContactLeftBonePath, [0] = MainThreadSampler.ContactRightBonePath };
+    int[] influences = new int[110]; influences[80] = 1113; influences[0] = 1068;
+    var both = MainThreadSampler.SelectContactRigSlots(candidates, influences, Array.Empty<string>());
+    Check(both.Length == 2 && both[0].Slot == 80 && both[1].Slot == 0);
+    var right = MainThreadSampler.SelectContactRigSlots(candidates, influences, new[] { MainThreadSampler.ContactLeftBonePath });
+    Check(right.Length == 1 && right[0].Slot == 0 && right[0].Path == MainThreadSampler.ContactRightBonePath);
+    influences[0] = 0;
+    Check(MainThreadSampler.SelectContactRigSlots(candidates, influences, new[] { MainThreadSampler.ContactLeftBonePath }).Length == 0);
+    candidates[65] = MainThreadSampler.ContactLeftBonePath;
+    Check(MainThreadSampler.SelectContactRigSlots(candidates, influences, Array.Empty<string>()).Length == 0);
+});
+Run("Bilateral rig binding keeps the actor limit and rejects shared bones and duplicate sides", () =>
+{
+    var existing = new List<MainThreadSampler.ContactRigKey>();
+    for (int actor = 1; actor <= 12; actor++)
+        existing.Add(new MainThreadSampler.ContactRigKey((IntPtr)actor, (IntPtr)(actor * 10), MainThreadSampler.ContactLeftBonePath));
+    Check(MainThreadSampler.CanBindContactRig(existing, (IntPtr)1, (IntPtr)11, MainThreadSampler.ContactRightBonePath));
+    Check(!MainThreadSampler.CanBindContactRig(existing, (IntPtr)13, (IntPtr)130, MainThreadSampler.ContactLeftBonePath));
+    Check(!MainThreadSampler.CanBindContactRig(existing, (IntPtr)1, (IntPtr)11, MainThreadSampler.ContactLeftBonePath));
+    Check(!MainThreadSampler.CanBindContactRig(existing, (IntPtr)2, (IntPtr)10, MainThreadSampler.ContactRightBonePath));
+    Check(!MainThreadSampler.CanBindContactRig(existing, (IntPtr)1, (IntPtr)11, "Hips/Pelvis"));
+    for (int actor = 1; actor <= 12; actor++)
+    {
+        Check(MainThreadSampler.CanBindContactRig(existing, (IntPtr)actor, (IntPtr)(actor * 10 + 1), MainThreadSampler.ContactRightBonePath));
+        existing.Add(new MainThreadSampler.ContactRigKey((IntPtr)actor, (IntPtr)(actor * 10 + 1), MainThreadSampler.ContactRightBonePath));
+    }
+    Check(existing.Count == 24);
+});
+Run("Bilateral contact keeps displacement and release state independent", () =>
+{
+    var left = new ContactResponse(); var right = new ContactResponse();
+    var push = new Vector3(.01f, 0, 0);
+    Check(left.Step(1, .016f, push, .025f, true, true).Length() > 0 && right.Offset == default);
+    var priorLeft = left.Offset;
+    Check(right.Step(1, .016f, -push, .025f, true, true).X < 0 && left.Offset == priorLeft);
+    left.Step(2, .016f, default, .025f, false, true);
+    Check(left.Offset == default && right.Offset.X < 0);
+});
+Run("Surface selection preserves vertex order and the dedicated bone slot", () =>
+{
+    byte[] counts = Enumerable.Repeat((byte)2, 16).ToArray();
+    var weights = Enumerable.Range(0, 16).SelectMany(i => new[] {
+        new MainThreadSampler.ContactBoneWeight(i < 12 ? .2f : .01f, 3),
+        new MainThreadSampler.ContactBoneWeight(i < 12 ? .8f : .99f, 0) }).ToArray();
+    var selected = MainThreadSampler.SelectContactSurfaceVertices(counts, weights, 3, 5);
+    Check(selected is not null && selected.SequenceEqual(Enumerable.Range(0, 12)));
+    Check(MainThreadSampler.SelectContactSurfaceVertices(counts, weights[..^1], 3, 5) is null);
+    weights[0] = new MainThreadSampler.ContactBoneWeight(.2f, 9);
+    Check(MainThreadSampler.SelectContactSurfaceVertices(counts, weights, 3, 5) is null);
+});
+Run("Release velocity rejects tracking loss and teleport and ignores artificial camera translation", () =>
+{
+    var identity = new TrackingQuaternion(0, 0, 0, 1);
+    var raw = new TrackingStereoPose(new TrackingEyePose(new TrackingVector3(-.03f, 0, 0), identity),
+        new TrackingEyePose(new TrackingVector3(.03f, 0, 0), identity));
+    var origin = new Vector3(100, 20, -30);
+    Check(ContactHandAlignment.TryCreate(raw, origin - new Vector3(.00825f, 0, 0), origin + new Vector3(.00825f, 0, 0),
+        Quaternion.Identity, Quaternion.Identity, out var alignment));
+    var hand = new TrackingVector3(0, 0, -.5f);
+    Check(MainThreadSampler.ContactHandVelocity(alignment, hand, hand, .016f, out var velocity) && velocity.Length() < .0001f);
+    Check(MainThreadSampler.ContactHandVelocity(alignment, new TrackingVector3(.1f, 0, -.5f), hand, .1f, out velocity));
+    Check(MathF.Abs(velocity.X - alignment.Scale) < .001f);
+    Check(!MainThreadSampler.ContactHandVelocity(alignment, new TrackingVector3(1, 0, -.5f), hand, .01f, out _));
+    Check(!MainThreadSampler.ContactHandVelocity(alignment, null, hand, .016f, out _));
+    Check(!MainThreadSampler.ContactHandVelocity(alignment, hand, hand, 0, out _));
+});
+Run("Contact matrices interpret Unity column-major translation and rotation", () =>
+{
+    float[] unity = { 0, 0, -2, 0, 0, 2, 0, 0, 2, 0, 0, 0, 5, 6, 7, 1 };
+    IntPtr data = Marshal.AllocHGlobal(64);
+    try
+    {
+        Marshal.Copy(unity, 0, data, unity.Length);
+        Matrix4x4 matrix = Marshal.PtrToStructure<Matrix4x4>(data);
+        Check(Vector3.Distance(Vector3.Transform(Vector3.UnitZ, matrix), new Vector3(7, 6, 7)) < .0001f);
+        Check(ContactSurfaceAnchor.TryBind(new Vector3(7, 6, 7), Vector3.UnitX, .05f, matrix, out var anchor));
+        Check(Vector3.Distance(anchor.LocalCenter, Vector3.UnitZ) < .0001f);
+    }
+    finally { Marshal.FreeHGlobal(data); }
+});
+Run("Contact markers and continuity use each actor's own contact state", () =>
+{
+    int[] actors = { 0, 1, 0, 0 };
+    bool[] markers = actors.Select(mask => MainThreadSampler.ContactMarkerActive(true, mask, true)).ToArray();
+    Check(markers.SequenceEqual(new[] { false, true, false, false }));
+    Check(!MainThreadSampler.ContactMarkerActive(true, 0, true)); // Another actor's pulse cannot light this actor.
+    Check(MainThreadSampler.ContactMarkerActive(false, 0, true)); // Periodic diagnostic keeps its explicit behavior.
+    Check(!MainThreadSampler.ContactTargetContinuous(1, false, true));
+    Check(MainThreadSampler.ContactTargetContinuous(2, false, true)); // Left-hand loss on actor A does not reset actor B.
+    Check(MainThreadSampler.ContactTargetContinuous(0, true, false));
+});
+Run("Contact reserves physical input hands and handles swapped roles and failed reads", () =>
+{
+    var settings = VrSettings.CreateApprovedDefaults();
+    int Mask(bool panel = false, float? grip = 0, bool toggle = false, float? trigger = 0,
+        bool? primary = false, bool? secondary = false, float? worldGrip = 0) =>
+        OpenXrControllerActions.ContactInputMask(settings, panel, grip, toggle, trigger, primary, secondary, worldGrip);
+    Check(Mask() == 3 && Mask(panel: true) == 0);
+    Check(Mask(grip: .3f) == 2 && Mask(trigger: .2f) == 1);
+    Check(Mask(primary: true) == 1 && Mask(secondary: true) == 1 && Mask(worldGrip: .3f) == 1);
+    Check(Mask(grip: null) == 2 && Mask(trigger: null) == 1 && Mask(primary: null) == 1 && Mask(worldGrip: null) == 1);
+    settings.Panel.PanelHand = VrHand.Right; settings.Panel.PointerHand = VrHand.Left;
+    Check(Mask(grip: .3f) == 1 && Mask(trigger: .2f) == 2 && Mask(worldGrip: null) == 3);
+});
+Run("Haptic requests merge per hand and expire or cancel on reservation", () =>
+{
+    OpenXrContactHaptics.Clear();
+    OpenXrContactHaptics.Request(1, 1000); OpenXrContactHaptics.Request(1, 1000); OpenXrContactHaptics.Request(2, 1000);
+    Check(OpenXrContactHaptics.Consume(3, 1050) == 3 && OpenXrContactHaptics.Consume(3, 1051) == 0);
+    OpenXrContactHaptics.Request(3, 1000); Check(OpenXrContactHaptics.Consume(1, 1050) == 1);
+    OpenXrContactHaptics.Request(3, 1000); Check(OpenXrContactHaptics.Consume(3, 1101) == 0);
+    OpenXrContactHaptics.Request(1, 1000); OpenXrContactHaptics.Request(2, 1200); Check(OpenXrContactHaptics.Consume(3, 1250) == 2);
+    OpenXrContactHaptics.Request(3, 1000); OpenXrContactHaptics.Clear(); Check(OpenXrContactHaptics.Consume(3, 1001) == 0);
+    typeof(OpenXrControllerActions).GetMethod("ValidateAbi", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, null);
+});
+Run("Contact defaults and independent marker visibility survive normalization and VR editing", () =>
+{
+    var settings = VrSettings.CreateApprovedDefaults();
+    Check(settings.Tracking.ContactCollisionEnabled && settings.Tracking.ShowContactHands && !settings.Tracking.ShowContactLocations && settings.Tracking.ContactHapticsEnabled && settings.Tracking.ContactJiggleEnabled);
+    var editor = new VrSettingsEditor(settings);
+    editor.Entries.Single(e => e.Path == "Tracking.ContactCollisionEnabled").Change(1);
+    editor.Entries.Single(e => e.Path == "Tracking.ShowContactLocations").Change(1);
+    editor.Entries.Single(e => e.Path == "Tracking.ContactStrengthPercent").Change(1);
+    Check(editor.Draft.Tracking.ContactThighElasticEnabled);
+    editor.Entries.Single(e => e.Path == "Tracking.ContactThighElasticEnabled").Change(1);
+    Check(!VrSettingsValidator.Validate(editor.Draft).Settings.Tracking.ContactThighElasticEnabled);
+    Check(!editor.Draft.Tracking.ContactShowRanges);
+    editor.Entries.Single(e => e.Path == "Tracking.ContactShowRanges").Change(1);
+    Check(VrSettingsValidator.Validate(editor.Draft).Settings.Tracking.ContactShowRanges);
+    editor.Entries.Single(e => e.Path == "Tracking.ContactHapticsEnabled").Change(1);
+    editor.Entries.Single(e => e.Path == "Tracking.ContactJiggleEnabled").Change(1);
+    var result = VrSettingsValidator.Validate(editor.Draft).Settings;
+    Check(!result.Tracking.ContactCollisionEnabled && result.Tracking.ShowContactLocations && result.Tracking.ContactStrengthPercent == 45 &&
+        !result.Tracking.ContactHapticsEnabled && !result.Tracking.ContactJiggleEnabled);
+    Check(settings.Tracking.ContactCollisionEnabled && settings.Tracking.ShowContactHands && !settings.Tracking.ShowContactLocations && settings.Tracking.ContactHapticsEnabled && settings.Tracking.ContactJiggleEnabled);
+});
 Run("Published settings are isolated snapshots with pending/applied revisions", () =>
 {
     var draft = VrSettings.CreateApprovedDefaults(); draft.Render.VisualEffectMode = VrVisualEffectModes.VrifyFollow;
@@ -21,6 +251,39 @@ Run("Published settings are isolated snapshots with pending/applied revisions", 
     try { VrSettingsRuntime.Publish(draft); throw new Exception("Invalid settings were accepted."); }
     catch (InvalidOperationException) { }
     Check(VrSettingsRuntime.Revision == revision);
+});
+Run("Startup, VR apply, and VR save require separate contact consent despite legacy enabled settings", () =>
+{
+    var previousSettings = VrSettingsRuntime.Current;
+    string directory = Path.Combine(output, "consent-" + Guid.NewGuid().ToString("N"));
+    string logs = Path.Combine(directory, "logs");
+    string config = Path.Combine(directory, "config");
+    Directory.CreateDirectory(logs);
+    Directory.CreateDirectory(config);
+    File.WriteAllText(Path.Combine(config, "settings.json"),
+        "{\"tracking\":{\"contactCollisionEnabled\":true,\"contactBoneTrialEnabled\":true," +
+        "\"contactHapticsEnabled\":true,\"contactJiggleEnabled\":true,\"contactThighElasticEnabled\":true," +
+        "\"showContactLocations\":true,\"contactShowRanges\":true,\"contactConsentAccepted\":true}}");
+    bool accepted = VrSettingsRuntime.ContactConsentGranted;
+    var loaded = VrSettingsRuntime.Initialize(Path.Combine(logs, "runtime-bootstrap.jsonl"));
+    Check(loaded.Tracking.ContactCollisionEnabled == accepted && loaded.Tracking.ContactBoneTrialEnabled == accepted);
+    Check(loaded.Tracking.ShowContactHands);
+    var draft = VrSettings.CreateApprovedDefaults();
+    draft.Tracking.ContactBoneTrialEnabled = true;
+    draft.Tracking.ShowContactLocations = draft.Tracking.ContactShowRanges = true;
+    VrSettingsRuntime.Publish(draft);
+    var tracking = VrSettingsRuntime.Current.Tracking;
+    Check(tracking.ContactCollisionEnabled == accepted && tracking.ContactBoneTrialEnabled == accepted &&
+        tracking.ContactHapticsEnabled == accepted && tracking.ContactJiggleEnabled == accepted &&
+        tracking.ContactThighElasticEnabled == accepted && tracking.ShowContactLocations == accepted &&
+        tracking.ContactShowRanges == accepted);
+    Check(draft.Tracking.ContactCollisionEnabled && tracking.ShowContactHands);
+    string savedPath = Path.Combine(config, "saved.json");
+    VrSettingsRuntime.Save(draft, savedPath);
+    JsonObject saved = JsonNode.Parse(File.ReadAllText(savedPath))!.AsObject();
+    Check(saved["tracking"]!["contactCollisionEnabled"]!.GetValue<bool>() == accepted);
+    Check(saved["tracking"]!["contactBoneTrialEnabled"]!.GetValue<bool>() == accepted);
+    VrSettingsRuntime.Publish(previousSettings);
 });
 Run("Atomic save preserves unknown keys and original backup", () =>
 {
@@ -150,11 +413,66 @@ Run("Contact hands use the rendered eye center and scale, with one XR handedness
     Check(OpenXrStereoStateRegistry.SnapshotWorld(1000)!.ContactHands.Left is null);
     Check(snapshot.ContactHands.Left?.X == 1);
 });
+Run("Collision is requested across stereo scenes while the synthetic trial stays in its classroom", () =>
+{
+    Check(MainThreadSampler.IsContactRigRequested("env_3d_home_classroom-01-00-noon", false, true));
+    Check(MainThreadSampler.IsContactRigRequested("env_3d_home_classroom-01-00-evening", false, true));
+    Check(MainThreadSampler.IsContactRigRequested("ENV_3D_HOME_CLASSROOM-01-00-NIGHT", false, true));
+    foreach (string scene in new[] { "env_3d_home_classroom-02-00-evening", "env_3d_adv_consultingroom-00-00-noon", "env_3d_live" })
+    {
+        Check(MainThreadSampler.IsContactRigRequested(scene, true, false));
+        Check(!MainThreadSampler.IsContactRigRequested(scene, false, true));
+        Check(!MainThreadSampler.IsContactRigRequested(scene, false, false));
+    }
+    Check(MainThreadSampler.ContactEyeScopesReady(3, true));
+    Check(!MainThreadSampler.ContactEyeScopesReady(5, true));
+    Check(!MainThreadSampler.ContactEyeScopesReady(3, false));
+    Check(MainThreadSampler.ContactEyeScopesReady(7, false));
+});
+Run("Contact rig evidence requires observed names and preserves sparse skin bone slots", () =>
+{
+    Check(MainThreadSampler.IsObservedContactChestBone("LeftBust1_S", "Spine2"));
+    Check(MainThreadSampler.IsObservedContactChestBone("RightBust1_S", "Spine2"));
+    Check(!MainThreadSampler.IsObservedContactChestBone("LeftBust1_S", "Hips"));
+    Check(!MainThreadSampler.IsObservedContactChestBone("Hips", "Reference"));
+    Check(!MainThreadSampler.IsObservedContactChestBone("Chest", "Spine2"));
+    int[]? counts = MainThreadSampler.CountContactBoneInfluences(
+        new MainThreadSampler.ContactBoneWeight[] { new(.4f, 0), new(.6f, 3), new(1f, 3) }, 4);
+    Check(counts is not null && counts.SequenceEqual(new[] { 1, 0, 0, 2 }));
+    Check(MainThreadSampler.CountContactBoneInfluences(
+        new MainThreadSampler.ContactBoneWeight[] { new(1f, 4) }, 4) is null);
+    Check(MainThreadSampler.CountContactBoneInfluences(
+        new MainThreadSampler.ContactBoneWeight[] { new(float.NaN, 3) }, 4) is null);
+});
+Run("Contact trial claims its staged position and preserves animation overwrites", () =>
+{
+    var before = new Vector3(0.1f, 0.2f, 0.3f);
+    var intended = before + new Vector3(0.01f, 0f, 0f);
+    var lease = new MainThreadSampler.ContactTrialPosition(before, intended);
+    Check(lease.Owns(intended));
+    Check(!lease.Owns(before));
+    Check(!lease.Owns(new Vector3(MathF.BitIncrement(intended.X), intended.Y, intended.Z)));
+    Check(!VrSettings.CreateApprovedDefaults().Tracking.ContactBoneTrialEnabled);
+});
 Run("IL2CPP object roots retain native pointer width through release", () =>
 {
     Check(typeof(Il2CppApi.GcHandleNewDelegate).GetMethod("Invoke")!.ReturnType == typeof(IntPtr));
     Check(typeof(MainThreadSampler.ContactFreeHandle).GetMethod("Invoke")!.GetParameters()[0].ParameterType == typeof(IntPtr));
     Check(typeof(MainThreadSampler).GetMethod("RootObject", BindingFlags.Instance | BindingFlags.NonPublic)!.ReturnType == typeof(IntPtr));
+});
+Run("Multi-actor trial restores the other leases when one actor must retry", () =>
+{
+    var pending = new List<int> { 1, 2, 3 };
+    var attempted = new List<int>();
+    MainThreadSampler.RestoreContactTrialEntries(attempted, pending, static (calls, actor) =>
+    {
+        calls.Add(actor);
+        return actor != 2;
+    });
+    Check(attempted.SequenceEqual(new[] { 3, 2, 1 }));
+    Check(pending.SequenceEqual(new[] { 2 }));
+    MainThreadSampler.RestoreContactTrialEntries(attempted, pending, static (_, actor) => actor == 2);
+    Check(pending.Count == 0);
 });
 Run("Contact pilot keeps a physical near range and projects asymmetric eye frustums", () =>
 {

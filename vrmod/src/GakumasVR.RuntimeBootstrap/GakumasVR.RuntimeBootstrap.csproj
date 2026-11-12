@@ -8,10 +8,13 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NuGetAudit>false</NuGetAudit>
     <AssemblyName>GakumasVR.RuntimeBootstrap</AssemblyName>
-    <Version>0.177.0</Version>
+    <Version>0.178.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="GakumasVR.Runtime.Tests" />
     <ProjectReference Include="..\GakumasVR.Core\GakumasVR.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(GakumasPublicBuild)' == 'true'">
+    <Compile Remove="MainThreadSampler.ContactBoneTrial.cs;MainThreadSampler.ContactCollision.cs;MainThreadSampler.ContactDeformation.cs;MainThreadSampler.ContactLowerBodyAudit.cs;MainThreadSampler.ContactRigPolicy.cs;MainThreadSampler.ContactSurface.cs;OpenXrContactHaptics.cs;OpenXrControllerActions.ContactHaptics.cs;OpenXrControllerActions.ContactInput.cs" />
   </ItemGroup>
 </Project>

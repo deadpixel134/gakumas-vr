@@ -3,7 +3,7 @@ using GakumasVR.Core;
 
 namespace GakumasVR.Configurator;
 
-internal sealed class MainForm : Form
+internal sealed partial class MainForm : Form
 {
     private readonly System.Windows.Forms.Timer _languageRefresh = new() { Interval = 1000 };
     private readonly StartupResult _startup;
@@ -62,6 +62,32 @@ internal sealed class MainForm : Form
     private readonly CheckBox _locomotion = TaggedCheckBox("LocomotionEnabled");
     private readonly CheckBox _worldGrip = TaggedCheckBox("WorldGripEnabled");
     private readonly CheckBox _contactHands = TaggedCheckBox("WorldGripEnabled");
+#if !GAKUMAS_PUBLIC
+    private readonly CheckBox _contactBoneTrial = TaggedCheckBox("WorldGripEnabled");
+    private readonly CheckBox _contactCollision = TaggedCheckBox("WorldGripEnabled");
+    private readonly CheckBox _contactHaptics = TaggedCheckBox("WorldGripEnabled");
+    private readonly CheckBox _contactJiggle = TaggedCheckBox("WorldGripEnabled");
+    private readonly CheckBox _contactThighElastic = TaggedCheckBox("WorldGripEnabled");
+    private readonly NumericUpDown _contactThighFrequencyHz = Number(2m, 8m, 0.1m, 1);
+    private readonly NumericUpDown _contactThighDampingRatio = Number(0.3m, 1.5m, 0.01m, 2);
+    private readonly NumericUpDown _contactThighDisplacementMm = Number(0m, 12m, 0.5m, 1);
+    private readonly NumericUpDown _contactThighTiltDegrees = Number(0m, 4m, 0.1m, 1);
+    private readonly NumericUpDown _contactThighCompressionPercent = Number(0m, 5m, 0.1m, 1);
+    private readonly NumericUpDown _contactThighStretchPercent = Number(0m, 5m, 0.1m, 1);
+    private readonly NumericUpDown _contactThighReleasePercent = Number(0m, 20m, 1m, 0);
+    private readonly CheckBox _contactLocations = TaggedCheckBox("WorldGripEnabled");
+    private readonly CheckBox _contactRanges = TaggedCheckBox("WorldGripEnabled");
+    private readonly NumericUpDown _contactStrengthPercent = Number(0m, 300m, 5m, 0);
+    private readonly NumericUpDown _contactDurationMultiplier = Number(0.1m, 3m, 0.05m, 2);
+    private readonly NumericUpDown _contactRangePercent = Number(0m, 200m, 5m, 0);
+    private readonly NumericUpDown _contactTiltPercent = Number(0m, 200m, 5m, 0);
+    private readonly NumericUpDown _contactStretchPercent = Number(0m, 200m, 5m, 0);
+    private readonly NumericUpDown _contactHapticStrengthPercent = Number(0m, 100m, 5m, 0);
+    private readonly NumericUpDown _contactHapticDurationMs = Number(0m, 250m, 5m, 0);
+    private readonly NumericUpDown _contactHandRadiusMeters = Number(0.01m, 0.1m, 0.005m, 3);
+    private readonly NumericUpDown _contactBodyRadiusMeters = Number(0.015m, 0.15m, 0.005m, 3);
+    private readonly NumericUpDown _contactHandHoldSeconds = Number(0.025m, 0.25m, 0.025m, 3);
+#endif
     private readonly ComboBox _locomotionHand = ChoiceCombo();
     private readonly NumericUpDown _locomotionSpeed = Number(0.10m, 5.00m, 0.10m, 2);
     private readonly ComboBox _viewTurnMode = ChoiceCombo();
@@ -74,6 +100,9 @@ internal sealed class MainForm : Form
     private readonly TabPage _spatialTab = new() { Tag = "TabSpatial", AutoScroll = true };
     private readonly TabPage _panelTab = new() { Tag = "TabPanel", AutoScroll = true };
     private readonly TabPage _inputTab = new() { Tag = "TabInput", AutoScroll = true };
+#if !GAKUMAS_PUBLIC
+    private readonly TabPage _contactTab = new() { Tag = "TabContact", AutoScroll = true };
+#endif
 
     public MainForm(StartupResult startup)
     {
@@ -111,10 +140,20 @@ internal sealed class MainForm : Form
         BuildSpatialTab();
         BuildPanelTab();
         BuildInputTab();
+#if !GAKUMAS_PUBLIC
+        BuildContactTab();
+#endif
         tabs.TabPages.Add(_renderTab);
         tabs.TabPages.Add(_spatialTab);
         tabs.TabPages.Add(_panelTab);
         tabs.TabPages.Add(_inputTab);
+#if !GAKUMAS_PUBLIC
+        tabs.TabPages.Add(_contactTab);
+        tabs.Selecting += (_, args) =>
+        {
+            if (args.TabPage == _contactTab && !ConfirmContactConsent()) args.Cancel = true;
+        };
+#endif
         root.Controls.Add(tabs, 0, 1);
 
         TableLayoutPanel footer = new()
@@ -342,6 +381,38 @@ internal sealed class MainForm : Form
         _inputTab.Controls.Add(grid);
     }
 
+#if !GAKUMAS_PUBLIC
+    private void BuildContactTab()
+    {
+        TableLayoutPanel grid = Grid();
+        AddRow(grid, "ContactBoneTrial", _contactBoneTrial);
+        AddRow(grid, "ContactCollision", _contactCollision);
+        AddRow(grid, "ContactLocations", _contactLocations);
+        AddRow(grid, "ContactRanges", _contactRanges);
+        AddRow(grid, "ContactHaptics", _contactHaptics);
+        AddRow(grid, "ContactJiggle", _contactJiggle);
+        AddRow(grid, "ContactThighElastic", _contactThighElastic);
+        AddRow(grid, "ContactThighFrequencyHz", _contactThighFrequencyHz);
+        AddRow(grid, "ContactThighDampingRatio", _contactThighDampingRatio);
+        AddRow(grid, "ContactThighDisplacementMm", _contactThighDisplacementMm);
+        AddRow(grid, "ContactThighTiltDegrees", _contactThighTiltDegrees);
+        AddRow(grid, "ContactThighCompressionPercent", _contactThighCompressionPercent);
+        AddRow(grid, "ContactThighStretchPercent", _contactThighStretchPercent);
+        AddRow(grid, "ContactThighReleasePercent", _contactThighReleasePercent);
+        AddRow(grid, "ContactStrengthPercent", _contactStrengthPercent);
+        AddRow(grid, "ContactDurationMultiplier", _contactDurationMultiplier);
+        AddRow(grid, "ContactRangePercent", _contactRangePercent);
+        AddRow(grid, "ContactTiltPercent", _contactTiltPercent);
+        AddRow(grid, "ContactStretchPercent", _contactStretchPercent);
+        AddRow(grid, "ContactHapticStrengthPercent", _contactHapticStrengthPercent);
+        AddRow(grid, "ContactHapticDurationMs", _contactHapticDurationMs);
+        AddRow(grid, "ContactHandRadiusMeters", _contactHandRadiusMeters);
+        AddRow(grid, "ContactBodyRadiusMeters", _contactBodyRadiusMeters);
+        AddRow(grid, "ContactHandHoldSeconds", _contactHandHoldSeconds);
+        _contactTab.Controls.Add(grid);
+        grid.Enabled = ContactConsent.IsAccepted();
+    }
+#endif
 
     private void ChangeLanguage(UiLanguage language)
     {
@@ -552,72 +623,105 @@ internal sealed class MainForm : Form
         BeginInvoke(Close);
     }
 
-    private VrSettings Read() => new()
+    private VrSettings Read()
     {
-        Runtime = new VrRuntimeSettings { Enabled = _runtimeEnabled.Checked },
-        Render = new VrRenderSettings
+        VrSettings settings = new()
         {
-            EyeRenderScale = (float)_eyeScale.Value,
-            WorldEyeOffsetScale = (float)_worldEyeScale.Value,
-            VisualEffectMode = Selected(_vfx, VrVisualEffectModes.Approved),
-            ManualVisualEffects = new VrManualVisualEffectSettings
+            Runtime = new VrRuntimeSettings { Enabled = _runtimeEnabled.Checked },
+            Render = new VrRenderSettings
             {
-                PostProcessingEnabled = _manualPostProcessing.Checked,
-                VlBloomEnabled = _manualVlBloom.Checked,
-                VlBloomIntensityScale = (float)_manualVlBloomIntensity.Value / 100f,
-                VlBloomDiffusion = (int)_manualVlBloomDiffusion.Value,
-                VlDepthOfFieldEnabled = _manualVlDof.Checked,
-                VlTextureBlurEnabled = _manualVlTextureBlur.Checked,
-                VlStarStreakEnabled = _manualVlStarStreak.Checked,
-                VlFlareEnabled = _manualVlFlare.Checked
+                EyeRenderScale = (float)_eyeScale.Value,
+                WorldEyeOffsetScale = (float)_worldEyeScale.Value,
+                VisualEffectMode = Selected(_vfx, VrVisualEffectModes.Approved),
+                ManualVisualEffects = new VrManualVisualEffectSettings
+                {
+                    PostProcessingEnabled = _manualPostProcessing.Checked,
+                    VlBloomEnabled = _manualVlBloom.Checked,
+                    VlBloomIntensityScale = (float)_manualVlBloomIntensity.Value / 100f,
+                    VlBloomDiffusion = (int)_manualVlBloomDiffusion.Value,
+                    VlDepthOfFieldEnabled = _manualVlDof.Checked,
+                    VlTextureBlurEnabled = _manualVlTextureBlur.Checked,
+                    VlStarStreakEnabled = _manualVlStarStreak.Checked,
+                    VlFlareEnabled = _manualVlFlare.Checked
+                }
+            },
+            Tracking = new VrTrackingSettings
+            {
+                LiveSixDofEnabled = _liveSixDof.Checked,
+                LocomotionEnabled = _locomotion.Checked,
+                WorldGripEnabled = _worldGrip.Checked,
+                ShowContactHands = _contactHands.Checked,
+#if !GAKUMAS_PUBLIC
+                ContactBoneTrialEnabled = _contactBoneTrial.Checked,
+                ContactCollisionEnabled = _contactCollision.Checked,
+                ContactHapticsEnabled = _contactHaptics.Checked,
+                ContactJiggleEnabled = _contactJiggle.Checked,
+                ContactThighElasticEnabled = _contactThighElastic.Checked,
+                ContactThighFrequencyHz = (float)_contactThighFrequencyHz.Value,
+                ContactThighDampingRatio = (float)_contactThighDampingRatio.Value,
+                ContactThighDisplacementMm = (float)_contactThighDisplacementMm.Value,
+                ContactThighTiltDegrees = (float)_contactThighTiltDegrees.Value,
+                ContactThighCompressionPercent = (float)_contactThighCompressionPercent.Value,
+                ContactThighStretchPercent = (float)_contactThighStretchPercent.Value,
+                ContactThighReleasePercent = (float)_contactThighReleasePercent.Value,
+                ShowContactLocations = _contactLocations.Checked,
+                ContactShowRanges = _contactRanges.Checked,
+                ContactStrengthPercent = (float)_contactStrengthPercent.Value,
+                ContactDurationMultiplier = (float)_contactDurationMultiplier.Value,
+                ContactRangePercent = (float)_contactRangePercent.Value,
+                ContactTiltPercent = (float)_contactTiltPercent.Value,
+                ContactStretchPercent = (float)_contactStretchPercent.Value,
+                ContactHapticStrengthPercent = (float)_contactHapticStrengthPercent.Value,
+                ContactHapticDurationMs = (float)_contactHapticDurationMs.Value,
+                ContactHandRadiusMeters = (float)_contactHandRadiusMeters.Value,
+                ContactBodyRadiusMeters = (float)_contactBodyRadiusMeters.Value,
+                ContactHandHoldSeconds = (float)_contactHandHoldSeconds.Value,
+#endif
+                LocomotionHand = Selected(_locomotionHand, VrHand.Right),
+                LocomotionSpeed = (float)_locomotionSpeed.Value,
+                ViewTurnMode = Selected(_viewTurnMode, VrViewTurnMode.Snap),
+                ViewTurnSpeed = (float)_viewTurnSpeed.Value,
+                ViewSnapAngleDegrees = Selected(_viewSnapAngle, 30)
+            },
+            Spatial = new VrSpatialSettings
+            {
+                Live = ReadSpatialProfile(_liveCharacterScale, _liveEyeAuto, _liveEyeMultiplier,
+                    _liveHeadAuto, _liveHeadMultiplier, _liveLocomotionAuto, _liveLocomotionMultiplier),
+                NonLive = ReadSpatialProfile(_nonLiveCharacterScale, _nonLiveEyeAuto, _nonLiveEyeMultiplier,
+                    _nonLiveHeadAuto, _nonLiveHeadMultiplier, _nonLiveLocomotionAuto, _nonLiveLocomotionMultiplier)
+            },
+            Panel = new VrPanelSettings
+            {
+                PanelHand = Selected(_panelHand, VrHand.Left),
+                PointerHand = Selected(_pointerHand, VrHand.Right),
+                StartEnabled = _startEnabled.Checked,
+                ViewerFacing = _viewerFacing.Checked,
+                OffsetX = (float)_offsetX.Value,
+                OffsetY = (float)_offsetY.Value,
+                OffsetZ = (float)_offsetZ.Value,
+                MaximumWidth = (float)_maximumWidth.Value,
+                MaximumHeight = (float)_maximumHeight.Value,
+                RotationPitch = (float)_rotationPitch.Value,
+                RotationYaw = (float)_rotationYaw.Value,
+                RotationRoll = (float)_rotationRoll.Value,
+                VisibilityHysteresisMilliseconds = (int)_hysteresis.Value,
+                ToggleBinding = Selected(_toggle, PanelToggleBinding.Grip)
+            },
+            Input = new VrInputSettings
+            {
+                PrimaryClickButton = Selected(_primary, FaceButtonBinding.Primary),
+                BackButton = Selected(_back, FaceButtonBinding.Secondary),
+                TriggerClickEnabled = _trigger.Checked,
+                ThumbstickScrollEnabled = false,
+                ScrollSensitivity = 1f,
+                RequireGameFocus = _requireFocus.Checked
             }
-        },
-        Tracking = new VrTrackingSettings
-        {
-            LiveSixDofEnabled = _liveSixDof.Checked,
-            LocomotionEnabled = _locomotion.Checked,
-            WorldGripEnabled = _worldGrip.Checked,
-            ShowContactHands = _contactHands.Checked,
-            LocomotionHand = Selected(_locomotionHand, VrHand.Right),
-            LocomotionSpeed = (float)_locomotionSpeed.Value,
-            ViewTurnMode = Selected(_viewTurnMode, VrViewTurnMode.Snap),
-            ViewTurnSpeed = (float)_viewTurnSpeed.Value,
-            ViewSnapAngleDegrees = Selected(_viewSnapAngle, 30)
-        },
-        Spatial = new VrSpatialSettings
-        {
-            Live = ReadSpatialProfile(_liveCharacterScale, _liveEyeAuto, _liveEyeMultiplier,
-                _liveHeadAuto, _liveHeadMultiplier, _liveLocomotionAuto, _liveLocomotionMultiplier),
-            NonLive = ReadSpatialProfile(_nonLiveCharacterScale, _nonLiveEyeAuto, _nonLiveEyeMultiplier,
-                _nonLiveHeadAuto, _nonLiveHeadMultiplier, _nonLiveLocomotionAuto, _nonLiveLocomotionMultiplier)
-        },
-        Panel = new VrPanelSettings
-        {
-            PanelHand = Selected(_panelHand, VrHand.Left),
-            PointerHand = Selected(_pointerHand, VrHand.Right),
-            StartEnabled = _startEnabled.Checked,
-            ViewerFacing = _viewerFacing.Checked,
-            OffsetX = (float)_offsetX.Value,
-            OffsetY = (float)_offsetY.Value,
-            OffsetZ = (float)_offsetZ.Value,
-            MaximumWidth = (float)_maximumWidth.Value,
-            MaximumHeight = (float)_maximumHeight.Value,
-            RotationPitch = (float)_rotationPitch.Value,
-            RotationYaw = (float)_rotationYaw.Value,
-            RotationRoll = (float)_rotationRoll.Value,
-            VisibilityHysteresisMilliseconds = (int)_hysteresis.Value,
-            ToggleBinding = Selected(_toggle, PanelToggleBinding.Grip)
-        },
-        Input = new VrInputSettings
-        {
-            PrimaryClickButton = Selected(_primary, FaceButtonBinding.Primary),
-            BackButton = Selected(_back, FaceButtonBinding.Secondary),
-            TriggerClickEnabled = _trigger.Checked,
-            ThumbstickScrollEnabled = false,
-            ScrollSensitivity = 1f,
-            RequireGameFocus = _requireFocus.Checked
-        }
-    };
+        };
+#if !GAKUMAS_PUBLIC
+        ContactConsent.Enforce(settings.Tracking, ContactConsent.IsAccepted());
+#endif
+        return settings;
+    }
 
     private void Apply(VrSettings settings)
     {
@@ -632,6 +736,32 @@ internal sealed class MainForm : Form
         _locomotion.Checked = settings.Tracking.LocomotionEnabled;
         _worldGrip.Checked = settings.Tracking.WorldGripEnabled;
         _contactHands.Checked = settings.Tracking.ShowContactHands;
+#if !GAKUMAS_PUBLIC
+        _contactBoneTrial.Checked = settings.Tracking.ContactBoneTrialEnabled;
+        _contactCollision.Checked = settings.Tracking.ContactCollisionEnabled;
+        _contactHaptics.Checked = settings.Tracking.ContactHapticsEnabled;
+        _contactJiggle.Checked = settings.Tracking.ContactJiggleEnabled;
+        _contactThighElastic.Checked = settings.Tracking.ContactThighElasticEnabled;
+        Set(_contactThighFrequencyHz, settings.Tracking.ContactThighFrequencyHz);
+        Set(_contactThighDampingRatio, settings.Tracking.ContactThighDampingRatio);
+        Set(_contactThighDisplacementMm, settings.Tracking.ContactThighDisplacementMm);
+        Set(_contactThighTiltDegrees, settings.Tracking.ContactThighTiltDegrees);
+        Set(_contactThighCompressionPercent, settings.Tracking.ContactThighCompressionPercent);
+        Set(_contactThighStretchPercent, settings.Tracking.ContactThighStretchPercent);
+        Set(_contactThighReleasePercent, settings.Tracking.ContactThighReleasePercent);
+        _contactLocations.Checked = settings.Tracking.ShowContactLocations;
+        _contactRanges.Checked = settings.Tracking.ContactShowRanges;
+        Set(_contactStrengthPercent, settings.Tracking.ContactStrengthPercent);
+        Set(_contactDurationMultiplier, settings.Tracking.ContactDurationMultiplier);
+        Set(_contactRangePercent, settings.Tracking.ContactRangePercent);
+        Set(_contactTiltPercent, settings.Tracking.ContactTiltPercent);
+        Set(_contactStretchPercent, settings.Tracking.ContactStretchPercent);
+        Set(_contactHapticStrengthPercent, settings.Tracking.ContactHapticStrengthPercent);
+        Set(_contactHapticDurationMs, settings.Tracking.ContactHapticDurationMs);
+        Set(_contactHandRadiusMeters, settings.Tracking.ContactHandRadiusMeters);
+        Set(_contactBodyRadiusMeters, settings.Tracking.ContactBodyRadiusMeters);
+        Set(_contactHandHoldSeconds, settings.Tracking.ContactHandHoldSeconds);
+#endif
         Select(_locomotionHand, settings.Tracking.LocomotionHand);
         Set(_locomotionSpeed, settings.Tracking.LocomotionSpeed);
         Select(_viewTurnMode, settings.Tracking.ViewTurnMode);

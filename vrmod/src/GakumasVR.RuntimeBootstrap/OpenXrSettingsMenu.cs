@@ -69,7 +69,7 @@ internal static partial class OpenXrProbe
                 if (Visible) Close();
                 else
                 {
-                    _editor = new VrSettingsEditor(VrSettingsRuntime.Current);
+                    _editor = new VrSettingsEditor(VrSettingsRuntime.Current, VrSettingsRuntime.ContactConsentGranted);
                     _page = 0; Visible = true; VrSettingsRuntime.MenuOpen = true;
                     _language = _readLanguage(); _languageSaveFailed = false;
                     _nextLanguageRead = Environment.TickCount64 + 1000;
@@ -119,7 +119,7 @@ internal static partial class OpenXrProbe
                 case SettingsMenuAction.Next: _page = (_page + 1) % pages; break;
                 case SettingsMenuAction.Close: Close(); return;
                 case SettingsMenuAction.ProfileA: _editor.Draft.Render.VisualEffectMode = VrVisualEffectModes.Approved; break;
-                case SettingsMenuAction.ProfileB: _editor.Draft.Render.VisualEffectMode = VrVisualEffectModes.VrifyFollow; break;
+                case SettingsMenuAction.ProfileC: _editor.Draft.Render.VisualEffectMode = VrVisualEffectModes.VrifyFollow; break;
                 case SettingsMenuAction.Decrease:
                 case SettingsMenuAction.Increase:
                     int index = _page * SettingsMenuLayout.RowsPerPage + hit.Row;

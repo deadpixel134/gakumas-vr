@@ -1,18 +1,20 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?$')]
-    [string]$Version = '0.177.0',
-    [string]$OutputRoot
+    [string]$Version = '0.178.0',
+    [string]$OutputRoot,
+    [switch]$LocalContact
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $vrmodRoot = Join-Path $repositoryRoot 'vrmod'
-$edition = 'public'
-$packageName = "GakumasVR-v$Version"
+$edition = if ($LocalContact) { 'local-contact' } else { 'public' }
+$packageName = if ($LocalContact) { "GakumasVR-local-contact-v$Version" } else { "GakumasVR-v$Version" }
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $OutputRoot = Join-Path $vrmodRoot 'dist'
+    if ($LocalContact) { $OutputRoot = Join-Path $OutputRoot 'local-contact' }
 }
 $outputFull = [System.IO.Path]::GetFullPath($OutputRoot)
 $allowedRoot = [System.IO.Path]::GetFullPath((Join-Path $vrmodRoot 'dist')).TrimEnd('\') + '\'
@@ -30,7 +32,8 @@ $payload = Join-Path $packageRoot 'payload'
 [System.IO.Directory]::CreateDirectory($payload) | Out-Null
 
 $artifacts = Join-Path $outputFull ".build-$edition"
-$buildProperty = '-p:GakumasPublicBuild=true'
+# All packages include contact gated by explicit user consent.
+$buildProperty = '-p:GakumasPublicBuild=false'
 dotnet build (Join-Path $vrmodRoot 'src\GakumasVR.RuntimeBootstrap\GakumasVR.RuntimeBootstrap.csproj') -c Release --artifacts-path $artifacts $buildProperty
 if ($LASTEXITCODE -ne 0) { throw '런타임 빌드 실패' }
 $publish = Join-Path $artifacts 'publish-configurator'

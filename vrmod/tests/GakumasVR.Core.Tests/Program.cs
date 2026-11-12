@@ -3,6 +3,20 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Reference chest profile applies defaults and side detuning", ReferenceContactProfile),
+    ("Contact compression preserves volume and skips uncertain axes", ContactVolume),
+    ("Thigh elasticity adds limited tilt and compression while keeping the position limit", ThighElasticity),
+    ("Contact surface fits the visible weighted patch", SurfacePatch),
+    ("Contact surface follows bone rotation and scale", SurfaceAnchor),
+    ("Contact surface rejects ambiguous geometry", SurfaceRejectsInvalid),
+    ("Contact jiggle overshoots and decays after release", ContactJiggle),
+    ("Release impulses require a tracked exit and integrate once", ContactRelease),
+    ("Sphere contact uses rendered distances and handles overlap", SphereContact),
+    ("Contact spring shares a pair and settles after tracked release", ContactSpring),
+    ("Tracking loss and time discontinuity cancel contact inertia", ContactDiscontinuity),
+    ("Contact entry rearms only after valid separation", ContactEntry),
+    ("Contact consent requires a saved current notice and fails closed on unreadable records", ContactConsentStorage),
+    ("Contact consent blocks every reaction and VR setting while preserving hand display", ContactConsentGate),
     ("Shared translations cover every VR setting and enum", SharedTranslations),
     ("GUI language preference preserves legacy and culture fallbacks", LanguagePreferences),
     ("Comparison bloom preserves authored diffusion and follows FOV", ComparisonBloom),
@@ -73,6 +87,50 @@ foreach (var test in tests)
 
 Console.WriteLine($"Executed {tests.Length} tests; failures: {failed}");
 return failed == 0 ? 0 : 1;
+
+static void ContactConsentStorage()
+{
+    string directory = Path.Combine(Path.GetTempPath(), "GakumasVR-consent-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    string path = Path.Combine(directory, "character-contact-consent.txt");
+    try
+    {
+        True(!ContactConsent.IsAccepted(directory));
+        File.WriteAllText(path, "invalid");
+        True(!ContactConsent.IsAccepted(directory));
+        File.WriteAllText(path, "character-contact-v1");
+        True(!ContactConsent.IsAccepted(directory));
+        True(ContactConsent.TryAccept(directory));
+        True(ContactConsent.IsAccepted(directory));
+        True(ContactConsent.TryAccept(directory));
+        File.Delete(path);
+        Directory.CreateDirectory(path);
+        True(!ContactConsent.IsAccepted(directory));
+        True(!ContactConsent.TryAccept(directory));
+    }
+    finally { Directory.Delete(directory, recursive: true); }
+}
+
+static void ContactConsentGate()
+{
+    var settings = VrSettings.CreateApprovedDefaults();
+    settings.Tracking.ContactBoneTrialEnabled = true;
+    settings.Tracking.ShowContactLocations = true;
+    settings.Tracking.ContactShowRanges = true;
+    ContactConsent.Enforce(settings.Tracking, accepted: true);
+    True(settings.Tracking.ContactBoneTrialEnabled && settings.Tracking.ContactCollisionEnabled);
+    var locked = new VrSettingsEditor(settings, includeContactSettings: false);
+    True(locked.Entries.All(entry => !ContactConsent.IsContactSetting(entry.Path)));
+    True(locked.Entries.Any(entry => entry.Path == "Tracking.ShowContactHands"));
+    var tracking = locked.Draft.Tracking;
+    True(tracking.ShowContactHands && tracking.WorldGripEnabled && tracking.LocomotionEnabled);
+    True(!tracking.ContactBoneTrialEnabled && !tracking.ContactCollisionEnabled && !tracking.ContactHapticsEnabled &&
+        !tracking.ContactJiggleEnabled && !tracking.ContactThighElasticEnabled &&
+        !tracking.ShowContactLocations && !tracking.ContactShowRanges);
+    var unlocked = new VrSettingsEditor(settings, includeContactSettings: true);
+    True(unlocked.Entries.Any(entry => entry.Path == "Tracking.ContactCollisionEnabled"));
+    True(unlocked.Draft.Tracking.ContactCollisionEnabled);
+}
 
 static void SpatialDefaultsPreserveBaseline()
 {
@@ -1103,7 +1161,7 @@ static void MenuLayout()
 {
     Equal(SettingsMenuAction.ProfileA, SettingsMenuLayout.Hit(.1f, .15f).Action);
     Equal(SettingsMenuAction.None, SettingsMenuLayout.Hit(.5f, .15f).Action);
-    Equal(SettingsMenuAction.ProfileB, SettingsMenuLayout.Hit(.9f, .15f).Action);
+    Equal(SettingsMenuAction.ProfileC, SettingsMenuLayout.Hit(.9f, .15f).Action);
     Equal(SettingsMenuAction.Apply, SettingsMenuLayout.Hit(.5f, .93f).Action);
     Equal(SettingsMenuAction.None, SettingsMenuLayout.Hit(-.1f, .5f).Action);
     Equal(SettingsMenuAction.None, SettingsMenuLayout.Hit(.5f, float.NaN).Action);
@@ -1149,4 +1207,188 @@ static void LanguagePreferences()
     string blocked = Path.Combine(root, "not-a-directory"); File.WriteAllText(blocked, "keep");
     Equal(false, VrUiPreferences.TrySave(VrUiLanguage.Japanese, blocked));
     Equal("keep", File.ReadAllText(blocked));
+}
+
+static void SphereContact()
+{
+    var center = System.Numerics.Vector3.Zero;
+    var hand = new System.Numerics.Vector3(.04f, 0, 0);
+    if (!ContactResponse.Sphere(center, .04f, hand, .01f, System.Numerics.Vector3.UnitZ, out var push)) throw new Exception("Contact missed.");
+    Near(-.0065f, push.X); Near(0, push.Y);
+    if (ContactResponse.Sphere(center, .04f, new System.Numerics.Vector3(.051f, 0, 0), .01f, default, out _)) throw new Exception("False overlap.");
+    if (!ContactResponse.Sphere(center, .04f, center, .01f, default, out push) || !ContactResponse.Finite(push)) throw new Exception("Coincident centers failed.");
+    if (ContactResponse.Sphere(center, .04f, new System.Numerics.Vector3(float.NaN, 0, 0), .01f, default, out _)) throw new Exception("Nonfinite contact accepted.");
+    ContactResponse.Sphere(center, .04f * .275f, hand * .275f, .01f * .275f, default, out var scaled);
+    Near(-.0065f * .275f, scaled.X);
+    ContactResponse.Sphere(center, .04f, -hand, .01f, default, out var opposite);
+    Near(0, (opposite + new System.Numerics.Vector3(-.0065f, 0, 0)).Length());
+}
+
+static void ContactSpring()
+{
+    var spring = new ContactResponse();
+    var force = new System.Numerics.Vector3(10, 10, 10);
+    var first = spring.Step(1, .016f, force, .025f, true);
+    if (first.Length() <= 0 || spring.Step(1, .016f, -force, .025f, true) != first) throw new Exception("Pair integrated twice.");
+    for (int i = 2; i <= 30; i++)
+        if (spring.Step(i, .033f, force, .025f, true).Length() > .02501f) throw new Exception("Combined displacement escaped limit.");
+    for (int i = 31; i <= 90; i++) spring.Step(i, .016f, default, .025f, true);
+    if (spring.Offset.Length() > .00001f || spring.Velocity.Length() > .0001f) throw new Exception("Tracked release did not settle.");
+    var other = new ContactResponse(); other.Step(1, .016f, -force, .025f, true);
+    if (spring.Offset == other.Offset) throw new Exception("Targets share spring state.");
+}
+
+static void ContactDiscontinuity()
+{
+    var spring = new ContactResponse();
+    spring.Step(1, .016f, System.Numerics.Vector3.UnitX, .025f, true);
+    if (spring.Step(2, .016f, default, .025f, false) != default || spring.Velocity != default) throw new Exception("Lost hand injected release momentum.");
+    spring.Step(3, .016f, System.Numerics.Vector3.UnitX, .025f, true);
+    if (spring.Step(4, .5f, default, .025f, true) != default) throw new Exception("Stale interval integrated.");
+    spring.Step(5, .016f, System.Numerics.Vector3.UnitX, .025f, true);
+    if (spring.Step(6, .016f, new System.Numerics.Vector3(float.NaN, 0, 0), .025f, true) != default) throw new Exception("Nonfinite force integrated.");
+}
+
+static void ContactEntry()
+{
+    var latch = new ContactEnterLatch();
+    if (latch.Update(true, true)) throw new Exception("Acquisition inside target pulsed.");
+    latch.Update(true, false);
+    if (!latch.Update(true, true) || latch.Update(true, true)) throw new Exception("Contact entry duplicated or missed.");
+    latch.Update(false, false);
+    if (latch.Update(true, true)) throw new Exception("Blocked hand rearmed.");
+    latch.Update(true, false);
+    if (!latch.Update(true, true)) throw new Exception("Valid separation did not rearm.");
+}
+
+static void ReferenceContactProfile()
+{
+    var settings = VrSettings.CreateApprovedDefaults();
+    var left = ContactMaterialProfile.Chest(settings.Tracking, false);
+    var right = ContactMaterialProfile.Chest(settings.Tracking, true);
+    Near(2, left.Position.FrequencyHz);
+    Near(2.06f, right.Position.FrequencyHz);
+    Near(.3f, left.Position.DampingRatio);
+    Near(.255f, left.Tilt.DampingRatio);
+    Near(.03f, left.MaxDisplacement);
+    Near(.24f, left.ReleaseGain);
+    Near(MathF.PI / 30f, left.MaxTiltRadians);
+    Near(.0675f, left.Stretch);
+    Near(.045f, left.Squash);
+    Equal(15f, settings.Tracking.ContactHapticStrengthPercent);
+    Equal(30f, settings.Tracking.ContactHapticDurationMs);
+    settings.Tracking.ContactDurationMultiplier = 0;
+    Near(.4f, VrSettingsValidator.Validate(settings).Settings.Tracking.ContactDurationMultiplier);
+}
+
+static void ContactVolume()
+{
+    var profile = ContactMaterialProfile.Chest(VrSettings.CreateApprovedDefaults().Tracking, false);
+    var depth = System.Numerics.Vector3.UnitZ;
+    var scale = profile.ScaleGoal(-depth * .005f, -depth, .02f, depth, .05f, default, .05f, out _);
+    if (scale.Z >= 1 || scale.X <= 1 || scale.Y <= 1) throw new Exception("Compression did not compensate across axes.");
+    Near(1, scale.X * scale.Y * scale.Z);
+    var diagonal = System.Numerics.Vector3.Normalize(System.Numerics.Vector3.One);
+    Equal(System.Numerics.Vector3.One, profile.ScaleGoal(-diagonal, -diagonal, .02f, diagonal, .05f, default, .05f, out _));
+    var tilt = profile.TiltGoal(System.Numerics.Vector3.UnitX, depth, .05f);
+    Near(profile.MaxTiltRadians, tilt.Y);
+    Equal(System.Numerics.Vector3.Zero, profile.TiltGoal(depth, depth, .05f));
+}
+
+static void ThighElasticity()
+{
+    var tracking = VrSettings.CreateApprovedDefaults().Tracking;
+    var profile = ContactMaterialProfile.Thigh(tracking);
+    Near(4.5f, profile.Position.FrequencyHz);
+    Near(.72f, profile.Position.DampingRatio);
+    Near(.006f, profile.MaxDisplacement);
+    Near(.05f, profile.ReleaseGain);
+    Near(1.5f * MathF.PI / 180f, profile.MaxTiltRadians);
+    Near(.015f, profile.Stretch);
+    var outward = System.Numerics.Vector3.UnitZ;
+    var shift = System.Numerics.Vector3.UnitX * .008f;
+    var tilt = profile.TiltGoal(shift, outward, .05f);
+    if (tilt.Y <= 0 || tilt.Length() > profile.MaxTiltRadians + .00001f)
+        throw new Exception("Thigh tilt did not follow tangential motion within its cap.");
+
+    var squeezed = profile.ScaleGoal(-outward * .008f, -outward, .03f, outward, .05f, default, .05f, out var pressure);
+    if (squeezed.Z >= 1 || squeezed.Z < .975f - .00001f || squeezed.X <= 1)
+        throw new Exception("Thigh compression did not respect its bounds.");
+    Near(1, squeezed.X * squeezed.Y * squeezed.Z);
+    var relaxing = profile.ScaleGoal(default, default, 0, outward, .05f, pressure, .05f, out _);
+    if (relaxing.Z <= squeezed.Z || relaxing.Z > 1)
+        throw new Exception("Thigh compression did not relax on release.");
+
+    tracking.ContactThighCompressionPercent = 0;
+    var stretchOnly = ContactMaterialProfile.Thigh(tracking);
+    Equal(System.Numerics.Vector3.One,
+        stretchOnly.ScaleGoal(-outward * .006f, -outward, .03f, outward, .05f, default, .05f, out _));
+    tracking.ContactThighCompressionPercent = 2.5f;
+    tracking.ContactThighStretchPercent = 0;
+    var compressionOnly = ContactMaterialProfile.Thigh(tracking);
+    Near(squeezed.Z,
+        compressionOnly.ScaleGoal(-outward * .008f, -outward, .03f, outward, .05f, default, .05f, out _).Z);
+}
+
+static void SurfacePatch()
+{
+    var points = new List<System.Numerics.Vector3>();
+    for (int y = -4; y <= 4; y++) for (int x = -4; x <= 4; x++)
+        points.Add(new System.Numerics.Vector3(x * .01f, y * .01f, .12f));
+    var normals = Enumerable.Repeat(System.Numerics.Vector3.UnitZ, points.Count).ToArray();
+    if (!ContactSurfaceFit.TryFit(points.ToArray(), normals, out var center, out var normal, out float radius)) throw new Exception("Surface fit failed.");
+    Near(.12f, (center + normal * radius).Z);
+    if (center.Z <= 0 || radius is < .015f or > .09f) throw new Exception("Surface remained at the rig pivot.");
+    if (!ContactResponse.Sphere(center, radius, new System.Numerics.Vector3(0, 0, .125f), .01f, normal, out _)) throw new Exception("Surface touch required torso penetration.");
+}
+static void SurfaceAnchor()
+{
+    var start = System.Numerics.Matrix4x4.CreateScale(.5f) * System.Numerics.Matrix4x4.CreateTranslation(2, 3, 4);
+    var center = new System.Numerics.Vector3(2, 3, 4.1f);
+    if (!ContactSurfaceAnchor.TryBind(center, System.Numerics.Vector3.UnitZ, .05f, start, out var anchor)) throw new Exception("Anchor rejected valid scale.");
+    var next = System.Numerics.Matrix4x4.CreateScale(1.5f) * System.Numerics.Matrix4x4.CreateRotationY(MathF.PI / 2) * System.Numerics.Matrix4x4.CreateTranslation(-1, 2, 3);
+    if (!anchor.TryMap(next, out var mapped, out var outward, out float radius)) throw new Exception("Anchor mapping failed.");
+    Near(-.7f, mapped.X); Near(2, mapped.Y); Near(3, mapped.Z); Near(.15f, radius); Near(1, outward.X);
+    if (anchor.TryMap(System.Numerics.Matrix4x4.CreateScale(1, 2, 1), out _, out _, out _)) throw new Exception("Nonuniform geometry accepted as a sphere.");
+}
+static void SurfaceRejectsInvalid()
+{
+    var points = Enumerable.Repeat(System.Numerics.Vector3.Zero, 16).ToArray();
+    var normals = Enumerable.Range(0, 16).Select(i => i % 2 == 0 ? System.Numerics.Vector3.UnitZ : -System.Numerics.Vector3.UnitZ).ToArray();
+    if (ContactSurfaceFit.TryFit(points, normals, out _, out _, out _)) throw new Exception("Ambiguous outward normal accepted.");
+    normals = Enumerable.Repeat(System.Numerics.Vector3.UnitZ, 16).ToArray();
+    if (ContactSurfaceFit.TryFit(points, normals, out _, out _, out _)) throw new Exception("Degenerate patch accepted.");
+    points[0] = new System.Numerics.Vector3(float.NaN, 0, 0);
+    if (ContactSurfaceFit.TryFit(points, normals, out _, out _, out _)) throw new Exception("Nonfinite patch accepted.");
+}
+static void ContactJiggle()
+{
+    var spring = new ContactResponse();
+    for (int i = 1; i <= 40; i++) spring.Step(i, .016f, new System.Numerics.Vector3(.01f, 0, 0), .025f, true, true);
+    bool crossed = false;
+    for (int i = 41; i <= 100; i++)
+    {
+        var offset = spring.Step(i, .016f, default, .025f, true, true);
+        crossed |= offset.X < -.0001f;
+        if (offset.Length() > .02501f) throw new Exception("Jiggle escaped the deformation cap.");
+    }
+    if (!crossed || spring.Offset.Length() > .0001f) throw new Exception("Jiggle did not oscillate and decay.");
+    spring.Step(101, .016f, System.Numerics.Vector3.UnitX, .025f, true, true);
+    if (spring.Step(102, .016f, default, .025f, false, true, System.Numerics.Vector3.One) != default || spring.Velocity != default)
+        throw new Exception("Tracking loss generated a jiggle impulse.");
+}
+static void ContactRelease()
+{
+    var velocity = new System.Numerics.Vector3(1, 0, 0);
+    var impulse = ContactResponse.ExitImpulse(3, 2, 3, velocity, -velocity, out int mask);
+    Equal(1, mask); Near(.08f, impulse.X);
+    impulse = ContactResponse.ExitImpulse(1, 0, 0, velocity, default, out mask);
+    Equal(0, mask); Near(0, impulse.Length());
+    impulse = ContactResponse.ExitImpulse(1, 1, 1, velocity, default, out mask);
+    Equal(0, mask);
+    var spring = new ContactResponse();
+    var first = spring.Step(1, .016f, default, .025f, true, true, velocity);
+    var state = spring.Velocity;
+    if (spring.Step(1, .016f, default, .025f, true, true, velocity) != first || spring.Velocity != state)
+        throw new Exception("Stereo callbacks applied the release impulse twice.");
 }

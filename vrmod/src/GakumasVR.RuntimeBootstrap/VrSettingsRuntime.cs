@@ -42,6 +42,9 @@ internal static partial class VrSettingsRuntime
             }
 
             _current = Load(logPath, out string source, out IReadOnlyList<string> issues);
+#if !GAKUMAS_PUBLIC
+            ContactConsent.Enforce(_current.Tracking, ContactConsentGranted);
+#endif
             _initialized = true;
             RuntimeProbe.Append(logPath, new ProbeEvent
             {
@@ -62,6 +65,9 @@ internal static partial class VrSettingsRuntime
                     $"viewTurnSpeed={_current.Tracking.ViewTurnSpeed:R};" +
                     $"viewSnapAngle={_current.Tracking.ViewSnapAngleDegrees};" +
                     $"vfxMode={_current.Render.VisualEffectMode};" +
+#if !GAKUMAS_PUBLIC
+                    $"contactConsent={ContactConsentGranted};contactCollision={_current.Tracking.ContactCollisionEnabled};" +
+#endif
                     $"manualPost={_current.Render.ManualVisualEffects.PostProcessingEnabled};" +
                     $"manualBloom={_current.Render.ManualVisualEffects.VlBloomEnabled};" +
                     $"manualBloomIntensity={_current.Render.ManualVisualEffects.VlBloomIntensityScale:R};" +

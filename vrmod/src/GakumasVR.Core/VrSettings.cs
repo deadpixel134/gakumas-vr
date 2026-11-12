@@ -84,6 +84,32 @@ public sealed class VrTrackingSettings
     public bool LocomotionEnabled { get; set; } = true;
     public bool WorldGripEnabled { get; set; } = true;
     public bool ShowContactHands { get; set; } = true;
+#if !GAKUMAS_PUBLIC
+    public bool ContactBoneTrialEnabled { get; set; }
+    public bool ContactCollisionEnabled { get; set; } = true;
+    public bool ContactHapticsEnabled { get; set; } = true;
+    public bool ContactJiggleEnabled { get; set; } = true;
+    public bool ContactThighElasticEnabled { get; set; } = true;
+    public float ContactThighFrequencyHz { get; set; } = 4.5f;
+    public float ContactThighDampingRatio { get; set; } = 0.72f;
+    public float ContactThighDisplacementMm { get; set; } = 6f;
+    public float ContactThighTiltDegrees { get; set; } = 1.5f;
+    public float ContactThighCompressionPercent { get; set; } = 2.5f;
+    public float ContactThighStretchPercent { get; set; } = 1.5f;
+    public float ContactThighReleasePercent { get; set; } = 5f;
+    public bool ShowContactLocations { get; set; }
+    public bool ContactShowRanges { get; set; }
+    public float ContactStrengthPercent { get; set; } = 40f;
+    public float ContactDurationMultiplier { get; set; } = 0.4f;
+    public float ContactRangePercent { get; set; } = 75f;
+    public float ContactTiltPercent { get; set; } = 50f;
+    public float ContactStretchPercent { get; set; } = 45f;
+    public float ContactHapticStrengthPercent { get; set; } = 15f;
+    public float ContactHapticDurationMs { get; set; } = 30f;
+    public float ContactHandRadiusMeters { get; set; } = 0.035f;
+    public float ContactBodyRadiusMeters { get; set; } = 0.06f;
+    public float ContactHandHoldSeconds { get; set; } = 0.1f;
+#endif
 
     public VrHand LocomotionHand { get; set; } = VrHand.Right;
 
@@ -277,6 +303,32 @@ public static class VrSettingsValidator
                 LocomotionEnabled = tracking.LocomotionEnabled,
                 WorldGripEnabled = tracking.WorldGripEnabled,
                 ShowContactHands = tracking.ShowContactHands,
+#if !GAKUMAS_PUBLIC
+                ContactBoneTrialEnabled = tracking.ContactBoneTrialEnabled,
+                ContactCollisionEnabled = tracking.ContactCollisionEnabled,
+                ContactHapticsEnabled = tracking.ContactHapticsEnabled,
+                ContactJiggleEnabled = tracking.ContactJiggleEnabled,
+                ContactThighElasticEnabled = tracking.ContactThighElasticEnabled,
+                ContactThighFrequencyHz = ValidateRange(tracking.ContactThighFrequencyHz, 2f, 8f, defaults.Tracking.ContactThighFrequencyHz, "tracking.contactThighFrequencyHz", issues),
+                ContactThighDampingRatio = ValidateRange(tracking.ContactThighDampingRatio, 0.3f, 1.5f, defaults.Tracking.ContactThighDampingRatio, "tracking.contactThighDampingRatio", issues),
+                ContactThighDisplacementMm = ValidateRange(tracking.ContactThighDisplacementMm, 0f, 12f, defaults.Tracking.ContactThighDisplacementMm, "tracking.contactThighDisplacementMm", issues),
+                ContactThighTiltDegrees = ValidateRange(tracking.ContactThighTiltDegrees, 0f, 4f, defaults.Tracking.ContactThighTiltDegrees, "tracking.contactThighTiltDegrees", issues),
+                ContactThighCompressionPercent = ValidateRange(tracking.ContactThighCompressionPercent, 0f, 5f, defaults.Tracking.ContactThighCompressionPercent, "tracking.contactThighCompressionPercent", issues),
+                ContactThighStretchPercent = ValidateRange(tracking.ContactThighStretchPercent, 0f, 5f, defaults.Tracking.ContactThighStretchPercent, "tracking.contactThighStretchPercent", issues),
+                ContactThighReleasePercent = ValidateRange(tracking.ContactThighReleasePercent, 0f, 20f, defaults.Tracking.ContactThighReleasePercent, "tracking.contactThighReleasePercent", issues),
+                ShowContactLocations = tracking.ShowContactLocations,
+                ContactShowRanges = tracking.ContactShowRanges,
+                ContactStrengthPercent = ValidateRange(tracking.ContactStrengthPercent, 0f, 300f, defaults.Tracking.ContactStrengthPercent, "tracking.contactStrengthPercent", issues),
+                ContactDurationMultiplier = ValidateRange(tracking.ContactDurationMultiplier, 0.1f, 3f, defaults.Tracking.ContactDurationMultiplier, "tracking.contactDurationMultiplier", issues),
+                ContactRangePercent = ValidateRange(tracking.ContactRangePercent, 0f, 200f, defaults.Tracking.ContactRangePercent, "tracking.contactRangePercent", issues),
+                ContactTiltPercent = ValidateRange(tracking.ContactTiltPercent, 0f, 200f, defaults.Tracking.ContactTiltPercent, "tracking.contactTiltPercent", issues),
+                ContactStretchPercent = ValidateRange(tracking.ContactStretchPercent, 0f, 200f, defaults.Tracking.ContactStretchPercent, "tracking.contactStretchPercent", issues),
+                ContactHapticStrengthPercent = ValidateRange(tracking.ContactHapticStrengthPercent, 0f, 100f, defaults.Tracking.ContactHapticStrengthPercent, "tracking.contactHapticStrengthPercent", issues),
+                ContactHapticDurationMs = ValidateRange(tracking.ContactHapticDurationMs, 0f, 250f, defaults.Tracking.ContactHapticDurationMs, "tracking.contactHapticDurationMs", issues),
+                ContactHandRadiusMeters = ValidateRange(tracking.ContactHandRadiusMeters, 0.01f, 0.1f, defaults.Tracking.ContactHandRadiusMeters, "tracking.contactHandRadiusMeters", issues),
+                ContactBodyRadiusMeters = ValidateRange(tracking.ContactBodyRadiusMeters, 0.015f, 0.15f, defaults.Tracking.ContactBodyRadiusMeters, "tracking.contactBodyRadiusMeters", issues),
+                ContactHandHoldSeconds = ValidateRange(tracking.ContactHandHoldSeconds, 0.025f, 0.25f, defaults.Tracking.ContactHandHoldSeconds, "tracking.contactHandHoldSeconds", issues),
+#endif
                 LocomotionHand = ValidateEnum(
                     tracking.LocomotionHand,
                     defaults.Tracking.LocomotionHand,

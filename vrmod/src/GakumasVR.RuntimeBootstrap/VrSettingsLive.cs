@@ -6,6 +6,18 @@ namespace Doorstop;
 
 internal static partial class VrSettingsRuntime
 {
+    internal static bool ContactConsentGranted
+    {
+        get
+        {
+#if !GAKUMAS_PUBLIC
+            return ContactConsent.IsAccepted();
+#else
+            return false;
+#endif
+        }
+    }
+
     private static int _menuOpen;
     internal static bool MenuOpen { get => Volatile.Read(ref _menuOpen) != 0; set => Volatile.Write(ref _menuOpen, value ? 1 : 0); }
     private static long _revision = 1;
@@ -22,6 +34,9 @@ internal static partial class VrSettingsRuntime
     {
         VrSettingsValidationResult result = VrSettingsValidator.Validate(draft);
         if (result.Issues.Count != 0) throw new InvalidOperationException(string.Join(", ", result.Issues));
+#if !GAKUMAS_PUBLIC
+        ContactConsent.Enforce(result.Settings.Tracking, ContactConsentGranted);
+#endif
         lock (Sync)
         {
             _current = result.Settings;
@@ -32,6 +47,10 @@ internal static partial class VrSettingsRuntime
 
     internal static void Save(VrSettings settings, string? pathOverride = null)
     {
+#if !GAKUMAS_PUBLIC
+        settings = VrSettingsValidator.Validate(settings).Settings;
+        ContactConsent.Enforce(settings.Tracking, ContactConsentGranted);
+#endif
         string path = pathOverride ?? GetSettingsPath(RuntimeProbe.GetLogPath());
         string? previous = File.Exists(path) ? File.ReadAllText(path) : null;
         JsonObject root = previous is null ? new JsonObject() : JsonNode.Parse(previous,
