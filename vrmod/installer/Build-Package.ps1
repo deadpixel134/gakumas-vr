@@ -1,7 +1,7 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?$')]
-    [string]$Version = '0.178.0',
+    [string]$Version = '0.178.1',
     [string]$OutputRoot,
     [switch]$LocalContact
 )

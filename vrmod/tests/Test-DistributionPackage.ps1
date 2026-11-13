@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [string]$PackageRoot,
@@ -150,7 +150,17 @@ try {
     [System.IO.Directory]::CreateDirectory((Join-Path $localifyGame 'vrmod\config')) | Out-Null
     $existingSettings = if ($ExpectedEdition -eq 'public') { $legacyJson } else { 'existing-settings-sentinel' }
     [System.IO.File]::WriteAllText((Join-Path $localifyGame 'vrmod\config\settings.json'), $existingSettings)
+    [System.IO.Directory]::CreateDirectory((Join-Path $localifyGame 'vrmod\logs')) | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $localifyGame 'vrmod\logs\runtime-bootstrap.jsonl'), 'old-log')
     & $installScript -GameRoot $localifyGame -PackageRoot $package
+    Assert-Equal 'off' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'vrmod\config\logging-enabled.txt')) 'Logging was not disabled on first upgrade.'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $localifyGame 'vrmod\logs\runtime-bootstrap.jsonl'))) 'Old runtime log survived migration.'
+    [System.IO.File]::WriteAllText((Join-Path $localifyGame 'vrmod\config\logging-enabled.txt'), 'on')
+    [System.IO.File]::WriteAllText((Join-Path $localifyGame 'vrmod\logs\runtime-bootstrap.jsonl'), 'new-log')
+    $migration = Start-Process -FilePath (Join-Path $package 'GakumasVR.Installer.exe') -ArgumentList @('--initialize-logging', ('"' + $localifyGame + '"')) -WindowStyle Hidden -Wait -PassThru
+    Assert-Equal 0 $migration.ExitCode 'Repeated logging initialization failed.'
+    Assert-Equal 'on' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'vrmod\config\logging-enabled.txt')) 'Repeated initialization reset user logging preference.'
+    Assert-True (Test-Path -LiteralPath (Join-Path $localifyGame 'vrmod\logs\runtime-bootstrap.jsonl')) 'Repeated initialization deleted new logs.'
     Assert-Equal 'localify-proxy' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'version.dll')) 'Localify proxy was changed.'
     Assert-Equal 'existing-dobby-sentinel' (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'BepInEx\core\dobby.dll')) 'Existing Dobby was changed.'
     Assert-Equal $existingSettings (Get-Content -Raw -LiteralPath (Join-Path $localifyGame 'vrmod\config\settings.json')) 'Existing settings were changed.'

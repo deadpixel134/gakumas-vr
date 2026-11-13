@@ -536,6 +536,7 @@ internal static class D3D11Interop
         IntPtr sourceTexture,
         string path)
     {
+        if (!RuntimeProbe.LoggingEnabled) return;
         const uint d3D11UsageStaging = 3;
         const uint d3D11CpuAccessRead = 0x20000;
         const int d3D11MapRead = 1;

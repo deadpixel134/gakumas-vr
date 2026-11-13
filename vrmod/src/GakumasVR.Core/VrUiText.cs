@@ -26,6 +26,21 @@ public static class VrUiText
 
     private static Dictionary<string, string> Korean() => new()
     {
+        ["TabLogs"] = "로그",
+        ["LogSaving"] = "로그 저장",
+        ["LogEnabled"] = "로그 저장 사용",
+        ["LogPolicy"] = "안내",
+        ["LogPolicyHint"] = "기본값은 OFF입니다. 저장한 설정은 다음 게임 실행부터 적용됩니다. 최초 업데이트에서만 OFF로 전환하고 기존 VR 로그·진단 캡처를 정리합니다. 이후 선택은 유지하며 프리셋 가져오기/내보내기에 포함하지 않습니다.",
+        ["LogStored"] = "저장된 로그",
+        ["LogSummary"] = "{0}개 파일 · {1:F1} MiB",
+        ["LogManage"] = "로그 관리",
+        ["LogRefresh"] = "새로고침",
+        ["LogOpen"] = "로그 폴더 열기",
+        ["LogDelete"] = "기존 로그 삭제",
+        ["LogDeleteConfirm"] = "VR 모드의 로그와 진단 캡처를 삭제할까요? 설정·게임·한글패치 파일은 유지됩니다.",
+        ["LogDeleteDone"] = "로그 정리를 완료했습니다.",
+        ["LogDeleteFailed"] = "{0}개 파일을 삭제하지 못했습니다. 파일을 사용하는 프로그램을 닫고 다시 시도해 주세요.",
+
         ["MenuLanguage"] = "언어: {0} >",
         ["MenuPage"] = "{0}/{1}페이지 · 그립을 길게 눌러 닫기",
         ["MenuPrevious"] = "이전",
@@ -214,6 +229,21 @@ public static class VrUiText
 
     private static Dictionary<string, string> English() => new()
     {
+        ["TabLogs"] = "Logs",
+        ["LogSaving"] = "Log saving",
+        ["LogEnabled"] = "Save logs",
+        ["LogPolicy"] = "About",
+        ["LogPolicyHint"] = "Default: OFF. Save to apply on the next game launch. The first update switches logging OFF and removes old VR logs and diagnostic captures once. Later choices are preserved and excluded from preset import/export.",
+        ["LogStored"] = "Stored logs",
+        ["LogSummary"] = "{0} files · {1:F1} MiB",
+        ["LogManage"] = "Manage logs",
+        ["LogRefresh"] = "Refresh",
+        ["LogOpen"] = "Open log folder",
+        ["LogDelete"] = "Delete existing logs",
+        ["LogDeleteConfirm"] = "Delete VR mod logs and diagnostic captures? Settings, game files and Localify will be preserved.",
+        ["LogDeleteDone"] = "Log cleanup completed.",
+        ["LogDeleteFailed"] = "Could not delete {0} files. Close programs using them and try again.",
+
         ["MenuLanguage"] = "Language: {0} >",
         ["MenuPage"] = "Page {0}/{1} · Hold panel Grip to close",
         ["MenuPrevious"] = "Previous",
@@ -402,6 +432,21 @@ public static class VrUiText
 
     private static Dictionary<string, string> Japanese() => new()
     {
+        ["TabLogs"] = "ログ",
+        ["LogSaving"] = "ログ保存",
+        ["LogEnabled"] = "ログを保存する",
+        ["LogPolicy"] = "説明",
+        ["LogPolicyHint"] = "初期値はOFFです。保存後、次回のゲーム起動から適用されます。初回更新時のみOFFに切り替え、既存のVRログ・診断画像を削除します。その後の選択は維持され、プリセットのインポート／エクスポートには含まれません。",
+        ["LogStored"] = "保存済みログ",
+        ["LogSummary"] = "{0}ファイル · {1:F1} MiB",
+        ["LogManage"] = "ログ管理",
+        ["LogRefresh"] = "更新",
+        ["LogOpen"] = "ログフォルダーを開く",
+        ["LogDelete"] = "既存ログを削除",
+        ["LogDeleteConfirm"] = "VR Modのログと診断画像を削除しますか？ 設定・ゲーム・Localifyのファイルは保持されます。",
+        ["LogDeleteDone"] = "ログの整理が完了しました。",
+        ["LogDeleteFailed"] = "{0}ファイルを削除できませんでした。使用中のプログラムを閉じて再試行してください。",
+
         ["MenuLanguage"] = "言語: {0} >",
         ["MenuPage"] = "{0}/{1}ページ · グリップ長押しで閉じる",
         ["MenuPrevious"] = "前へ",

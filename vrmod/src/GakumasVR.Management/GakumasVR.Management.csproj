@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NuGetAudit>false</NuGetAudit>
-    <Version>0.178.0</Version>
+    <Version>0.178.1</Version>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GakumasVR.Core\GakumasVR.Core.csproj" />
+  </ItemGroup>
 </Project>

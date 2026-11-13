@@ -8,6 +8,26 @@ using GakumasVR.Core;
 string output = Path.GetFullPath(args.Length > 0 ? args[0] : Path.Combine("vrmod", "test-output", "runtime-settings"));
 Directory.CreateDirectory(output);
 int failed = 0, executed = 0;
+Run("Disabled logging creates no files or captures and I/O failure is nonfatal", () =>
+{
+    string folder = Path.Combine(output, "logging-" + Guid.NewGuid().ToString("N"));
+    string path = Path.Combine(folder, "runtime-bootstrap.jsonl");
+    RuntimeProbe.LoggingEnabled = false;
+    RuntimeProbe.Append(path, new ProbeEvent { Event = "disabled" });
+    D3D11Interop.SaveTextureBmp(IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, Path.Combine(folder, "capture.bmp"));
+    Check(!Directory.Exists(folder));
+    RuntimeProbe.LoggingEnabled = true;
+    RuntimeProbe.Append(path, new ProbeEvent { Event = "enabled" });
+    Check(File.ReadAllText(path).Contains("enabled"));
+    long size = new FileInfo(path).Length;
+    RuntimeProbe.LoggingEnabled = false;
+    RuntimeProbe.Append(path, new ProbeEvent { Event = "disabled again" });
+    Check(new FileInfo(path).Length == size);
+    RuntimeProbe.LoggingEnabled = true;
+    RuntimeProbe.Append(folder, new ProbeEvent()); // A directory cannot be opened as a file.
+    RuntimeProbe.LoggingEnabled = false;
+});
+
 Run("Thigh binding requires an exact path and a measured mid-thigh surface", () =>
 {
     var existing = Array.Empty<MainThreadSampler.ContactRigKey>();

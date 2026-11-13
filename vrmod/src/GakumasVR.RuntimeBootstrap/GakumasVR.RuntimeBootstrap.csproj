@@ -8,7 +8,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NuGetAudit>false</NuGetAudit>
     <AssemblyName>GakumasVR.RuntimeBootstrap</AssemblyName>
-    <Version>0.178.0</Version>
+    <Version>0.178.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="GakumasVR.Runtime.Tests" />

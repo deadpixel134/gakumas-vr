@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [string]$GameRoot,
@@ -188,4 +188,11 @@ catch {
         }
     }
     throw
+}
+
+# Use the same migration policy as the GUI installer; retry on the next startup if needed.
+$loggingInstaller = Join-Path $package 'GakumasVR.Installer.exe'
+$loggingProcess = Start-Process -FilePath $loggingInstaller -ArgumentList @('--initialize-logging', ('"' + $game + '"')) -WindowStyle Hidden -Wait -PassThru
+if ($loggingProcess.ExitCode -ne 0) {
+    Write-Warning '로그 초기 정리를 완료하지 못했습니다. 다음 실행에서 재시도합니다.'
 }

@@ -74,7 +74,7 @@ internal static class SettingsStore
     private static string SettingsPath(string gameRoot) =>
         Path.Combine(Path.GetFullPath(gameRoot), "vrmod", "config", "settings.json");
 
-    private static void EnsureGameStopped()
+    internal static void EnsureGameStopped()
     {
         using Process current = Process.GetCurrentProcess();
         if (Process.GetProcessesByName("gakumas").Any(process =>

@@ -212,6 +212,11 @@ public sealed class InstallationEngine
                 Files = stateFiles
             };
             WriteJsonAtomic(statePath, state);
+            // Logging migration cannot invalidate an otherwise completed installation.
+            // Runtime/GUI startup retries cleanup if a file was locked or unavailable.
+            try { GakumasVR.Core.LogStorage.Initialize(game); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
             Report(progress, manifest.Files.Count, manifest.Files.Count, "Complete", null);
             return new InstallationResult
             {

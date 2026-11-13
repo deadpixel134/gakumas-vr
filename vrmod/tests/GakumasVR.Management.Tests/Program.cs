@@ -4,6 +4,7 @@ using GakumasVR.Management;
 
 List<(string Name, Action Test)> tests = new()
 {
+    ("Installer migrates logging once and preserves later choices", InstallerLogging),
     ("Install and uninstall preserve settings and prior collisions", InstallAndUninstall),
     ("Upgrade rollback restores the previous managed version", UpgradeRollback),
     ("Localify paths are rejected and existing files survive", LocalifyProtection),
@@ -168,7 +169,7 @@ static void ActualDistributionPackage(string package)
     fixture.WriteGameFile("gakumas-local/config.json", "{}");
     InstallationEngine engine = new();
     InstallationResult installed = engine.Install(fixture.GameRoot, package);
-    Equal("0.166.0", installed.Version);
+    Equal(JsonDocument.Parse(File.ReadAllText(Path.Combine(package, "package-manifest.json"))).RootElement.GetProperty("version").GetString()!, installed.Version);
     Equal(LocalifyStatus.Installed, installed.Localify);
     Equal(localifyProxy, File.ReadAllText(Path.Combine(fixture.GameRoot, "version.dll")));
     True(File.Exists(Path.Combine(
@@ -219,6 +220,24 @@ static void False(bool value)
 {
     if (value) throw new InvalidOperationException("Expected false, got true.");
 }
+
+static void InstallerLogging()
+{
+    using Fixture fixture = new();
+    fixture.WriteGameFile("vrmod/logs/runtime-bootstrap.jsonl", "old log");
+    fixture.WriteGameFile("vrmod/config/logging-enabled.txt", "on");
+    string package = fixture.CreatePackage("0.178.1", "runtime-one");
+    InstallationEngine engine = new();
+    engine.Install(fixture.GameRoot, package);
+    False(GakumasVR.Core.LogStorage.IsEnabled(fixture.GameRoot));
+    False(File.Exists(Path.Combine(fixture.GameRoot, "vrmod/logs/runtime-bootstrap.jsonl")));
+    GakumasVR.Core.LogStorage.SetEnabled(fixture.GameRoot, true);
+    fixture.WriteGameFile("vrmod/logs/runtime-bootstrap.jsonl", "new log");
+    engine.Install(fixture.GameRoot, package);
+    True(GakumasVR.Core.LogStorage.IsEnabled(fixture.GameRoot));
+    True(File.Exists(Path.Combine(fixture.GameRoot, "vrmod/logs/runtime-bootstrap.jsonl")));
+}
+
 
 internal sealed class Fixture : IDisposable
 {

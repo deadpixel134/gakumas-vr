@@ -140,6 +140,7 @@ internal sealed partial class MainForm : Form
         BuildSpatialTab();
         BuildPanelTab();
         BuildInputTab();
+        BuildLogsTab();
 #if !GAKUMAS_PUBLIC
         BuildContactTab();
 #endif
@@ -147,6 +148,7 @@ internal sealed partial class MainForm : Form
         tabs.TabPages.Add(_spatialTab);
         tabs.TabPages.Add(_panelTab);
         tabs.TabPages.Add(_inputTab);
+        tabs.TabPages.Add(_logsTab);
 #if !GAKUMAS_PUBLIC
         tabs.TabPages.Add(_contactTab);
         tabs.Selecting += (_, args) =>
@@ -189,6 +191,7 @@ internal sealed partial class MainForm : Form
         actions.Controls.Add(TaggedButton("Defaults", (_, _) =>
         {
             Apply(VrSettings.CreateApprovedDefaults());
+            _saveLogs.Checked = false;
             _status.Text = UiText.Get("StatusDefaults");
         }));
         actions.Controls.Add(TaggedButton("Export", Export));
@@ -434,6 +437,10 @@ internal sealed partial class MainForm : Form
 
         Text = UiText.Get("AppTitle");
         UpdateTaggedText(this);
+        if (File.Exists(Path.Combine(_gameRoot.Text, "gakumas.exe")))
+        {
+            try { RefreshLogSummary(); } catch { _logSummary.Text = "—"; }
+        }
         Populate(_panelHand, Enum.GetValues<VrHand>(), UiText.Choice, panelHand);
         Populate(_pointerHand, Enum.GetValues<VrHand>(), UiText.Choice, pointerHand);
         Populate(_toggle, Enum.GetValues<PanelToggleBinding>(), UiText.Choice, toggle);
@@ -487,9 +494,17 @@ internal sealed partial class MainForm : Form
         }
     }
 
-    private void LoadSettings() => Apply(SettingsStore.LoadFromGameRoot(_gameRoot.Text));
+    private void LoadSettings()
+    {
+        Apply(SettingsStore.LoadFromGameRoot(_gameRoot.Text));
+        LoadLogging();
+    }
 
-    private void SaveSettings() => SettingsStore.SaveToGameRoot(_gameRoot.Text, Read());
+    private void SaveSettings()
+    {
+        SettingsStore.SaveToGameRoot(_gameRoot.Text, Read());
+        LogStorage.SetEnabled(_gameRoot.Text, _saveLogs.Checked);
+    }
 
     private void Import(object? sender, EventArgs args)
     {

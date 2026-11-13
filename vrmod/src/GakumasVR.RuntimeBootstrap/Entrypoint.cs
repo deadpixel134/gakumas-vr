@@ -19,6 +19,7 @@ public static class Entrypoint
                 return;
             }
 
+            RuntimeProbe.InitializeLogging();
             string logPath = RuntimeProbe.GetLogPath();
             VrSettings settings = VrSettingsRuntime.Initialize(logPath);
             if (!settings.Runtime.Enabled)
@@ -51,7 +52,7 @@ public static class Entrypoint
 internal static class RuntimeProbe
 {
     private static readonly object LogLock = new();
-    internal const string BootstrapVersion = "0.178.0";
+    internal const string BootstrapVersion = "0.178.1";
     private const int ModuleTimeoutMilliseconds = 60_000;
     private const int DomainTimeoutMilliseconds = 60_000;
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -291,6 +292,20 @@ internal static class RuntimeProbe
         return names;
     }
 
+    internal static bool LoggingEnabled { get; set; }
+
+    internal static void InitializeLogging()
+    {
+        try
+        {
+            string root = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName)
+                ?? Directory.GetCurrentDirectory();
+            LogStorage.Initialize(root);
+            LoggingEnabled = LogStorage.IsEnabled(root);
+        }
+        catch { LoggingEnabled = false; }
+    }
+
     internal static string GetLogPath()
     {
         string? executable = Process.GetCurrentProcess().MainModule?.FileName;
@@ -298,17 +313,22 @@ internal static class RuntimeProbe
             ? Directory.GetCurrentDirectory()
             : Path.GetDirectoryName(executable) ?? Directory.GetCurrentDirectory();
         string logDirectory = Path.Combine(gameRoot, "vrmod", "logs");
-        Directory.CreateDirectory(logDirectory);
         return Path.Combine(logDirectory, "runtime-bootstrap.jsonl");
     }
 
     internal static void Append(string path, ProbeEvent value)
     {
-        string json = JsonSerializer.Serialize(value, JsonOptions);
-        lock (LogLock)
+        if (!LoggingEnabled) return;
+        try
         {
-            File.AppendAllText(path, json + Environment.NewLine);
+            lock (LogLock)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                string json = JsonSerializer.Serialize(value, JsonOptions);
+                File.AppendAllText(path, json + Environment.NewLine);
+            }
         }
+        catch { /* Logging failure must never interrupt VR or the game. */ }
     }
 }
 

@@ -3,6 +3,8 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Logging migration is once-only and preserves unrelated files", LoggingMigration),
+    ("Logging cleanup retries locked files without enabling recording", LoggingLocked),
     ("Reference chest profile applies defaults and side detuning", ReferenceContactProfile),
     ("Contact compression preserves volume and skips uncertain axes", ContactVolume),
     ("Thigh elasticity adds limited tilt and compression while keeping the position limit", ThighElasticity),
@@ -1391,4 +1393,46 @@ static void ContactRelease()
     var state = spring.Velocity;
     if (spring.Step(1, .016f, default, .025f, true, true, velocity) != first || spring.Velocity != state)
         throw new Exception("Stereo callbacks applied the release impulse twice.");
+}
+
+static void LoggingMigration()
+{
+    string root = Path.Combine(Path.GetTempPath(), "GakumasVR-logging-" + Guid.NewGuid().ToString("N"));
+    string logs = LogStorage.LogDirectory(root);
+    Directory.CreateDirectory(logs);
+    File.WriteAllText(Path.Combine(logs, "runtime-bootstrap.jsonl"), "old log");
+    File.WriteAllText(Path.Combine(logs, "v0.178.0-ui-natural-capture.bmp"), "old image");
+    File.WriteAllText(Path.Combine(logs, "user-notes.txt"), "keep");
+    string nested = Path.Combine(logs, "archive"); Directory.CreateDirectory(nested);
+    File.WriteAllText(Path.Combine(nested, "runtime-bootstrap.jsonl"), "keep nested");
+    string config = Path.Combine(root, "vrmod", "config"); Directory.CreateDirectory(config);
+    File.WriteAllText(Path.Combine(config, "settings.json"), "settings sentinel");
+    File.WriteAllText(Path.Combine(config, "logging-enabled.txt"), "on");
+    if (LogStorage.IsEnabled(root)) throw new Exception("Unmigrated logs enabled");
+    var result = LogStorage.Initialize(root);
+    if (result.Deleted != 2 || result.Failed != 0 || LogStorage.IsEnabled(root)) throw new Exception("Migration failed");
+    if (File.ReadAllText(Path.Combine(config, "settings.json")) != "settings sentinel" ||
+        !File.Exists(Path.Combine(logs, "user-notes.txt")) || !File.Exists(Path.Combine(nested, "runtime-bootstrap.jsonl")))
+        throw new Exception("Unrelated data changed");
+    LogStorage.SetEnabled(root, true);
+    File.WriteAllText(Path.Combine(logs, "runtime-bootstrap.jsonl"), "new log");
+    if (LogStorage.Initialize(root).Deleted != 0 || !LogStorage.IsEnabled(root)) throw new Exception("Migration repeated");
+    if (LogStorage.Clear(root).Deleted != 1 || !LogStorage.IsEnabled(root)) throw new Exception("Manual cleanup changed preference");
+    LogStorage.SetEnabled(root, false);
+    if (LogStorage.IsEnabled(root)) throw new Exception("Disable failed");
+    Directory.Delete(root, true);
+}
+static void LoggingLocked()
+{
+    string root = Path.Combine(Path.GetTempPath(), "GakumasVR-logging-lock-" + Guid.NewGuid().ToString("N"));
+    string logs = LogStorage.LogDirectory(root); Directory.CreateDirectory(logs);
+    string path = Path.Combine(logs, "runtime-bootstrap.jsonl"); File.WriteAllText(path, "locked");
+    using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+    {
+        if (LogStorage.Initialize(root).Failed != 1 || LogStorage.IsEnabled(root)) throw new Exception("Locked file not reported");
+    }
+    if (LogStorage.Initialize(root).Deleted != 1 || LogStorage.IsEnabled(root)) throw new Exception("Retry failed");
+    LogStorage.SetEnabled(root, true);
+    if (LogStorage.Initialize(root).Deleted != 0 || !LogStorage.IsEnabled(root)) throw new Exception("Later choice lost");
+    Directory.Delete(root, true);
 }
