@@ -22,7 +22,7 @@ SteamVR OpenXR and Meta Quest Link/Air Link are preliminary targets without hard
 
 ## 1. Install
 
-The v0.178.2 installer automatically detects the game location registered with DMM. Choose from the list if several installations are found, or use **Browse** if detection fails. **Auto-detect** searches again.
+The v0.178.3 installer automatically detects the game location registered with DMM. Choose from the list if several installations are found, or use **Browse** if detection fails. **Auto-detect** searches again.
 
 1. Download a stable release ZIP from [Releases](https://github.com/deadpixel134/gakumas-vr/releases).
 2. Fully close the game and make sure `gakumas.exe` is no longer running.
@@ -37,7 +37,7 @@ The release ZIP includes the required Dobby binary. The installer checks package
 
 The configurator **automatically checks GitHub for the latest stable release when opened**. Installation is deferred while the game is running. Results and errors appear in the status bar at the bottom of the GUI. Use **Check for updates** to check again manually.
 
-> **Starting with v0.178.2,** a short release-notes preview will let you choose **Update / Later**, with **Full release notes** opening the GitHub page. Existing installations need that GUI update before the preview becomes available.
+> **Starting with v0.178.3,** a short release-notes preview will let you choose **Update / Later**, with **Full release notes** opening the GitHub page. Existing installations need that GUI update before the preview becomes available.
 
 1. Fully close the game.
 2. Run `game directory\vrmod\tools\GakumasVR.Configurator.exe` and select **Check for updates**.
@@ -82,6 +82,8 @@ Right-stick movement follows your current view direction. Looking up or down whi
 If pulling the trigger disturbs your aim, use **A** to click. By default, VR input is sent only while the game window is in the foreground. You can also use the mouse. Direct touch and thumbstick scrolling are unsupported.
 
 ## 4. Change settings
+
+The full build includes hand display and settings for character contact, deformation, jiggle, haptics, and contact markers. **Read the notice to the end and agree in the Character contact tab before using contact features.** Consent is recorded once per user; reactions remain blocked before consent even with previously enabled settings. Responses can vary by character and outfit.
 
 Fully close the game, run the program below, save your changes, and start the game again.
 

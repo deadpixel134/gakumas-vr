@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [string]$PackageRoot,
@@ -73,7 +73,7 @@ Assert-Equal ([int]$manifest.files.Count) $verified 'Manifest verification count
 
 if ($ExpectedEdition) {
     Assert-Equal $ExpectedEdition ([string]$manifest.edition) 'Unexpected package edition.'
-    $contactExcluded = $ExpectedEdition -eq 'public'
+    $contactExcluded = $false # Both editions include contact gated by explicit user consent.
     $defaults = Get-Content -Raw -LiteralPath (Join-Path $payload 'vrmod\config\settings.json') | ConvertFrom-Json -AsHashtable
     $contactKeys = @($defaults.tracking.Keys | Where-Object { $_ -match '^contact|^showContact(Locations|Ranges)$' })
     Assert-Equal $contactExcluded ($contactKeys.Count -eq 0) 'Contact settings do not match the package edition.'
@@ -106,6 +106,15 @@ if ($ExpectedEdition) {
         Assert-True ($editorPaths -contains 'Tracking.ShowContactHands') 'Hand display is missing from the VR settings menu.'
         $reactionPaths = @($editorPaths | Where-Object { $_ -match '^Tracking\.(Contact|ShowContact(Locations|Ranges)$)' })
         Assert-Equal $contactExcluded ($reactionPaths.Count -eq 0) 'VR contact menu does not match the package edition.'
+        if (-not $contactExcluded) {
+            $consent = $core.GetType('GakumasVR.Core.ContactConsent', $true)
+            $consent.GetMethod('Enforce').Invoke($null, [object[]]@($legacy.Tracking, $false)) | Out-Null
+            foreach ($setting in @('ContactBoneTrialEnabled','ContactCollisionEnabled','ContactHapticsEnabled','ContactJiggleEnabled','ContactThighElasticEnabled','ShowContactLocations','ContactShowRanges')) {
+                Assert-True (-not $legacy.Tracking.$setting) "Contact enabled before explicit consent: $setting"
+            }
+            Assert-True $legacy.Tracking.ShowContactHands 'Consent gate should preserve hand display.'
+            Assert-True ($null -ne $consent.GetMethod('TryAccept')) 'Explicit consent persistence is missing.'
+        }
     }
     finally {
         $assemblyContext.Unload()

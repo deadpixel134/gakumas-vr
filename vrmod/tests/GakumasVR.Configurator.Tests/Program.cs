@@ -16,7 +16,8 @@ internal static class Program
             ("GitHub metadata carries release notes and a trusted release URL", Metadata),
             ("Equal and prerelease versions do not trigger an update notice", VersionGate),
             ("Missing release notes do not block a valid update", MissingNotes),
-            ("Update notice is localized and blocks installation while playing", Notice)
+            ("Update notice is localized and blocks installation while playing", Notice),
+            ("Contact consent notice requires scrolling to the end in every GUI language", ConsentReading)
         };
         int failures = 0;
         foreach (var test in tests)
@@ -110,6 +111,40 @@ internal static class Program
     {
         if (!condition) throw new InvalidOperationException(message);
     }
+
+    private static void ConsentReading()
+    {
+        var atEnd = typeof(MainForm).GetMethod("ContactNoticeAtEnd",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+            ?? throw new Exception("Full build is missing the contact consent notice");
+        Require(typeof(MainForm).GetMethod("ConfirmContactConsent",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic) is not null,
+            "Full build is missing the one-time consent flow");
+        foreach (VrUiLanguage language in Enum.GetValues<VrUiLanguage>())
+        {
+            using Form host = new() { ClientSize = new Size(650, 300), Opacity = 0 };
+            using RichTextBox body = new()
+            {
+                Dock = DockStyle.Fill, ReadOnly = true, ScrollBars = RichTextBoxScrollBars.Vertical,
+                Text = VrUiText.Get(language, "ContactConsentBody"), Font = new Font("Segoe UI", 10f)
+            };
+            host.Controls.Add(body);
+            host.Show();
+            Application.DoEvents();
+            body.Select(0, 0);
+            SendMessage(body.Handle, 0x0115, new IntPtr(6), IntPtr.Zero); // WM_VSCROLL / SB_TOP
+            body.ScrollToCaret();
+            Require(!(bool)atEnd.Invoke(null, new object[] { body })!, "Unread notice accepted: " + language);
+            body.Select(body.TextLength, 0);
+            SendMessage(body.Handle, 0x0115, new IntPtr(7), IntPtr.Zero); // WM_VSCROLL / SB_BOTTOM
+            Application.DoEvents();
+            Require((bool)atEnd.Invoke(null, new object[] { body })!, "Read notice not recognized: " + language);
+            host.Close();
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 
     private sealed class ReleaseHandler(string json) : HttpMessageHandler
     {
