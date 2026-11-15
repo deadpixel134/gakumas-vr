@@ -30,4 +30,4 @@ v0.177.0 기본 설정과 Meta Quest Touch 버튼 배치를 기준으로 합니�
 
 스틱 조작과 월드 그립은 6DoF 장면에서 사용합니다. 2D 화면은 정면 패널에 자동 표시됩니다. 기본 설정에서는 게임 패널을 조작할 때 Windows 게임 창에 포커스가 필요합니다.
 
-[사용 방법](USAGE.md) · [설치 방법](INSTALLATION.md) · [프로젝트 README](../../README.md)
+[사용 방법](USAGE.md) · [설치 방법](INSTALLATION.md) · [프로젝트 README](../../README.ko.md)

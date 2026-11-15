@@ -1,50 +1,128 @@
-[한국어](README.md) | [English](README.en.md) | [日本語](README.ja.md)
+[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md)
 
 # Gakumas VR
 
-제작자: [@TBluebox12](https://x.com/TBluebox12)  
-아카라이브 가상현실 채널: [가상현실 채널](https://arca.live/b/vrshits)  
-후원: [buymeacoffee.com/vrshits](https://buymeacoffee.com/vrshits)
+Creator: [@TBluebox12](https://x.com/TBluebox12)<br>
+ArcaLive virtual reality channel: [가상현실 채널](https://arca.live/b/vrshits)<br>
+Support: [buymeacoffee.com/vrshits](https://buymeacoffee.com/vrshits)
 
-학원 아이돌마스터 DMM판을 위한 비공식 Meta Quest/OpenXR VR 모드입니다. 3D 장면은 양안 VR로, 그 밖의 화면은 비율을 보존한 평면 패널로 표시하며 VR 컨트롤러로 게임 UI를 조작할 수 있습니다.
+Gakumas VR is an unofficial Meta Quest/OpenXR VR mod for the DMM version of Gakuen Idolmaster. Supported 3D scenes are presented in stereo VR, while other content appears on aspect-correct flat panels that can be controlled with VR controllers.
 
-주요 6DoF 조작은 Meta Quest 2와 VDXR (Virtual Desktop)에서 v0.173 실기로 확인했습니다. 현재 공개판은 [v0.178.1](https://github.com/deadpixel134/gakumas-vr/releases/tag/v0.178.1)입니다. SteamVR OpenXR와 Meta Quest Link는 예비 지원 대상입니다.
+Operation has been tested through VDXR (Virtual Desktop).
 
-## VR 컨트롤 안내
+[Download a release](https://github.com/deadpixel134/gakumas-vr/releases) · [Full installation guide](docs/en/INSTALLATION.md) · [Full controls guide](docs/en/USAGE.md)
 
-[![왼손과 오른손의 Gakumas VR 기본 조작](docs/images/vr-controls-ko.png)](docs/ko/CONTROLS.md)
+## Requirements
 
-## 문서
+- Windows 11 x64 and a working **DMM edition** installation of Gakuen Idolmaster — targets Unity 6000.0.77f1
+- A Meta Quest and a PC VR setup with OpenXR support
+- **Virtual Desktop / VDXR:** the path hardware-tested by this project
 
-- [설치 방법](docs/ko/INSTALLATION.md)
-- [VR 컨트롤 안내](docs/ko/CONTROLS.md)
-- [사용 방법](docs/ko/USAGE.md)
-- [프로그램 구조와 동작 방식](docs/ko/ARCHITECTURE.md)
-- [재사용 가능한 VR 조작·포즈 합성 명세](docs/ko/VR_INTERACTION_SPEC.md)
-- [개발자 안내](vrmod/README.md)
-- [현재 개발 상태](docs/GAKUMAS_VR_STATUS.md) · [설계 기록](docs/GAKUMAS_VR_DESIGN.md) · [마일스톤](docs/VR_MILESTONES.md) · [변경 기록](vrmod/CHANGELOG.md)
+SteamVR OpenXR and Meta Quest Link/Air Link are preliminary targets without hardware validation. See the [OpenXR runtime guide](docs/en/INSTALLATION.md#openxr-runtimes) for each setup.
 
-## 핵심 기능
+## 1. Install
 
-- 라이브·홈·커뮤니케이션 등 지원되는 3D 환경의 OpenXR 스테레오 출력
-- 2D 화면의 시야 정면 자동 패널과 3D 화면의 왼손 보조 패널
-- 오른손 3D 이동, 왼손 월드축 시야 회전과 30° 기본 스냅 턴
-- 오른손 레이 포인터, A/트리거 클릭, B 뒤로 가기
-- 손 표시와 캐릭터 접촉에 따른 변형·흔들림·컨트롤러 진동, 접촉 위치·범위 표시 설정
-- 캐릭터 접촉 최초 동의 안내: 안내문을 끝까지 읽고 동의해야 활성화되며, 동의 전에는 기존 설정과 관계없이 비활성화
-- 한국어·영어·일본어 설치기 및 설정 프로그램
-- 렌더 배율, 입체감, 패널 위치·손 역할·버튼, VFX 세부 설정
-- 로그 저장 기본 OFF, 최초 업데이트 시 기존 VR 로그 정리 및 설정 GUI의 로그 저장·용량 확인·삭제 관리
-- 기존 Localify 한글 패치와 설정을 보존하는 설치·제거 절차
+1. Download a stable release ZIP from [Releases](https://github.com/deadpixel134/gakumas-vr/releases).
+2. Fully close the game and make sure `gakumas.exe` is no longer running.
+3. Extract the ZIP to a **separate folder outside the game directory**.
+4. Run `GakumasVR.Installer.exe`.
+5. Select the game directory containing `gakumas.exe`, `GameAssembly.dll`, and `UnityPlayer.dll`, then select **Install**.
+6. Once complete, select **Open settings** to review the configuration. You can start with the defaults.
 
-캐릭터 접촉은 실험 기능이며, 캐릭터·의상에 따라 지원 여부와 반응이 달라질 수 있습니다.
+The release ZIP includes the required Dobby binary. The installer checks package hashes and required components before writing files, and backs up files it replaces under `game directory\vrmod\rollback\`. Existing Localify translations, fonts, textures, and settings are preserved.
 
-## 주의 사항
+### Already installed? Update
 
-- Windows 11 x64, DMM판, Unity 6000.0.77f1 기준입니다.
-- 필요한 Dobby를 배포 ZIP에 포함합니다. v0.178.1 설치기는 게임 파일을 건드리기 전에 전체 payload와 클린 설치 필수 구성의 해시·보존 정책을 사전 검증합니다.
-- 문제가 생기면 게임을 종료한 뒤 설치기로 제거하거나 이전 버전으로 롤백하십시오. 이슈에 로그를 첨부하기 전 계정 식별자나 인증 정보가 없는지 확인하십시오.
+1. Fully close the game.
+2. Run `game directory\vrmod\tools\GakumasVR.Configurator.exe` and select **Check for updates**.
+3. If a new version is available, follow the prompts to download, verify, and install it.
 
-이 저장소에는 게임 원본 파일, Localify 에셋, 사용자 설정, 로그, 롤백 데이터와 빌드 산출물을 포함하지 않습니다. 프로젝트 소스는 [MIT License](LICENSE)로 배포되며 외부 구성 요소는 각자의 라이선스를 따릅니다. 자세한 내용은 [크레딧 및 외부 라이선스](CREDITS.md)를 참고하십시오.
+To update manually, download a new ZIP from [Releases](https://github.com/deadpixel134/gakumas-vr/releases), extract it to a separate folder, and run the new `GakumasVR.Installer.exe` against the **same game directory**. Existing user settings are preserved, and replaced files are backed up for rollback.
 
-> Gakumas VR은 비공식 팬 프로젝트이며 게임 개발사·배급사와 관련이 없습니다. 게임과 관련 상표·저작물의 권리는 각 권리자에게 있습니다. 사용하려면 정식으로 설치한 게임이 필요합니다.
+## 2. Launch in VR
+
+These steps use the hardware-tested Virtual Desktop / VDXR path.
+
+1. Connect your Quest to the PC using **Virtual Desktop**.
+2. In **Virtual Desktop Streamer** on the PC, select **VDXR / Virtual Desktop OpenXR** as the active OpenXR runtime.
+3. From the desktop inside your headset, open the **DMM launcher** and start the game.
+4. Keep the game window in the Windows foreground to use VR controller input.
+
+Launch through the **desktop DMM launcher instead of Virtual Desktop's Games tab**. SteamVR does not need to be running for this path.
+
+## 3. Learn the display and controls
+
+Supported **3D scenes**, including Live, Home, and Communications, appear in **stereo VR**. **2D screens**, such as menus, automatically appear on a flat panel in front of you. The display switches with the scene.
+
+To use the game UI in a 3D scene, **press the left Grip to show the auxiliary panel**, bring your left hand into view, then point and click with the right controller. This panel starts off and is visible only while your left hand is in view. The front panel used for 2D screens appears automatically and cannot be hidden with Grip.
+
+![Gakumas VR default left- and right-hand controls](docs/images/vr-controls-en.png)
+
+| Action | Default input |
+|---|---|
+| Aim at the panel | Point with the right controller |
+| Click / hold and drag | A button or right trigger |
+| Back | B button (`Esc`) |
+| Move in 3D | Right thumbstick |
+| World grip movement / fine positioning | Hold right Grip and move your hand |
+| Turn the view | Left thumbstick — 30° snap by default |
+| Recenter the viewpoint | Click the left thumbstick |
+| Toggle game camera follow / fixed viewpoint | Click the right thumbstick |
+| Show / hide the 3D auxiliary panel | Press and release left Grip quickly |
+| Open / close in-headset VR settings | Hold left Grip for about 0.8 seconds |
+
+Right-stick movement follows your current view direction. Looking up or down while moving forward makes you ascend or descend. **For vertical movement or fine positioning, use world grip with the right Grip.** Hold right Grip and move your hand to move the viewpoint in the opposite direction; release Grip to keep that position. Live uses 6DoF head position and rotation by default, with a viewpoint independent of the game's direction camera.
+
+If pulling the trigger disturbs your aim, use **A** to click. By default, VR input is sent only while the game window is in the foreground. You can also use the mouse. Direct touch and thumbstick scrolling are unsupported.
+
+## 4. Change settings
+
+Fully close the game, run the program below, save your changes, and start the game again.
+
+```text
+game directory\vrmod\tools\GakumasVR.Configurator.exe
+```
+
+Select **Korean, English, or Japanese** at the top.
+
+| What to adjust | Settings |
+|---|---|
+| Image quality and performance | Per-eye render scale — 0.50–2.00; values above 1.00 increase rendering load |
+| Character size and stereo depth | Separate Live / non-Live spatial and scale profiles; eye spacing, head movement, and stick movement scales |
+| Panel placement and size | Panel hand, initial visibility, position, size, rotation, and viewer-facing behavior |
+| Controls | Pointer hand, click/back buttons, movement hand and speed, snap / smooth turning |
+| Visual effects | VFX presets and individual effects |
+
+Selecting the left hand for movement assigns view turning to the right stick. The default movement speed is 1.95m/s, and snap angles of 15° / 30° / 45° / 60° are available. See [Usage and controls](docs/en/USAGE.md) for details.
+
+## Uninstall or roll back
+
+Close the game, run `GakumasVR.Installer.exe` from the release folder, select the game directory, and choose **Uninstall** or the available **Rollback** action.
+
+See the [installation guide](docs/en/INSTALLATION.md) for preservation and restoration details.
+
+## Troubleshooting
+
+| Symptom | Check first |
+|---|---|
+| VR does not appear | PC VR connection, active OpenXR runtime, and presence of `BepInEx/core/dobby.dll` |
+| Display works but clicks do not | Bring the game window to the Windows foreground |
+| Auxiliary panel is missing in 3D | Toggle it with left Grip and bring your left hand into view |
+| Settings do not apply | Save with the game fully closed, then relaunch |
+| Some scenes become flat after a game update | Unity / rendering internals may have changed — check support status and new releases |
+
+If problems persist, close the game and uninstall or roll back. Before attaching files from `vrmod/logs/` to an issue, check for account identifiers, viewer IDs, tokens, or launch authentication data.
+
+## Further documentation and development
+
+- [Installation](docs/en/INSTALLATION.md) · [Usage and controls](docs/en/USAGE.md)
+- [Architecture](docs/en/ARCHITECTURE.md)
+- [Reusable VR interaction and pose-composition specification](docs/en/VR_INTERACTION_SPEC.md)
+- [Developer guide](vrmod/README.md) (Korean)
+- [Current status](docs/GAKUMAS_VR_STATUS.md) · [Design record](docs/GAKUMAS_VR_DESIGN.md) · [Milestones](docs/VR_MILESTONES.md) · [Changelog](vrmod/CHANGELOG.md) (Korean)
+
+## License and rights
+
+This repository does not contain game files, Localify assets, user settings, logs, rollback data, or build outputs. Project source is released under the [MIT License](LICENSE); third-party components retain their own licenses. See [Credits and third-party licenses](CREDITS.md).
+
+> Gakumas VR is an unofficial fan project and is not affiliated with the game's developer or publisher. The game, trademarks, and related works belong to their respective owners. A legitimate game installation is required.

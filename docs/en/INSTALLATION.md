@@ -2,7 +2,7 @@
 
 # Installation
 
-[Project home](../../README.en.md) · [Usage](USAGE.md) · [Architecture](ARCHITECTURE.md)
+[Project home](../../README.md) · [Usage](USAGE.md) · [Architecture](ARCHITECTURE.md)
 
 ## Requirements
 

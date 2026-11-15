@@ -2,7 +2,7 @@
 
 # 설치 방법
 
-[프로젝트 홈](../../README.md) · [사용 방법](USAGE.md) · [프로그램 구조](ARCHITECTURE.md)
+[프로젝트 홈](../../README.ko.md) · [사용 방법](USAGE.md) · [프로그램 구조](ARCHITECTURE.md)
 
 ## 준비물
 

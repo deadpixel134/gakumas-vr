@@ -2,7 +2,7 @@
 
 # 사용 방법과 조작법
 
-[프로젝트 홈](../../README.md) · [설치 방법](INSTALLATION.md) · [프로그램 구조](ARCHITECTURE.md)
+[프로젝트 홈](../../README.ko.md) · [설치 방법](INSTALLATION.md) · [프로그램 구조](ARCHITECTURE.md)
 
 ## 화면 표시 방식
 

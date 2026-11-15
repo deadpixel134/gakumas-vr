@@ -2,7 +2,7 @@
 
 # Architecture
 
-[Project home](../../README.en.md) · [Installation](INSTALLATION.md) · [Usage](USAGE.md)
+[Project home](../../README.md) · [Installation](INSTALLATION.md) · [Usage](USAGE.md)
 
 ## System overview
 

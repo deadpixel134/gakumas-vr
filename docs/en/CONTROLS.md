@@ -30,4 +30,4 @@ This guide uses the v0.177.0 defaults and the Meta Quest Touch button layout.
 
 Stick navigation and World Grip are available in 6DoF scenes. Flat screens appear automatically on the front panel. With the default settings, the Windows game window must be focused for game panel input.
 
-[Usage](USAGE.md) · [Installation](INSTALLATION.md) · [Project README](../../README.en.md)
+[Usage](USAGE.md) · [Installation](INSTALLATION.md) · [Project README](../../README.md)

@@ -2,7 +2,7 @@
 
 # 프로그램 구조와 동작 방식
 
-[프로젝트 홈](../../README.md) · [설치 방법](INSTALLATION.md) · [사용 방법](USAGE.md)
+[프로젝트 홈](../../README.ko.md) · [설치 방법](INSTALLATION.md) · [사용 방법](USAGE.md)
 
 ## 전체 구조
 

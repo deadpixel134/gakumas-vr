@@ -1,4 +1,4 @@
-[한국어](../README.md) | [English](../README.en.md) | [日本語](../README.ja.md)
+[English](../README.md) | [한국어](../README.ko.md) | [日本語](../README.ja.md)
 
 # Gakumas VR 개발자 안내
 

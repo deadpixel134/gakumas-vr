@@ -2,7 +2,7 @@
 
 # Usage and controls
 
-[Project home](../../README.en.md) · [Installation](INSTALLATION.md) · [Architecture](ARCHITECTURE.md)
+[Project home](../../README.md) · [Installation](INSTALLATION.md) · [Architecture](ARCHITECTURE.md)
 
 ## Display modes
 

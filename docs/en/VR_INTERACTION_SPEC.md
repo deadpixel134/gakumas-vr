@@ -2,7 +2,7 @@
 
 # Reusable VR Interaction and Pose-Composition Specification
 
-[Project home](../../README.en.md) · [Usage](USAGE.md) · [Architecture](ARCHITECTURE.md)
+[Project home](../../README.md) · [Usage](USAGE.md) · [Architecture](ARCHITECTURE.md)
 
 This document defines the portable interaction contract hardware-validated in Gakumas VR v0.173.0 and given revised defaults in v0.174.0. Game-specific camera discovery may change, but preserving these invariants should reproduce the same controls, comfort, and failure behavior in another Unity VR mod.
 
