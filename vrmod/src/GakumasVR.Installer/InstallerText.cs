@@ -22,10 +22,10 @@ internal static class InstallerText
 
     public static InstallerLanguage CurrentLanguage { get; private set; }
 
-    public static void Initialize()
+    public static void Initialize(InstallerLanguage? language = null)
     {
         ValidateResources();
-        CurrentLanguage = LoadLanguage();
+        CurrentLanguage = language ?? LoadLanguage();
     }
 
     public static string Get(string key) =>
@@ -143,6 +143,11 @@ internal static class InstallerText
         ["Description"] = "한글패치를 보존하며 VR 모드를 안전하게 설치하거나 직전 버전으로 복귀합니다.",
         ["GameFolder"] = "게임 폴더",
         ["Browse"] = "찾기...",
+        ["DetectGameFolder"] = "자동 찾기",
+        ["DetectingGameFolder"] = "게임 설치 경로를 확인하는 중...",
+        ["GameFolderDetected"] = "게임 설치 경로를 불러왔습니다. 경로를 확인한 뒤 설치를 진행하세요.",
+        ["ChooseGameFolder"] = "게임 폴더가 여러 개입니다. 목록에서 설치할 폴더를 선택하세요.",
+        ["GameFolderNotFound"] = "게임 폴더를 자동으로 찾지 못했습니다. 찾기 버튼으로 직접 선택하세요.",
         ["PackageVersion"] = "패키지 버전",
         ["InstalledVersion"] = "설치된 버전",
         ["LocalifyStatus"] = "한글패치 상태",
@@ -206,6 +211,11 @@ internal static class InstallerText
         ["Description"] = "Safely install or roll back the VR mod while preserving Localify.",
         ["GameFolder"] = "Game folder",
         ["Browse"] = "Browse...",
+        ["DetectGameFolder"] = "Auto-detect",
+        ["DetectingGameFolder"] = "Looking for the game installation...",
+        ["GameFolderDetected"] = "Game installation found. Check the folder before installing.",
+        ["ChooseGameFolder"] = "Multiple game folders found. Select the installation from the list.",
+        ["GameFolderNotFound"] = "Game folder not found automatically. Select it with Browse.",
         ["PackageVersion"] = "Package version",
         ["InstalledVersion"] = "Installed version",
         ["LocalifyStatus"] = "Localify status",
@@ -269,6 +279,11 @@ internal static class InstallerText
         ["Description"] = "Localifyを保護したままVRモードを安全にインストール・ロールバックします。",
         ["GameFolder"] = "ゲームフォルダー",
         ["Browse"] = "参照...",
+        ["DetectGameFolder"] = "自動検出",
+        ["DetectingGameFolder"] = "ゲームのインストール先を確認しています...",
+        ["GameFolderDetected"] = "ゲームのインストール先を検出しました。フォルダーを確認してからインストールしてください。",
+        ["ChooseGameFolder"] = "複数のゲームフォルダーを検出しました。一覧から選択してください。",
+        ["GameFolderNotFound"] = "ゲームフォルダーを自動検出できませんでした。参照ボタンで選択してください。",
         ["PackageVersion"] = "パッケージバージョン",
         ["InstalledVersion"] = "インストール済みバージョン",
         ["LocalifyStatus"] = "Localifyの状態",

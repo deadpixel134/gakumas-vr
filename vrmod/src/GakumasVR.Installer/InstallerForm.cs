@@ -7,7 +7,12 @@ internal sealed class InstallerForm : Form
 {
     private readonly InstallationEngine _engine = new();
     private readonly string? _packageRoot = InstallationEngine.FindPackageRoot();
-    private readonly TextBox _gameRoot = new() { Dock = DockStyle.Fill };
+    private readonly ComboBox _gameRoot = new()
+    {
+        Name = "GameRoot", Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+        AutoCompleteMode = AutoCompleteMode.SuggestAppend, AutoCompleteSource = AutoCompleteSource.ListItems
+    };
+    private readonly Func<GameInstallationDiscovery> _discover;
     private readonly Label _packageVersion = ValueLabel();
     private readonly Label _installedVersion = ValueLabel();
     private readonly Label _localifyStatus = ValueLabel();
@@ -25,11 +30,18 @@ internal sealed class InstallerForm : Form
     private readonly Button _uninstall = TaggedButton("Uninstall");
     private readonly Button _openSettings = TaggedButton("OpenSettings");
     private readonly Button _refresh = TaggedButton("Refresh");
+    private readonly Button _detect = TaggedButton("DetectGameFolder");
     private InstallationStatus? _currentStatus;
     private bool _busy;
+    private bool _detecting;
+    private bool _settingGameRoot;
+    private int _pathRevision;
 
-    public InstallerForm()
+    public InstallerForm() : this(GameInstallationLocator.Discover) { }
+
+    internal InstallerForm(Func<GameInstallationDiscovery> discover)
     {
+        _discover = discover;
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(820, 640);
         ClientSize = new Size(960, 720);
@@ -92,11 +104,12 @@ internal sealed class InstallerForm : Form
         {
             Dock = DockStyle.Fill,
             AutoSize = true,
-            ColumnCount = 3,
+            ColumnCount = 4,
             Margin = new Padding(0, 12, 0, 8)
         };
         folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         folderRow.Controls.Add(new Label
         {
@@ -109,6 +122,9 @@ internal sealed class InstallerForm : Form
         Button browse = TaggedButton("Browse");
         browse.Click += Browse;
         folderRow.Controls.Add(browse, 2, 0);
+        _detect.Name = "DetectGameFolder";
+        _detect.Click += async (_, _) => await DetectGameFolderAsync();
+        folderRow.Controls.Add(_detect, 3, 0);
         root.Controls.Add(folderRow, 0, 2);
 
         GroupBox information = new()
@@ -155,9 +171,48 @@ internal sealed class InstallerForm : Form
         actions.Controls.Add(_refresh);
         root.Controls.Add(actions, 0, 7);
 
-        _gameRoot.Text = InstallationEngine.FindInitialGameRoot();
+        _gameRoot.TextChanged += (_, _) => { if (!_settingGameRoot) _pathRevision++; };
+        _gameRoot.SelectionChangeCommitted += (_, _) => RefreshStatus();
+        _gameRoot.Validated += (_, _) => RefreshStatus();
         ApplyLanguage(languageChanged: false);
-        Shown += (_, _) => RefreshStatus();
+        Shown += async (_, _) => await DetectGameFolderAsync();
+    }
+
+    private async Task DetectGameFolderAsync()
+    {
+        if (_busy || _detecting) return;
+        _detecting = true;
+        int revision = _pathRevision;
+        bool hadManualPath = revision > 0 && !string.IsNullOrWhiteSpace(_gameRoot.Text);
+        UpdateButtons();
+        SetStatus("DetectingGameFolder");
+        try
+        {
+            GameInstallationDiscovery discovery = await Task.Run(_discover);
+            if (IsDisposed) return;
+            bool edited = hadManualPath || _pathRevision != revision;
+            string manualPath = _gameRoot.Text;
+            _settingGameRoot = true;
+            try
+            {
+                _gameRoot.Items.Clear();
+                _gameRoot.Items.AddRange(discovery.Candidates.Cast<object>().ToArray());
+                _gameRoot.Text = edited ? manualPath : discovery.SelectedPath ?? string.Empty;
+            }
+            finally { _settingGameRoot = false; }
+            RefreshStatus(setReady: false);
+            SetStatus(InstallationEngine.IsGameRoot(_gameRoot.Text) ? edited ? "Ready" : "GameFolderDetected"
+                : discovery.Candidates.Count > 1 ? "ChooseGameFolder" : "GameFolderNotFound");
+        }
+        catch (Exception)
+        {
+            if (!IsDisposed) SetStatus("GameFolderNotFound");
+        }
+        finally
+        {
+            _detecting = false;
+            if (!IsDisposed) UpdateButtons();
+        }
     }
 
     private void ApplyLanguage(bool languageChanged)
@@ -198,6 +253,13 @@ internal sealed class InstallerForm : Form
         {
             return;
         }
+        if (string.IsNullOrWhiteSpace(_gameRoot.Text))
+        {
+            _currentStatus = null;
+            RefreshStatusLabels();
+            if (setReady) SetStatus("GameFolderNotFound");
+            return;
+        }
         try
         {
             _currentStatus = _engine.Inspect(_gameRoot.Text, _packageRoot);
@@ -235,11 +297,12 @@ internal sealed class InstallerForm : Form
         InstallationStatus? status = _currentStatus;
         bool valid = status is { IsGameRoot: true };
         bool installed = !string.IsNullOrWhiteSpace(status?.InstalledVersion);
-        _install.Enabled = !_busy && valid && status is { PackageAvailable: true };
-        _uninstall.Enabled = !_busy && valid && installed;
+        _install.Enabled = !_busy && !_detecting && valid && status is { PackageAvailable: true };
+        _uninstall.Enabled = !_busy && !_detecting && valid && installed;
         _openSettings.Enabled = !_busy && valid &&
             File.Exists(Path.Combine(status!.GameRoot, "vrmod", "tools", "GakumasVR.Configurator.exe"));
         _refresh.Enabled = !_busy;
+        _detect.Enabled = !_busy && !_detecting;
         _gameRoot.Enabled = !_busy;
 
         string installKey = !installed

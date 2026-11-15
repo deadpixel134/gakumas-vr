@@ -4,6 +4,10 @@ using GakumasVR.Management;
 
 List<(string Name, Action Test)> tests = new()
 {
+    ("DMM installation discovery reads validated game paths without changing configuration", DmmDiscovery),
+    ("Game discovery handles missing corrupt locked and oversized DMM configuration", DmmInvalidConfiguration),
+    ("Multiple DMM installations require selection while duplicate paths are merged", DmmAmbiguousPaths),
+    ("Installer-local and working-directory games take priority over DMM candidates", DmmLocalPriority),
     ("Release notes select the GUI language and fall back to English", ReleaseNotesLanguages),
     ("Release notes are plain text bounded to five short items", ReleaseNotesBounds),
     ("Release notes accept missing bodies and ignore code and comments", ReleaseNotesMissing),
@@ -40,6 +44,76 @@ foreach ((string name, Action test) in tests)
 Console.WriteLine($"Executed {tests.Count} management tests; failures: {failures}");
 return failures == 0 ? 0 : 1;
 
+static (string Outside, string Roaming, string Config) DiscoveryPaths(Fixture fixture)
+{
+    string outside = Path.Combine(Path.GetDirectoryName(fixture.GameRoot)!, "outside");
+    string roaming = Path.Combine(Path.GetDirectoryName(fixture.GameRoot)!, "roaming");
+    string config = Path.Combine(roaming, "dmmgameplayer5", "dmmgame.cnf");
+    Directory.CreateDirectory(outside);
+    Directory.CreateDirectory(Path.GetDirectoryName(config)!);
+    return (outside, roaming, config);
+}
+
+static void WriteDmmConfiguration(string config, params (string Path, bool Installed)[] games) =>
+    File.WriteAllText(config, JsonSerializer.Serialize(new
+    {
+        contents = games.Select(game => new { detail = new { path = game.Path, installed = game.Installed } })
+    }));
+
+static void DmmDiscovery()
+{
+    using Fixture fixture = new();
+    var paths = DiscoveryPaths(fixture);
+    WriteDmmConfiguration(paths.Config, (fixture.GameRoot, true), (paths.Outside, true), ("relative/path", true));
+    byte[] before = File.ReadAllBytes(paths.Config);
+    GameInstallationDiscovery found = GameInstallationLocator.Discover(paths.Outside, paths.Outside, paths.Roaming);
+    Equal(fixture.GameRoot, found.SelectedPath!);
+    Equal(1, found.Candidates.Count);
+    True(before.SequenceEqual(File.ReadAllBytes(paths.Config)));
+    WriteDmmConfiguration(paths.Config, (fixture.GameRoot, false));
+    True(GameInstallationLocator.Discover(paths.Outside, paths.Outside, paths.Roaming).SelectedPath is null);
+}
+
+static void DmmInvalidConfiguration()
+{
+    using Fixture fixture = new();
+    var paths = DiscoveryPaths(fixture);
+    foreach (string? content in new[] { null, "invalid-json", "{\"contents\":42}", new string('x', 1024 * 1024 + 1) })
+    {
+        if (content is not null) File.WriteAllText(paths.Config, content);
+        Equal(0, GameInstallationLocator.Discover(paths.Outside, paths.Outside, paths.Roaming).Candidates.Count);
+    }
+    WriteDmmConfiguration(paths.Config, (fixture.GameRoot, true));
+    using FileStream locked = new(paths.Config, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+    Equal(0, GameInstallationLocator.Discover(paths.Outside, paths.Outside, paths.Roaming).Candidates.Count);
+}
+
+static void DmmAmbiguousPaths()
+{
+    using Fixture first = new();
+    using Fixture second = new();
+    var paths = DiscoveryPaths(first);
+    WriteDmmConfiguration(paths.Config, (first.GameRoot, true), (first.GameRoot + Path.DirectorySeparatorChar, true));
+    Equal(1, GameInstallationLocator.Discover(paths.Outside, paths.Outside, paths.Roaming).Candidates.Count);
+    WriteDmmConfiguration(paths.Config, (first.GameRoot, true), (second.GameRoot, true));
+    GameInstallationDiscovery found = GameInstallationLocator.Discover(paths.Outside, paths.Outside, paths.Roaming);
+    Equal(2, found.Candidates.Count);
+    True(found.SelectedPath is null);
+}
+
+static void DmmLocalPriority()
+{
+    using Fixture local = new();
+    using Fixture registered = new();
+    var paths = DiscoveryPaths(local);
+    WriteDmmConfiguration(paths.Config, (registered.GameRoot, true));
+    string application = Path.Combine(local.GameRoot, "vrmod", "tools");
+    Directory.CreateDirectory(application);
+    GameInstallationDiscovery found = GameInstallationLocator.Discover(application, paths.Outside, paths.Roaming);
+    Equal(local.GameRoot, found.SelectedPath!);
+    Equal(2, found.Candidates.Count);
+    Equal(local.GameRoot, GameInstallationLocator.Discover(paths.Outside, local.GameRoot, paths.Roaming).SelectedPath!);
+}
 static void ReleaseNotesLanguages()
 {
     const string notes = "## 한국어\n- **한국어 변경**\n## English\n- English change\n## 日本語\n- 日本語の変更";

@@ -39,18 +39,8 @@ public sealed class InstallationEngine
         WriteIndented = true
     };
 
-    public static string FindInitialGameRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        for (int depth = 0; depth < 7 && current is not null; depth++, current = current.Parent)
-        {
-            if (IsGameRoot(current.FullName))
-            {
-                return current.FullName;
-            }
-        }
-        return Environment.CurrentDirectory;
-    }
+    public static string FindInitialGameRoot() =>
+        GameInstallationLocator.Discover().SelectedPath ?? Environment.CurrentDirectory;
 
     public static string? FindPackageRoot()
     {
