@@ -33,6 +33,10 @@ The release ZIP includes the required Dobby binary. The installer checks package
 
 ### Already installed? Update
 
+The configurator **automatically checks GitHub for the latest stable release when opened**. Installation is deferred while the game is running. Results and errors appear in the status bar at the bottom of the GUI. Use **Check for updates** to check again manually.
+
+> Starting with the next GUI release, a short release-notes preview will let you choose **Update / Later**, with **Full release notes** opening the GitHub page. Existing installations need that GUI update before the preview becomes available.
+
 1. Fully close the game.
 2. Run `game directory\vrmod\tools\GakumasVR.Configurator.exe` and select **Check for updates**.
 3. If a new version is available, follow the prompts to download, verify, and install it.

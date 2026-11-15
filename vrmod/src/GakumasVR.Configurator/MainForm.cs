@@ -564,28 +564,25 @@ internal sealed partial class MainForm : Form
         {
             _status.Text = UiText.Get("UpdateChecking");
             AvailableUpdate? update = await _updateService.CheckAsync(CancellationToken.None);
+            if (IsDisposed) return;
             if (update is null)
             {
                 _status.Text = UiText.Format("UpdateCurrent", UpdateService.CurrentVersion);
                 return;
             }
 
+            bool gameRunning = UpdateService.IsGameRunning();
+            _status.Text = UiText.Format(gameRunning ? "UpdateDeferredGameRunning" : "UpdateAvailable", update.Version);
+            using (UpdateNoticeForm notice = new(update, gameRunning, (VrUiLanguage)UiText.CurrentLanguage))
+            {
+                if (notice.ShowDialog(this) != DialogResult.OK) return;
+            }
+            // The game may have started while the user was reading the notes.
             if (UpdateService.IsGameRunning())
             {
                 _status.Text = UiText.Format("UpdateDeferredGameRunning", update.Version);
-                if (manual)
-                {
-                    MessageBox.Show(
-                        this,
-                        _status.Text,
-                        UiText.Get("AppTitle"),
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                }
                 return;
             }
-
-            _status.Text = UiText.Format("UpdateAvailable", update.Version);
             Progress<string> progress = new(message => _status.Text = message);
             StagedUpdate staged = await _updateService.StageAsync(
                 update,

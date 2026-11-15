@@ -12,14 +12,14 @@ internal sealed class UpdateService : IDisposable
     private const string RepositoryApi =
         "https://api.github.com/repos/deadpixel134/gakumas-vr";
     private const long MaximumAssetBytes = 512L * 1024 * 1024;
-    private readonly HttpClient _http = new()
-    {
-        Timeout = TimeSpan.FromMinutes(5)
-    };
+    private readonly HttpClient _http;
 
-    public UpdateService()
+    public UpdateService() : this(new HttpClient { Timeout = TimeSpan.FromMinutes(5) }) { }
+
+    internal UpdateService(HttpClient http)
     {
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("GakumasVR-Configurator/0.175.5");
+        _http = http;
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd($"GakumasVR-Configurator/{CurrentVersion}");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
     }
 
@@ -60,7 +60,9 @@ internal sealed class UpdateService : IDisposable
             archiveName,
             archive.BrowserDownloadUrl,
             archive.Digest,
-            checksum?.BrowserDownloadUrl);
+            checksum?.BrowserDownloadUrl,
+            release.Body,
+            $"https://github.com/deadpixel134/gakumas-vr/releases/tag/{Uri.EscapeDataString(release.TagName)}");
     }
 
     public async Task<StagedUpdate> StageAsync(
@@ -241,6 +243,9 @@ internal sealed class UpdateService : IDisposable
 
     private sealed class GithubRelease
     {
+        [JsonPropertyName("body")]
+        public string? Body { get; set; }
+
         [JsonPropertyName("tag_name")]
         public string TagName { get; set; } = string.Empty;
 
@@ -275,7 +280,9 @@ internal sealed record AvailableUpdate(
     string ArchiveName,
     string ArchiveUrl,
     string? Digest,
-    string? ChecksumUrl);
+    string? ChecksumUrl,
+    string? ReleaseNotes,
+    string ReleaseUrl);
 
 internal sealed record StagedUpdate(
     string Version,

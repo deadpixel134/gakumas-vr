@@ -4,6 +4,9 @@ using GakumasVR.Management;
 
 List<(string Name, Action Test)> tests = new()
 {
+    ("Release notes select the GUI language and fall back to English", ReleaseNotesLanguages),
+    ("Release notes are plain text bounded to five short items", ReleaseNotesBounds),
+    ("Release notes accept missing bodies and ignore code and comments", ReleaseNotesMissing),
     ("Installer migrates logging once and preserves later choices", InstallerLogging),
     ("Install and uninstall preserve settings and prior collisions", InstallAndUninstall),
     ("Upgrade rollback restores the previous managed version", UpgradeRollback),
@@ -37,6 +40,35 @@ foreach ((string name, Action test) in tests)
 Console.WriteLine($"Executed {tests.Count} management tests; failures: {failures}");
 return failures == 0 ? 0 : 1;
 
+static void ReleaseNotesLanguages()
+{
+    const string notes = "## 한국어\n- **한국어 변경**\n## English\n- English change\n## 日本語\n- 日本語の変更";
+    Equal("• 한국어 변경", ReleaseNotesSummary.Create(notes, GakumasVR.Core.VrUiLanguage.Korean));
+    Equal("• English change", ReleaseNotesSummary.Create(notes, GakumasVR.Core.VrUiLanguage.English));
+    Equal("• 日本語の変更", ReleaseNotesSummary.Create(notes, GakumasVR.Core.VrUiLanguage.Japanese));
+    Equal("• English change", ReleaseNotesSummary.Create("## English\n- English change", GakumasVR.Core.VrUiLanguage.Japanese));
+    Equal("• 한국어 변경", ReleaseNotesSummary.Create("## 한국어\n- 한국어 변경", GakumasVR.Core.VrUiLanguage.English));
+}
+
+static void ReleaseNotesBounds()
+{
+    string notes = "# Release\n- **Fixed** [panel](https://example.com) &amp; `input`\n" +
+        string.Join("\n", Enumerable.Range(0, 10).Select(index => $"- {index}: {new string('x', 500)}"));
+    string summary = ReleaseNotesSummary.Create(notes, GakumasVR.Core.VrUiLanguage.English);
+    string[] items = summary.Split(Environment.NewLine + Environment.NewLine);
+    Equal(ReleaseNotesSummary.MaximumItems, items.Length);
+    Equal("• Fixed panel & input", items[0]);
+    True(items.All(item => item.Length <= ReleaseNotesSummary.MaximumItemLength + 2));
+    False(summary.Contains("https://"));
+}
+
+static void ReleaseNotesMissing()
+{
+    Equal(string.Empty, ReleaseNotesSummary.Create(null, GakumasVR.Core.VrUiLanguage.Korean));
+    Equal(string.Empty, ReleaseNotesSummary.Create("  ", GakumasVR.Core.VrUiLanguage.English));
+    string notes = "<!-- internal\nnotes -->\n```\n## 日本語\nnot a change\n```\n- <b>Visible</b>\n- Visible\n![image](https://example.com/image.png)";
+    Equal("• Visible", ReleaseNotesSummary.Create(notes, GakumasVR.Core.VrUiLanguage.English));
+}
 static void ReleaseUpdateVersionAndChecksumPolicy()
 {
     True(ReleaseUpdatePolicy.IsNewer("0.165.0", "v0.166.0"));
