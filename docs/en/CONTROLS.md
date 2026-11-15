@@ -2,9 +2,16 @@
 
 # Gakumas VR controls
 
-This guide uses the v0.177.0 defaults and the Meta Quest Touch button layout.
+This guide uses the v0.178.4 defaults and **Meta Quest 3 Touch Plus controllers**. Controller artwork comes from [Meta Quest Hardware Art 1.8](https://developers.meta.com/vr/downloads/package/oculus-controller-art/). See the [original artwork, source, and terms](../images/meta-quest-touch-plus/SOURCE.md).
 
 ![Gakumas VR guide to the default left- and right-hand controls](../images/vr-controls-en.png)
+
+## Button locations
+
+- **Stick:** tilt with your thumb to move/turn, or press inward to click.
+- **Trigger:** the front button pulled with your index finger. The right trigger selects and drags.
+- **Grip:** the side button pressed with your middle finger. Left Grip controls the panel/VR settings; right Grip provides World Grip.
+- **A/B are on the right; X/Y are on the left.** The right Meta button and left menu button are not the mod's recenter binding. **Click the left stick** to recenter the mod's view.
 
 ## Default controls
 
@@ -29,5 +36,13 @@ This guide uses the v0.177.0 defaults and the Meta Quest Touch button layout.
 - Moving the pointer to the left hand makes X/Y the default select/back buttons. Long Grip follows the configured panel hand. World Grip uses the right Grip when the panel is assigned to the left hand.
 
 Stick navigation and World Grip are available in 6DoF scenes. Flat screens appear automatically on the front panel. With the default settings, the Windows game window must be focused for game panel input.
+
+## Vertical movement and fine positioning
+
+The right stick follows your current view direction. **Use right-hand World Grip for vertical movement and fine adjustments.** Hold right Grip and move your hand: the viewpoint moves in the opposite direction. Release to keep the new position.
+
+## Character contact, jiggle, and haptics
+
+The full build includes hand display and contact, deformation, jiggle, haptics, and marker settings. In the configurator's **Character contact** tab, read the notice to the end and agree before using contact features. Consent is recorded once per user; reactions remain blocked before consent even with previously enabled settings. No button triggers automatic character contact. Move your hands to make contact in supported scenes; responses vary by character and outfit.
 
 [Usage](USAGE.md) · [Installation](INSTALLATION.md) · [Project README](../../README.md)

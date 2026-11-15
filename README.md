@@ -62,7 +62,7 @@ Supported **3D scenes**, including Live, Home, and Communications, appear in **s
 
 To use the game UI in a 3D scene, **press the left Grip to show the auxiliary panel**, bring your left hand into view, then point and click with the right controller. This panel starts off and is visible only while your left hand is in view. The front panel used for 2D screens appears automatically and cannot be hidden with Grip.
 
-![Gakumas VR default left- and right-hand controls](docs/images/vr-controls-en.png)
+[![Gakumas VR default left- and right-hand controls](docs/images/vr-controls-en.png)](docs/en/CONTROLS.md)
 
 | Action | Default input |
 |---|---|

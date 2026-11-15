@@ -57,6 +57,15 @@ Assert-True (Test-Path -LiteralPath $manifestPath -PathType Leaf) 'package-manif
 Assert-True (Test-Path -LiteralPath $payload -PathType Container) 'payload directory is missing.'
 Assert-True (Test-Path -LiteralPath $installScript -PathType Leaf) 'PowerShell installer is missing.'
 Assert-True (Test-Path -LiteralPath $uninstallScript -PathType Leaf) 'PowerShell uninstaller is missing.'
+foreach ($document in @('docs/CONTROLLER-GUIDE.md', 'docs/ko/CONTROLS.md', 'docs/en/CONTROLS.md', 'docs/ja/CONTROLS.md',
+    'docs/images/vr-controls-ko.png', 'docs/images/vr-controls-en.png', 'docs/images/vr-controls-ja.png',
+    'docs/images/meta-quest-touch-plus/Quest_03.png', 'docs/images/meta-quest-touch-plus/SOURCE.md',
+    'docs/images/meta-quest-touch-plus/Oculus lineart attribution.txt')) {
+    Assert-True (Test-Path -LiteralPath (Join-Path $package $document) -PathType Leaf) "Offline controller guide is missing: $document"
+}
+Assert-Equal 'D7286A92ABB9726223F20AD6F5BA8EAE1E1A17681FBD77C01F857BFACCCD3B33' `
+    (Get-FileHash -LiteralPath (Join-Path $package 'docs/images/meta-quest-touch-plus/Quest_03.png') -Algorithm SHA256).Hash `
+    'Official Meta controller artwork differs from the recorded source.'
 
 $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
 Assert-Equal 'winhttp-doorstop' ([string]$manifest.loader) 'Unexpected package loader.'

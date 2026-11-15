@@ -62,7 +62,7 @@ Virtual Desktop의 **Games 탭 대신 데스크톱의 DMM 런처**로 실행하�
 
 3D 장면에서 게임 UI를 조작하려면 **왼손 Grip으로 보조 패널을 켜고**, 패널이 시야 안에 들어오도록 왼손을 든 뒤 오른손으로 가리켜 클릭하십시오. 보조 패널은 기본적으로 꺼져 있고, 켜져 있어도 왼손이 시야 밖에 있으면 보이지 않습니다. 2D 화면의 정면 패널은 자동 표시되며 Grip으로 끌 수 없습니다.
 
-![왼손과 오른손의 Gakumas VR 기본 조작](docs/images/vr-controls-ko.png)
+[![왼손과 오른손의 Gakumas VR 기본 조작](docs/images/vr-controls-ko.png)](docs/ko/CONTROLS.md)
 
 | 동작 | 기본 입력 |
 |---|---|

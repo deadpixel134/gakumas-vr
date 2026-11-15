@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?$')]
-    [string]$Version = '0.178.3',
+    [string]$Version = '0.178.4',
     [string]$OutputRoot,
     [switch]$LocalContact
 )
@@ -92,6 +92,20 @@ $installerExecutable = Join-Path $packageRoot 'GakumasVR.Installer.exe'
     (Join-Path $installerPublish 'GakumasVR.Installer.exe'),
     $installerExecutable,
     $true)
+
+# Offline controller manuals accompany the ZIP; installation payload ownership stays unchanged.
+$guideDocs = Join-Path $packageRoot 'docs'
+[System.IO.Directory]::CreateDirectory($guideDocs) | Out-Null
+[System.IO.File]::Copy((Join-Path $repositoryRoot 'docs\CONTROLLER-GUIDE.md'), (Join-Path $guideDocs 'CONTROLLER-GUIDE.md'), $true)
+Copy-Item -LiteralPath (Join-Path $repositoryRoot 'docs\images') -Destination (Join-Path $guideDocs 'images') -Recurse
+foreach ($language in @('ko', 'en', 'ja')) {
+    $languageDirectory = Join-Path $guideDocs $language
+    [System.IO.Directory]::CreateDirectory($languageDirectory) | Out-Null
+    $guideText = [System.IO.File]::ReadAllText((Join-Path $repositoryRoot "docs\$language\CONTROLS.md"))
+    # The offline manual links to its bundled index instead of repository-only navigation.
+    $guideText = [regex]::Replace($guideText, '(?m)^\[.*\]\(USAGE\.md\).*$', '[Controller guides / 컨트롤 안내 / 操作ガイド](../CONTROLLER-GUIDE.md)')
+    [System.IO.File]::WriteAllText((Join-Path $languageDirectory 'CONTROLS.md'), $guideText, [System.Text.UTF8Encoding]::new($false))
+}
 
 $files = New-Object System.Collections.Generic.List[object]
 foreach ($file in Get-ChildItem -LiteralPath $payload -File -Recurse | Sort-Object FullName) {

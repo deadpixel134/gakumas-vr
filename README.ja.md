@@ -62,7 +62,7 @@ Virtual Desktopの**Gamesタブではなく、デスクトップのDMMランチ�
 
 3DシーンでゲームUIを操作するには、**左Gripで補助パネルを表示**し、左手を視野に入れてから右手で指してクリックします。補助パネルは初期状態でOFFで、ONでも左手が視野外にあると表示されません。2D画面の正面パネルは自動表示され、Gripでは消せません。
 
-![Gakumas VRの左手と右手のデフォルト操作](docs/images/vr-controls-ja.png)
+[![Gakumas VRの左手と右手のデフォルト操作](docs/images/vr-controls-ja.png)](docs/ja/CONTROLS.md)
 
 | 操作 | デフォルト入力 |
 |---|---|

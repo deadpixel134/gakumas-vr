@@ -13,7 +13,7 @@
 
 ## Default controls
 
-See the [VR controls guide](CONTROLS.md) for the complete v0.177.0 bindings and a controller diagram.
+See the [VR controls guide](CONTROLS.md) for the complete v0.178.4 bindings and a controller diagram.
 
 | Action | Default input |
 |---|---|
@@ -23,6 +23,10 @@ See the [VR controls guide](CONTROLS.md) for the complete v0.177.0 bindings and 
 | 3D movement | Right Thumbstick, including current view pitch |
 | View turning | Left Thumbstick, 30° snap by default |
 | Toggle 3D auxiliary panel | Press and release the left Grip quickly |
+| World Grip / vertical or fine movement | Hold right Grip and move your hand |
+| Recenter | Click the left stick |
+| Toggle camera follow / fixed viewpoint | Click the right stick |
+| Open / close VR settings | Hold left Grip for about 0.8 seconds |
 
 Use A when pulling the trigger would disturb fine aim. Trigger input latches the early press position to reduce drift and becomes a drag only after being held and moved far enough. Thumbstick scrolling is disabled in VR. Direct touch is not supported.
 
@@ -34,6 +38,10 @@ By default, input is injected only while the game window is in the Windows foreg
 - **Secondary Face:** B on the right hand, Y on the left
 
 If you swap the panel and pointer hands in settings, these terms follow the selected hand.
+
+## Settings inside the headset
+
+Hold left Grip for about 0.8 seconds to open or close VR settings. **Apply** changes the current session; **Save** also records the settings for future sessions. Items marked Next session take effect at that time. **Close** or B discards unapplied edits. The menu blocks game input while open. Complete one-time character-contact consent in the desktop configurator. See the [controller guide](CONTROLS.md) for button locations and full controls.
 
 ## Configurator
 
