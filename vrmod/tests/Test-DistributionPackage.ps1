@@ -73,9 +73,9 @@ Assert-Equal ([int]$manifest.files.Count) $verified 'Manifest verification count
 
 if ($ExpectedEdition) {
     Assert-Equal $ExpectedEdition ([string]$manifest.edition) 'Unexpected package edition.'
-    $contactExcluded = $false # Both editions include consent-gated contact.
+    $contactExcluded = $ExpectedEdition -eq 'public'
     $defaults = Get-Content -Raw -LiteralPath (Join-Path $payload 'vrmod\config\settings.json') | ConvertFrom-Json -AsHashtable
-    $contactKeys = @($defaults.tracking.Keys | Where-Object { $_ -match '^contact|^showContactLocations$' })
+    $contactKeys = @($defaults.tracking.Keys | Where-Object { $_ -match '^contact|^showContact(Locations|Ranges)$' })
     Assert-Equal $contactExcluded ($contactKeys.Count -eq 0) 'Contact settings do not match the package edition.'
     Assert-True ($defaults.tracking.Contains('showContactHands')) 'Hand display setting is missing.'
 
@@ -97,14 +97,14 @@ if ($ExpectedEdition) {
         $type = $core.GetType('GakumasVR.Core.VrSettings', $true)
         $jsonOptions = [System.Text.Json.JsonSerializerOptions]::new()
         $jsonOptions.PropertyNameCaseInsensitive = $true
-        $legacyJson = '{"tracking":{"showContactHands":true,"contactCollisionEnabled":true,"contactBoneTrialEnabled":true,"showContactLocations":true}}'
+        $legacyJson = '{"tracking":{"showContactHands":true,"contactCollisionEnabled":true,"contactBoneTrialEnabled":true,"contactHapticsEnabled":true,"contactJiggleEnabled":true,"contactThighElasticEnabled":true,"showContactLocations":true,"contactShowRanges":true,"contactConsentAccepted":true}}'
         $legacy = [System.Text.Json.JsonSerializer]::Deserialize($legacyJson, $type, $jsonOptions)
         Assert-True ($legacy.Tracking.ShowContactHands) 'Legacy hand display preference was not loaded.'
         Assert-Equal $contactExcluded ($null -eq $legacy.Tracking.GetType().GetProperty('ContactCollisionEnabled')) 'Unexpected legacy collision setting availability.'
         $editor = [Activator]::CreateInstance($core.GetType('GakumasVR.Core.VrSettingsEditor', $true), [object[]]@($legacy))
         $editorPaths = @($editor.Entries | ForEach-Object Path)
         Assert-True ($editorPaths -contains 'Tracking.ShowContactHands') 'Hand display is missing from the VR settings menu.'
-        $reactionPaths = @($editorPaths | Where-Object { $_ -match '^Tracking\.(Contact|ShowContactLocations$)' })
+        $reactionPaths = @($editorPaths | Where-Object { $_ -match '^Tracking\.(Contact|ShowContact(Locations|Ranges)$)' })
         Assert-Equal $contactExcluded ($reactionPaths.Count -eq 0) 'VR contact menu does not match the package edition.'
     }
     finally {

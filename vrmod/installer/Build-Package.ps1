@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?$')]
-    [string]$Version = '0.178.1',
+    [string]$Version = '0.178.2',
     [string]$OutputRoot,
     [switch]$LocalContact
 )
@@ -32,8 +32,7 @@ $payload = Join-Path $packageRoot 'payload'
 [System.IO.Directory]::CreateDirectory($payload) | Out-Null
 
 $artifacts = Join-Path $outputFull ".build-$edition"
-# All packages include contact gated by explicit user consent.
-$buildProperty = '-p:GakumasPublicBuild=false'
+$buildProperty = if ($LocalContact) { '-p:GakumasPublicBuild=false' } else { '-p:GakumasPublicBuild=true' }
 dotnet build (Join-Path $vrmodRoot 'src\GakumasVR.RuntimeBootstrap\GakumasVR.RuntimeBootstrap.csproj') -c Release --artifacts-path $artifacts $buildProperty
 if ($LASTEXITCODE -ne 0) { throw '런타임 빌드 실패' }
 $publish = Join-Path $artifacts 'publish-configurator'
@@ -79,6 +78,14 @@ Copy-PayloadFile (Join-Path $runtimeOutput 'GakumasVR.RuntimeBootstrap.deps.json
 Copy-PayloadFile (Join-Path $runtimeOutput 'GakumasVR.Core.dll') 'vrmod\runtime\GakumasVR.Core.dll'
 Copy-PayloadFile (Join-Path $vrmodRoot 'vendor\openxr-loader-1.1.59\openxr_loader.dll') 'vrmod\runtime\openxr_loader.dll'
 Copy-PayloadFile (Join-Path $vrmodRoot 'config\settings.default.json') 'vrmod\config\settings.json'
+if (-not $LocalContact) {
+    $settingsPath = Join-Path $payload 'vrmod\config\settings.json'
+    $settings = Get-Content -Raw -LiteralPath $settingsPath | ConvertFrom-Json -AsHashtable
+    foreach ($key in @($settings.tracking.Keys | Where-Object { $_ -match '^contact|^showContact(Locations|Ranges)$' })) {
+        $settings.tracking.Remove($key)
+    }
+    $settings | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath $settingsPath -Encoding utf8
+}
 Copy-PayloadFile (Join-Path $vrmodRoot 'THIRD_PARTY_NOTICES.txt') 'vrmod\THIRD_PARTY_NOTICES.txt'
 Copy-PayloadFile (Join-Path $repositoryRoot 'LICENSE') 'vrmod\LICENSE.txt'
 Copy-PayloadFile (Join-Path $vrmodRoot 'licenses\Dobby-Apache-2.0.txt') 'vrmod\licenses\Dobby-Apache-2.0.txt'

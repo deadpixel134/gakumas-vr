@@ -8,7 +8,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NuGetAudit>false</NuGetAudit>
     <AssemblyName>GakumasVR.Installer</AssemblyName>
-    <Version>0.178.1</Version>
+    <Version>0.178.2</Version>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="GakumasVR.Installer.Tests" />
