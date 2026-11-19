@@ -37,10 +37,13 @@ $buildProperty = '-p:GakumasPublicBuild=false'
 dotnet build (Join-Path $vrmodRoot 'src\GakumasVR.RuntimeBootstrap\GakumasVR.RuntimeBootstrap.csproj') -c Release --artifacts-path $artifacts $buildProperty
 if ($LASTEXITCODE -ne 0) { throw '런타임 빌드 실패' }
 $publish = Join-Path $artifacts 'publish-configurator'
-dotnet publish (Join-Path $vrmodRoot 'src\GakumasVR.Configurator\GakumasVR.Configurator.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true --artifacts-path $artifacts $buildProperty -o $publish
-if ($LASTEXITCODE -ne 0) { throw '설정 GUI publish 실패' }
 $installerPublish = Join-Path $artifacts 'publish-installer'
-dotnet publish (Join-Path $vrmodRoot 'src\GakumasVR.Installer\GakumasVR.Installer.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true --artifacts-path $artifacts $buildProperty -o $installerPublish
+$noticeTargets = Join-Path $PSScriptRoot 'RuntimeNotices.targets'
+$configNoticeDirectory = "$publish-notices"
+$installerNoticeDirectory = "$installerPublish-notices"
+dotnet publish (Join-Path $vrmodRoot 'src\GakumasVR.Configurator\GakumasVR.Configurator.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true --artifacts-path $artifacts $buildProperty "-p:CustomAfterMicrosoftCommonTargets=$noticeTargets" "-p:ThirdPartyNoticeDirectory=$configNoticeDirectory" -o $publish
+if ($LASTEXITCODE -ne 0) { throw '설정 GUI publish 실패' }
+dotnet publish (Join-Path $vrmodRoot 'src\GakumasVR.Installer\GakumasVR.Installer.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true --artifacts-path $artifacts $buildProperty "-p:CustomAfterMicrosoftCommonTargets=$noticeTargets" "-p:ThirdPartyNoticeDirectory=$installerNoticeDirectory" -o $installerPublish
 if ($LASTEXITCODE -ne 0) { throw '설치 GUI publish 실패' }
 
 function Copy-PayloadFile {
@@ -106,6 +109,8 @@ foreach ($language in @('ko', 'en', 'ja')) {
     $guideText = [regex]::Replace($guideText, '(?m)^\[.*\]\(USAGE\.md\).*$', '[Controller guides / 컨트롤 안내 / 操作ガイド](../CONTROLLER-GUIDE.md)')
     [System.IO.File]::WriteAllText((Join-Path $languageDirectory 'CONTROLS.md'), $guideText, [System.Text.UTF8Encoding]::new($false))
 }
+
+& (Join-Path $PSScriptRoot 'Complete-DistributionNotices.ps1') -PackageRoot $packageRoot -PayloadRoot $payload -RuntimeNoticeDirectory @($configNoticeDirectory, $installerNoticeDirectory)
 
 $files = New-Object System.Collections.Generic.List[object]
 foreach ($file in Get-ChildItem -LiteralPath $payload -File -Recurse | Sort-Object FullName) {
