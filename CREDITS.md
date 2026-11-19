@@ -2,7 +2,7 @@
 
 # 크레딧 및 외부 라이선스
 
-Gakumas VR 자체 소스의 저작권은 기여자에게 있으며 [MIT License](LICENSE)로 배포됩니다. 아래 구성 요소에는 각 프로젝트의 라이선스가 별도로 적용됩니다.
+Gakumas VR 자체 소스의 저작권은 기여자에게 있으며 [GNU General Public License v3.0 (GPL-3.0-only)](LICENSE)로 배포됩니다. 아래 구성 요소에는 각 프로젝트의 라이선스가 별도로 적용됩니다.
 
 | 구성 요소 | 용도 | 배포 포함 | 라이선스·출처 |
 |---|---|---:|---|
@@ -14,10 +14,10 @@ Gakumas VR 자체 소스의 저작권은 기여자에게 있으며 [MIT License]
 
 배포 ZIP에 포함되는 정확한 고지는 [`vrmod/THIRD_PARTY_NOTICES.txt`](vrmod/THIRD_PARTY_NOTICES.txt)를 따릅니다. 외부 프로젝트의 이름은 출처 식별 목적으로만 사용합니다.
 
-학원 아이돌마스터, 게임 데이터, 캐릭터, 로고, 상표와 관련 저작물은 이 저장소의 MIT License 적용 대상이 아니며 각 권리자에게 귀속됩니다. Localify 한글 패치 역시 이 프로젝트에 포함하지 않으며 해당 프로젝트의 조건을 따릅니다.
+학원 아이돌마스터, 게임 데이터, 캐릭터, 로고, 상표와 관련 저작물은 이 저장소의 GPL-3.0-only 적용 대상이 아니며 각 권리자에게 귀속됩니다. Localify 한글 패치 역시 이 프로젝트에 포함하지 않으며 해당 프로젝트의 조건을 따릅니다.
 
 ## Meta Quest 3 컨트롤러 이미지 / Controller artwork
 
-컨트롤 안내의 Touch Plus 그림은 [Meta Quest Hardware Art 1.8](https://developers.meta.com/vr/downloads/package/oculus-controller-art/) 공식 자료를 사용합니다. Meta의 저작물이며 MIT License 적용 대상이 아닙니다. 사용자 설명서의 제품 식별 목적으로 사용하며 Meta의 제휴·후원·보증을 의미하지 않습니다. [원본·해시·출처](docs/images/meta-quest-touch-plus/SOURCE.md)와 [배포 원문 사용 조건](docs/images/meta-quest-touch-plus/Oculus%20lineart%20attribution.txt)을 따릅니다. 안내 레이아웃과 모드 조작 설명은 Gakumas VR에서 작성했습니다.
+컨트롤 안내의 Touch Plus 그림은 [Meta Quest Hardware Art 1.8](https://developers.meta.com/vr/downloads/package/oculus-controller-art/) 공식 자료를 사용합니다. Meta의 저작물이며 GPL-3.0-only 적용 대상이 아닙니다. 사용자 설명서의 제품 식별 목적으로 사용하며 Meta의 제휴·후원·보증을 의미하지 않습니다. [원본·해시·출처](docs/images/meta-quest-touch-plus/SOURCE.md)와 [배포 원문 사용 조건](docs/images/meta-quest-touch-plus/Oculus%20lineart%20attribution.txt)을 따릅니다. 안내 레이아웃과 모드 조작 설명은 Gakumas VR에서 작성했습니다.
 
-Controller artwork © Meta. Used to identify Meta Quest 3 Touch Plus controllers in the user manual, under the supplied artwork terms. This artwork is excluded from the project MIT license. No Meta partnership, sponsorship, or endorsement is implied.
+Controller artwork © Meta. Used to identify Meta Quest 3 Touch Plus controllers in the user manual, under the supplied artwork terms. This artwork is excluded from the project GPL-3.0 license. No Meta partnership, sponsorship, or endorsement is implied.

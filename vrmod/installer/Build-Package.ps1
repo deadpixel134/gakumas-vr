@@ -112,6 +112,13 @@ foreach ($language in @('ko', 'en', 'ja')) {
 
 & (Join-Path $PSScriptRoot 'Complete-DistributionNotices.ps1') -PackageRoot $packageRoot -PayloadRoot $payload -RuntimeNoticeDirectory @($configNoticeDirectory, $installerNoticeDirectory)
 
+$sourceNotice = @"
+Project source license: GNU GPL v3.0 (GPL-3.0-only)
+Project source tag: https://github.com/deadpixel134/gakumas-vr/tree/v$Version
+Release and accompanying source materials: https://github.com/deadpixel134/gakumas-vr/releases/tag/v$Version
+"@
+Add-Content -LiteralPath (Join-Path $payload 'vrmod/THIRD_PARTY_NOTICES.txt') -Value @('', $sourceNotice) -Encoding utf8
+
 $files = New-Object System.Collections.Generic.List[object]
 foreach ($file in Get-ChildItem -LiteralPath $payload -File -Recurse | Sort-Object FullName) {
     $payloadPrefix = $payload.TrimEnd('\') + '\'

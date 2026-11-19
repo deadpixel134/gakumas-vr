@@ -131,6 +131,8 @@ If problems persist, close the game and uninstall or roll back. Before attaching
 
 ## License and rights
 
-This repository does not contain game files, Localify assets, user settings, logs, rollback data, or build outputs. Project source is released under the [MIT License](LICENSE); third-party components retain their own licenses. See [Credits and third-party licenses](CREDITS.md).
+This repository does not contain game files, Localify assets, user settings, logs, rollback data, or build outputs. Project source is released under the [GNU General Public License v3.0 (GPL-3.0-only)](LICENSE); third-party components retain their own licenses. See [Credits and third-party licenses](CREDITS.md).
+
+See the [release source instructions](docs/RELEASING-SOURCE.md) for corresponding source.
 
 > Gakumas VR is an unofficial fan project and is not affiliated with the game's developer or publisher. The game, trademarks, and related works belong to their respective owners. A legitimate game installation is required.

@@ -88,4 +88,4 @@ dotnet run --project .\vrmod\tests\GakumasVR.Management.Tests\GakumasVR.Manageme
 
 ## 라이선스
 
-프로젝트 소스는 저장소 루트의 [MIT License](../LICENSE)를 따릅니다. OpenXR Loader, .NET Runtime, Unity Doorstop, BepInEx와 Dobby는 각자의 라이선스를 따르며 [크레딧](../CREDITS.md)과 배포 고지에 기록합니다. 게임 및 Localify 파일은 이 프로젝트의 라이선스 범위에 포함되지 않습니다.
+프로젝트 소스는 저장소 루트의 [GNU General Public License v3.0 (GPL-3.0-only)](../LICENSE)를 따릅니다. OpenXR Loader, .NET Runtime, Unity Doorstop, BepInEx와 Dobby는 각자의 라이선스를 따르며 [크레딧](../CREDITS.md)과 배포 고지에 기록합니다. 게임 및 Localify 파일은 이 프로젝트의 라이선스 범위에 포함되지 않습니다.
